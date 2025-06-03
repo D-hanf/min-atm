@@ -1,4 +1,4 @@
-# 📦 Electron + React + TypeScript + Vite + TailwindCSS
+# 📦 Electron + React + Vite + TailwindCSS
 
 A modern desktop application boilerplate using:
 
