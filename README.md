@@ -1,34 +1,30 @@
-# cashier-app
+# 📦 Electron + React + TypeScript + Vite + TailwindCSS
 
-An Electron application with React
+A modern desktop application boilerplate using:
 
-## Recommended IDE Setup
+- ⚡ [Vite](https://vitejs.dev/) – lightning fast frontend bundler
+- ⚛️ [React](https://react.dev/) – UI library
+- 💅 [Tailwind CSS](https://tailwindcss.com/) – utility-first CSS framework
+- 🧠 [TypeScript](https://www.typescriptlang.org/) – type safety
+- ⚙️ [Electron](https://www.electronjs.org/) – desktop application framework
+- 📦 [electron-builder](https://www.electron.build/) – to build `.exe` apps
 
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+---
 
-## Project Setup
 
-### Install
+## 🚀 Getting Started
 
-```bash
-$ npm install
-```
-
-### Development
-
-```bash
-$ npm run dev
-```
-
-### Build
+### 1. Install dependencies
 
 ```bash
-# For windows
-$ npm run build:win
-
-# For macOS
-$ npm run build:mac
-
-# For Linux
-$ npm run build:linux
+npm install
 ```
+### 2. run & build apps
+```run app
+npm run dev
+```
+
+```build app
+npm run build
+```
+### 3. apps running on port 3000
