@@ -12,6 +12,8 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import React, { useState } from "react";
 
+import { AiOutlineShop } from "react-icons/ai";
+
 const Sidebar = () => {
   const location = useLocation();
   const currentLocation = location.pathname;
@@ -44,9 +46,9 @@ const Sidebar = () => {
           to: "/dashboard/profile",
         },
         {
-          label: "Change Password",
-          icon: <HiOutlineKey size={18} />,
-          to: "/dashboard/password",
+          label: "Kelola Toko",
+          icon: <AiOutlineShop size={18} />,
+          to: "/dashboard/kelola-toko",
         },
         {
           label: "Logout",
