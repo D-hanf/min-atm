@@ -1,9 +1,13 @@
-import React from "react";
-import { Route } from "react-router-dom";
-// import ProtectedRoute from "./ProtectedRoute";
-
 import { DashboardLayout } from "../layout";
 import { DashboardPage } from "../../pages/dashboard/home";
+import LoginForm from "../../pages/Login";
+import React from "react";
+import { Route } from "react-router-dom";
+
+// import ProtectedRoute from "./ProtectedRoute";
+
+
+
 // import { EditProfilePage } from "@/pages/dashboard/profile";
 // import { ChangePasswordPage } from "@/pages/dashboard/password";
 // import {
@@ -23,6 +27,8 @@ const DashboardRoutes = () => {
           <Route path="write" element={<ArticleWritePage />} />
           <Route path="profile" element={<EditProfilePage />} />
           <Route path="password" element={<ChangePasswordPage />} /> */}
+        </Route>
+        <Route path="/" element={<LoginForm />}>
         </Route>
       {/* </Route> */}
     </>

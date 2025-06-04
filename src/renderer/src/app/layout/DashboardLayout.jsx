@@ -1,7 +1,8 @@
-import React from "react";
-import { Outlet } from "react-router-dom";
-import Sidebar from "../../shared/ui/Sidebar";
+import { Outlet, useNavigate } from "react-router-dom";
+
 import Breadcrumb from "../../shared/ui/BreadCrumb";
+import React from "react";
+import Sidebar from "../../shared/ui/Sidebar";
 
 const DashboardLayout = () => {
   return (
@@ -13,6 +14,8 @@ const DashboardLayout = () => {
         <div className="w-full py-6 px-0 sm:px-4">
           <Breadcrumb />
           <Outlet />
+        </div>
+        <div>
         </div>
       </div>
     </>
