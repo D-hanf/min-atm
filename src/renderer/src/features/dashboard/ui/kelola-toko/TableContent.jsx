@@ -1,5 +1,5 @@
-import ButtonInput from './../../../../components/ButtonInput';
-import React from 'react';
+import ButtonInput from './../../../../components/ButtonInput'
+import React from 'react'
 
 const TableContent = ({ data, columns, onEdit, onDelete }) => {
   return (
@@ -31,16 +31,20 @@ const TableContent = ({ data, columns, onEdit, onDelete }) => {
                 </td>
               ))}
               <td className="px-6 py-4 whitespace-nowrap ">
-              <div className="flex flex-col gap-y-2">
-                 <ButtonInput color='yellow' size='sm' onClick={() => onEdit(item)}>Edit</ButtonInput>
-                <ButtonInput color='red' size='sm' onClick={() => onDelete(item.id)}>Hapus</ButtonInput>
-              </div>
+                <div className="flex flex-col gap-y-2">
+                  <ButtonInput color="yellow" size="sm" onClick={() => onEdit(item)}>
+                    Edit
+                  </ButtonInput>
+                  <ButtonInput color="red" size="sm" onClick={() => onDelete(item.id)}>
+                    Hapus
+                  </ButtonInput>
+                </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
-  );
-};
-export default TableContent;
+  )
+}
+export default TableContent

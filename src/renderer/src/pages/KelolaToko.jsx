@@ -1,7 +1,5 @@
-import ButtonInout from '../components/ButtonInput'
-import { Form } from 'react-router-dom'
+import ConfirmDialog from '../components/ConfirmDialog'
 import FormLayout from '../features/dashboard/ui/kelola-toko/FormLayout'
-import InputField from '../components/InputField'
 import React from 'react'
 import TableContent from '../features/dashboard/ui/kelola-toko/TableContent'
 import { useState } from 'react'
@@ -23,22 +21,42 @@ const formFields = [
   { name: 'namaToko', label: 'Nama Toko', type: 'text', required: true },
   { name: 'alamat', label: 'Alamat', type: 'text', required: true },
   { name: 'jumlahKaryawan', label: 'Jumlah Karyawan', type: 'number', required: true }
-];
+]
+
 const KelolaToko = () => {
+  const [data, setData] = useState(dataToko)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [deleteId, setDeleteId] = useState(null)
+
+  const handleDelete = (id) => {
+    setDeleteId(id)
+    setShowConfirmDialog(true)
+  }
+
+  const confirmDelete = () => {
+    setData((prev) => prev.filter((item) => item.id !== deleteId))
+    setShowConfirmDialog(false)
+    setDeleteId(null)
+  }
   return (
     <>
-    <div className='flex justify-end mb-4 w-full'>
-      <FormLayout></FormLayout>
-    </div>
+      <div className="flex justify-end mb-4 w-full">
+        <FormLayout></FormLayout>
+      </div>
       <TableContent
-        data={dataToko}
+        data={data}
         columns={[
           { key: 'namaToko', label: 'Nama Toko' },
           { key: 'jumlahKaryawan', label: 'Jumlah Karyawan' },
           { key: 'alamat', label: 'Alamat' }
         ]}
         onEdit={(item) => console.log('Edit', item)}
-        onDelete={(id) => console.log('Hapus', id)}
+        onDelete={handleDelete}
+      />
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        onConfirm={confirmDelete}
       />
     </>
   )
