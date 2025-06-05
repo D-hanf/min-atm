@@ -1,16 +1,16 @@
 // import { useAuth } from "@/app/contexts/AuthContext";
-import React, { useState } from "react";
+
 import {
+  HiBars3,
   HiOutlineArrowLeftEndOnRectangle,
   HiOutlineDocument,
   HiOutlineKey,
   HiOutlinePencilSquare,
   HiOutlineUserCircle,
-  HiBars3,
   HiXMark,
 } from "react-icons/hi2";
-
 import { Link, useLocation } from "react-router-dom";
+import React, { useState } from "react";
 
 const Sidebar = () => {
   const location = useLocation();
@@ -48,6 +48,12 @@ const Sidebar = () => {
           icon: <HiOutlineKey size={18} />,
           to: "/dashboard/password",
         },
+        {
+          label: "Logout",
+          icon: <HiOutlineArrowLeftEndOnRectangle size={18} />,
+          to: "/",
+          // onClick: logout, // Uncomment if you want to handle logout
+        }
       ],
     },
   ];
@@ -107,13 +113,11 @@ const Sidebar = () => {
             </div>
           ))}
 
-          {/* <button
-            onClick={logout}
+          <button
+            onClick={() => setIsOpen(false)}
             className="text-sm flex items-center gap-4 mt-12 p-3 cursor-pointer"
           >
-            <HiOutlineArrowLeftEndOnRectangle size={18} />
-            Logout
-          </button> */}
+          </button>
         </div>
       </div>
     </>
