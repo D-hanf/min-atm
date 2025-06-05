@@ -4,30 +4,15 @@ import React from 'react'
 import TableContent from '../features/dashboard/ui/kelola-toko/TableContent'
 import { useState } from 'react'
 
-const dataToko = [
-  { id: 1, namaToko: 'Toko Maju Jaya', alamat: 'Jakarta', jumlahKaryawan: 10 },
-  { id: 2, namaToko: 'Toko Sumber Rezeki', alamat: 'Bandung', jumlahKaryawan: 8 },
-  { id: 3, namaToko: 'Toko Sentosa', alamat: 'Surabaya', jumlahKaryawan: 6 },
-  { id: 4, namaToko: 'Toko Amanah', alamat: 'Yogyakarta', jumlahKaryawan: 12 },
-  { id: 5, namaToko: 'Toko Berkah', alamat: 'Bekasi', jumlahKaryawan: 5 },
-  { id: 6, namaToko: 'Toko Makmur', alamat: 'Depok', jumlahKaryawan: 9 },
-  { id: 7, namaToko: 'Toko Jaya Abadi', alamat: 'Tangerang', jumlahKaryawan: 7 },
-  { id: 8, namaToko: 'Toko Rizki', alamat: 'Semarang', jumlahKaryawan: 4 },
-  { id: 9, namaToko: 'Toko Sejahtera', alamat: 'Medan', jumlahKaryawan: 11 },
-  { id: 10, namaToko: 'Toko Mandiri', alamat: 'Palembang', jumlahKaryawan: 3 }
-]
-
-const formFields = [
-  { name: 'namaToko', label: 'Nama Toko', type: 'text', required: true },
-  { name: 'alamat', label: 'Alamat', type: 'text', required: true },
-  { name: 'jumlahKaryawan', label: 'Jumlah Karyawan', type: 'number', required: true }
-]
+const dataToko = []
 
 const KelolaToko = () => {
+  // state to manage data toko
   const [data, setData] = useState(dataToko)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
 
+  // function to handle delete action
   const handleDelete = (id) => {
     setDeleteId(id)
     setShowConfirmDialog(true)
@@ -38,21 +23,40 @@ const KelolaToko = () => {
     setShowConfirmDialog(false)
     setDeleteId(null)
   }
+
+  // function to handle form submit
+  const handleFormSubmit = (formData) => {
+    const newData = {
+      id: Date.now(), // unique id based on timestamp
+      namaToko: formData.namaToko,
+      noTlp: formData.noTlp,
+      alamat: formData.alamat,
+      jumlahKaryawan: Number(formData.jumlahKaryawan || 0)
+    }
+    setData((prev) => [...prev, newData])
+  }
+
   return (
     <>
       <div className="flex justify-end mb-4 w-full">
-        <FormLayout></FormLayout>
+        {/* add new data */}
+        <FormLayout onSubmit={handleFormSubmit}></FormLayout>
       </div>
+
+      {/* show all data  */}
       <TableContent
         data={data}
         columns={[
           { key: 'namaToko', label: 'Nama Toko' },
+          { key: 'noTlp', label: 'No. Telp' },
           { key: 'jumlahKaryawan', label: 'Jumlah Karyawan' },
           { key: 'alamat', label: 'Alamat' }
         ]}
         onEdit={(item) => console.log('Edit', item)}
         onDelete={handleDelete}
       />
+
+      {/* pop up confirm to delete */}
       <ConfirmDialog
         isOpen={showConfirmDialog}
         onClose={() => setShowConfirmDialog(false)}

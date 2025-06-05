@@ -4,12 +4,8 @@ import Modal from '../../../../shared/ui/Modal'
 import React from 'react'
 import { useState } from 'react'
 
-const FormLayout = ({ isOpen, onClose, onSubmit, children }) => {
+const FormLayout = ({ onSubmit }) => {
   const [modalOpen, setModalOpen] = useState(false)
-
-  const handleFormSubmit = (data) => {
-    console.log('Form submitted:', data)
-  }
   return (
     <>
       <div className="w-1/5">
@@ -17,10 +13,20 @@ const FormLayout = ({ isOpen, onClose, onSubmit, children }) => {
           Tambah toko
         </ButtonInput>
       </div>
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleFormSubmit}>
-        <InputField name="nama">Nama toko</InputField>
-        <InputField name="noTelp">No.Telp</InputField>
-        <InputField name="alamat" className="col-span-2">alamat</InputField>
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSubmit={(data) => {
+          onSubmit(data) // teruskan ke parent (KelolaToko)
+          setModalOpen(false) 
+        }}
+      >
+        <InputField name="namaToko">Nama toko</InputField>
+        <InputField placeholder={'08xxxxxxxx'} type='number' name="noTlp">No.Telp</InputField>   
+        <InputField name="jumlahKaryawan"type='number'>Jumlah Karyawan</InputField>   
+        <InputField name="alamat" className="">
+          alamat
+        </InputField>
       </Modal>
     </>
   )
