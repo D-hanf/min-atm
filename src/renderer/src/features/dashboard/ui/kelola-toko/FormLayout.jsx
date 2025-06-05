@@ -20,7 +20,7 @@ const FormLayout = ({ isOpen, onClose, onSubmit, children }) => {
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleFormSubmit}>
         <InputField name="nama">Nama</InputField>
         <InputField name="noTelp">No.Telp</InputField>
-        <InputField name="alamat">alamat</InputField>
+        <InputField name="alamat" className="col-span-2">alamat</InputField>
       </Modal>
     </>
   )

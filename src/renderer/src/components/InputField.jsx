@@ -25,9 +25,9 @@ const InputHere = ({ id, type = 'text', name , value,placeholder, ...props }) =>
   )
 }
 
-const InputField = ({ children, id, type = 'text', name, placeholder, value, ...props }) => {
+const InputField = ({ children, id, type = 'text', name, placeholder, value,className, ...props }) => {
   return (
-    <div>
+    <div className={className}>
       <div className="flex items-center justify-between">
         <LabelInput id={id} type={type} name={name}> {children} </LabelInput> 
       </div>
