@@ -3,11 +3,11 @@ import { clsx } from "clsx";
 
 // Map warna ke class Tailwind
 const colorVariants = {
-  sky: "bg-sky-600 hover:bg-sky-500 focus-visible:outline-sky-600",
-  red: "bg-red-600 hover:bg-red-500 focus-visible:outline-red-600",
-  green: "bg-green-600 hover:bg-green-500 focus-visible:outline-green-600",
-  indigo: "bg-indigo-600 hover:bg-indigo-500 focus-visible:outline-indigo-600",
-  yellow: "bg-yellow-600 hover:bg-yellow-500 focus-visible:outline-yellow-600",
+  sky: "bg-sky-500 hover:bg-sky-600 focus-visible:outline-sky-600",
+  red: "bg-red-500 hover:bg-red-600 focus-visible:outline-red-600",
+  green: "bg-green-500 hover:bg-green-600 focus-visible:outline-green-600",
+  indigo: "bg-indigo-500 hover:bg-indigo-600 focus-visible:outline-indigo-600",
+  yellow: "bg-yellow-500 hover:bg-yellow-600 focus-visible:outline-yellow-600",
 };
 
 // Map ukuran ke padding dan font-size
