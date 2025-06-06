@@ -3,6 +3,7 @@ import FormLayout from '../features/dashboard/ui/kelola-toko/FormLayout'
 import InputField from '../components/InputField'
 import ModalEdit from '../../src/shared/ui/Modal'
 import React from 'react'
+import SearchField from '../components/SearchField'
 import TableContent from '../features/dashboard/ui/kelola-toko/TableContent'
 import { useState } from 'react'
 
@@ -24,6 +25,7 @@ const KelolaToko = () => {
     alamat: '',
     jumlahKaryawan: 0
   })
+  const [filterText, setFilterText] = useState('')
 
   // function to handle delete action
   const handleDelete = (id) => {
@@ -57,6 +59,10 @@ const KelolaToko = () => {
     }
   }
 
+  const filteredData = data.filter((item) =>
+    Object.values(item).some((val) => String(val).toLowerCase().includes(filterText.toLowerCase()))
+  )
+
   return (
     <>
       <div className="flex justify-end mb-4 w-full">
@@ -65,8 +71,19 @@ const KelolaToko = () => {
       </div>
 
       {/* show all data  */}
+      <SearchField type="text" placeholder="Cari" value={filterText} onChange={(e) => setFilterText(e.target.value)}/>
+        {/* <div className="mb-4">
+  <input
+    type="text"
+    placeholder="Cari toko (nama, alamat, no tlp, dll)..."
+    value={filterText}
+    onChange={(e) => setFilterText(e.target.value)}
+    className="border border-gray-300 rounded px-4 py-2 w-full md:w-1/3"
+  />
+</div> */}
+
       <TableContent
-        data={data}
+        data={filteredData}
         columns={[
           { key: 'namaToko', label: 'Nama Toko' },
           { key: 'noTlp', label: 'No. Telp' },
