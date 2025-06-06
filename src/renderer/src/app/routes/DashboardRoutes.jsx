@@ -7,7 +7,7 @@ import { DashboardPage } from "../../pages/dashboard/home";
 // import ProtectedRoute from "./ProtectedRoute";
 
 import { HalamanTransaksi } from "../../pages/dashboard/transaksi";
-import { HalamanKelolaToko } from "../../pages/dashboard/kelolaToko";
+import { HalamanKelolaToko, HalamanDetilToko } from "../../pages/dashboard/kelolaToko";
 import { HalamanProfile } from "../../pages/dashboard/profile";
 import {
   HalamanAmbilSaldo,
@@ -26,6 +26,7 @@ const DashboardRoutes = () => {
           <Route path="ambil-saldo" element={<HalamanAmbilSaldo />} />
           <Route path="saldo-awal" element={<HalamanAwalSaldo />} />
           <Route path="kelola-toko" element={<HalamanKelolaToko />} />
+          <Route path="kelola-toko/:id" element={<HalamanDetilToko />} />
           <Route path="profile" element={<HalamanProfile />} />
           {/* <Route path="password" element={<ChangePasswordPage />} /> */}
         </Route>
