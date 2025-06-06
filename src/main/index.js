@@ -1,8 +1,20 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import { BrowserWindow, app, ipcMain, shell } from 'electron'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 
+import icon from '../../resources/icon.png?asset'
+import { join } from 'path'
+
+const path = require('path')
+const sqlite3 = require('sqlite3').verbose()
+
+const db = new sqlite3.Database( path.join(__dirname, 'cashier.db'), (err) => {
+    if (err) {
+      console.error('Error opening database:', err.message)
+    } else {
+      console.log('Connected to the SQLite database.')
+    }
+  }
+)
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
