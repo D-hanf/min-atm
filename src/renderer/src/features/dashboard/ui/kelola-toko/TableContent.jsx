@@ -32,7 +32,7 @@ const TableContent = ({ data, columns, onEdit, onDelete }) => {
               ))}
               <td className="px-6 py-4 whitespace-nowrap ">
                 <div className="flex flex-col gap-y-2">
-                  <ButtonInput color="yellow" size="sm" onClick={() => onEdit(item)}>
+                  <ButtonInput color="yellow" size="sm" onClick={() => onEdit(item.id)}>
                     Edit
                   </ButtonInput>
                   <ButtonInput color="red" size="sm" onClick={() => onDelete(item.id)}>
