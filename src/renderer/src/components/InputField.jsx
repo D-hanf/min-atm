@@ -1,14 +1,22 @@
-import Hyperlink from './HyperLink'
 import React from 'react'
 
-const LabelInput = ({ id, type = 'text', children, name, placeholder, value, ...props }) => {
+const LabelInput = ({ id, children }) => {
   return (
-    <label htmlFor="password" className="block text-sm/6 font-medium text-gray-900">
+    <label htmlFor={id} className="block text-sm/6 font-medium text-gray-900">
       {children}
     </label>
   )
 }
-const InputHere = ({ id, type = 'text', name , value,placeholder, ...props }) => {
+
+const InputHere = ({
+  id,
+  type = 'text',
+  name,
+  value,
+  placeholder,
+  onChange,
+  ...props
+}) => {
   return (
     <div className="mt-2">
       <input
@@ -18,6 +26,7 @@ const InputHere = ({ id, type = 'text', name , value,placeholder, ...props }) =>
         required
         placeholder={placeholder}
         value={value}
+        onChange={onChange} // ✅ ini penting!
         {...props}
         className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-sky-600 sm:text-sm/6"
       />
@@ -25,13 +34,31 @@ const InputHere = ({ id, type = 'text', name , value,placeholder, ...props }) =>
   )
 }
 
-const InputField = ({ children, id, type = 'text', name, placeholder, value,className, ...props }) => {
+const InputField = ({
+  children,
+  id,
+  type = 'text',
+  name,
+  placeholder,
+  value,
+  onChange,
+  className,
+  ...props
+}) => {
   return (
     <div className={className}>
       <div className="flex items-center justify-between">
-        <LabelInput id={id} type={type} name={name}> {children} </LabelInput> 
+        <LabelInput id={id}>{children}</LabelInput>
       </div>
-        <InputHere id={id} type={type} name={name} placeholder={placeholder} value={value} {...props} />
+      <InputHere
+        id={id}
+        type={type}
+        name={name}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        {...props}
+      />
     </div>
   )
 }

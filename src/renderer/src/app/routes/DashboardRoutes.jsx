@@ -27,11 +27,14 @@ const DashboardRoutes = () => {
       {/* <Route element={<ProtectedRoute />}> */}
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
-          {/* <Route path="article" element={<ArticleManagePage />} />
-          <Route path="article/:id/edit" element={<ArticleEditPage />} />
-          <Route path="write" element={<ArticleWritePage />} />
-          <Route path="profile" element={<EditProfilePage />} /> */}
+          <Route path="transaksi" element={<HalamanTransaksi />} />
+          <Route path="pindah-saldo" element={<HalamanPindahSaldo />} />
+          <Route path="ambil-saldo" element={<HalamanAmbilSaldo />} />
+          <Route path="saldo-awal" element={<HalamanAwalSaldo />} />
           <Route path="kelola-toko" element={<KelolaToko />} />
+          <Route path="kelola-toko/:id" element={<HalamanDetilToko />} />
+          <Route path="profile" element={<HalamanProfile />} />
+          {/* <Route path="password" element={<ChangePasswordPage />} /> */}
         </Route>
         <Route path="/" element={<LoginForm />}>
         </Route>

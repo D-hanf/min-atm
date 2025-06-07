@@ -13,9 +13,9 @@ const colorVariants = {
 
 // Map ukuran ke padding dan font-size
 const sizeVariants = {
-  sm: "px-2 py-1 text-sm",
-  md: "px-3 py-1.5 text-md",
-  lg: "px-4 py-2 text-lg",
+  sm: "px-2 py-1 text-sm min-w-24",
+  md: "px-3 py-1.5 text-md min-w-32",
+  lg: "px-4 py-2 text-lg min-w-40",
 };
 
 const ButtonInput = ({
@@ -34,13 +34,13 @@ const ButtonInput = ({
       type={type}
       {...props}
       className={clsx(
-        "flex w-full justify-center  rounded-md font-semibold text-white shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2",
+        "flex justify-center py-3 px-4 rounded-md font-semibold text-white shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2",
         colorClass,
         sizeClass,
         className
       )}
     >
-      <div className="flex items-center ">
+      <div className="flex gap-2 items-center ">
         {children}
       </div>
     </button>
