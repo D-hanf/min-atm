@@ -21,10 +21,10 @@ const FormLayout = ({ onSubmit }) => {
           setModalOpen(false) 
         }}
       >
-        <InputField name="namaToko">Nama toko</InputField>
-        <InputField placeholder={'08xxxxxxxx'} type='number' name="noTlp">No.Telp</InputField>   
-        <InputField name="jumlahKaryawan"type='number'>Jumlah Karyawan</InputField>   
-        <InputField name="alamat" className="">
+        <InputField name="name">Nama toko</InputField>
+        <InputField placeholder={'08xxxxxxxx'} type='number' name="phone">No.Telp</InputField>   
+        <InputField name="totalEmployees  "type='number'>Jumlah Karyawan</InputField>   
+        <InputField name="address" className="">
           alamat
         </InputField>
       </Modal>

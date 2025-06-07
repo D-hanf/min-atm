@@ -48,5 +48,3 @@ const ButtonInput = ({
 };
 
 export default ButtonInput;
-
-export default ButtonInput;

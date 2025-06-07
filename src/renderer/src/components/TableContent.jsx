@@ -1,4 +1,4 @@
-import { HiPencilSquare, HiXMark } from 'react-icons/hi2'
+import { HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
 
 import ButtonInput from './ButtonInput'
 import React from 'react'
@@ -16,7 +16,15 @@ import React from 'react'
  *       to match the “HalamanKelolaToko” aesthetic (card container, soft shadows,
  *       numbered rows, Icon‑label action buttons, hover row highlight, empty‑state copy).
  */
-const TableContent = ({ data = [], columns = [], onEdit = () => {}, onDelete = () => {} }) => {
+const TableContent = ({
+  data = [],
+  columns = [],
+  onEdit = () => {},
+  onDelete = () => {},
+  onView = () => {},
+  showView = false, // whether to show the view button or not
+  view
+}) => {
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden w-full">
       {/* Card Header */}
@@ -62,12 +70,18 @@ const TableContent = ({ data = [], columns = [], onEdit = () => {}, onDelete = (
                 {/* action buttons */}
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end gap-2">
-                    <ButtonInput color="yellow" size="md" onClick={() => onEdit(item.id)}>
+                    {showView && (
+                      <ButtonInput color="blue" size="sm" onClick={() => onView(item.id)}>
+                        <HiViewfinderCircle className="mr-1" size={16} />
+                        Kelola
+                      </ButtonInput>
+                    )}
+                    <ButtonInput color="yellow" size="sm" onClick={() => onEdit(item.id)}>
                       <HiPencilSquare className="mr-1" size={16} />
                       Edit
                     </ButtonInput>
 
-                    <ButtonInput color="red" size="md" onClick={() => onDelete(item.id)}>
+                    <ButtonInput color="red" size="sm" onClick={() => onDelete(item.id)}>
                       <HiXMark className="mr-1" size={16} /> Hapus
                     </ButtonInput>
                   </div>

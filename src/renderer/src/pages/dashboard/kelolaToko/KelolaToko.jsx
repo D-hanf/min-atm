@@ -1,16 +1,42 @@
-import ConfirmDialog from '../components/ConfirmDialog'
-import FormLayout from '../features/dashboard/ui/kelola-toko/FormLayout'
-import InputField from '../components/InputField'
-import ModalEdit from '../../src/shared/ui/Modal'
+import ConfirmDialog from '../../../components/ConfirmDialog'
+import FormLayout from '../../../features/dashboard/ui/kelola-toko/FormLayout'
+import InputField from '../../../components/InputField'
+import ModalEdit from '../../../shared/ui/Modal'
 import React from 'react'
-import SearchField from '../components/SearchField'
-import TableContent from '../components/TableContent'
+import SearchField from '../../../components/SearchField'
+import TableContent from '../../../components/TableContent'
+import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 
 const dataToko = [
-  { id: 1, namaToko: 'Toko A', noTlp: '08123456789', alamat: 'Jl. A', jumlahKaryawan: 10 },
-  { id: 2, namaToko: 'Toko B', noTlp: '08123456789', alamat: 'Jl. B', jumlahKaryawan: 20 },
-  { id: 3, namaToko: 'Toko C', noTlp: '08123456789', alamat: 'Jl. C', jumlahKaryawan: 30 }
+  {
+      id: 1,
+      name: 'Toko Pusat',
+      totalEmployees: 8,
+      address: 'Jl. Raya Pusat No. 123',
+      phone: '081234567890'
+    },
+    {
+      id: 2,
+      name: 'Cabang Malang',
+      totalEmployees: 5,
+      address: 'Jl. Soekarno Hatta No. 45, Malang',
+      phone: '081234567891'
+    },
+    {
+      id: 3,
+      name: 'Cabang Surabaya',
+      totalEmployees: 6,
+      address: 'Jl. Pemuda No. 56, Surabaya',
+      phone: '081234567892'
+    },
+    {
+      id: 4,
+      name: 'Cabang Jakarta',
+      totalEmployees: 10,
+      address: 'Jl. Sudirman No. 78, Jakarta',
+      phone: '081234567893'
+    }
 ]
 
 const KelolaToko = () => {
@@ -43,10 +69,10 @@ const KelolaToko = () => {
   const handleFormSubmit = (formData) => {
     const newData = {
       id: Date.now(), // unique id based on timestamp
-      namaToko: formData.namaToko,
-      noTlp: formData.noTlp,
-      alamat: formData.alamat,
-      jumlahKaryawan: Number(formData.jumlahKaryawan || 0)
+      name: formData.name,
+      phone: formData.phone,
+      address: formData.address,
+      totalEmployees: Number(formData.totalEmployees || 0)
     }
     setData((data) => [...data, newData])
   }
@@ -62,7 +88,13 @@ const KelolaToko = () => {
   const filteredData = data.filter((item) =>
     Object.values(item).some((val) => String(val).toLowerCase().includes(filterText.toLowerCase()))
   )
+    // Import useNavigate at the top of your file
+  const navigate = useNavigate()
 
+  // Function to navigate to store management page
+  const handleManageStore = (storeId) => {
+    navigate(`/dashboard/kelola-toko/${storeId}`)
+  }
   return (
     <>
       <div className="flex justify-end mb-4 w-full">
@@ -72,25 +104,18 @@ const KelolaToko = () => {
 
       {/* show all data  */}
       <SearchField type="text" placeholder="Cari" value={filterText} onChange={(e) => setFilterText(e.target.value)}/>
-        {/* <div className="mb-4">
-  <input
-    type="text"
-    placeholder="Cari toko (nama, alamat, no tlp, dll)..."
-    value={filterText}
-    onChange={(e) => setFilterText(e.target.value)}
-    className="border border-gray-300 rounded px-4 py-2 w-full md:w-1/3"
-  />
-</div> */}
 
       <TableContent
         data={filteredData}
         columns={[
-          { key: 'namaToko', label: 'Nama Toko' },
-          { key: 'noTlp', label: 'No. Telp' },
-          { key: 'jumlahKaryawan', label: 'Jumlah Karyawan' },
-          { key: 'alamat', label: 'Alamat' }
+          { key: 'name', label: 'Nama Toko' },
+          { key: 'phone', label: 'No. Telp' },
+          { key: 'totalEmployees', label: 'Jumlah Karyawan' },
+          { key: 'address', label: 'Alamat' }
         ]}
         // onEdit={(item) => console.log('Edit', item)}
+        showView={true}
+        onView={handleManageStore}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
@@ -148,4 +173,4 @@ const KelolaToko = () => {
   )
 }
 
-export default KelolaToko
+export default KelolaToko;
