@@ -1,0 +1,89 @@
+import { HiPencilSquare, HiXMark } from 'react-icons/hi2'
+
+import ButtonInput from './ButtonInput'
+import React from 'react'
+
+/**
+ * TableContent
+ *
+ * Props:
+ * - data:     Array<{ id: string | number; [key: string]: any }>
+ * - columns:  Array<{ key: string; label: string }>
+ * - onEdit:   (id) => void
+ * - onDelete: (id) => void
+ *
+ * NOTE: All business logic stays exactly the same—only the visual design was refreshed
+ *       to match the “HalamanKelolaToko” aesthetic (card container, soft shadows,
+ *       numbered rows, Icon‑label action buttons, hover row highlight, empty‑state copy).
+ */
+const TableContent = ({ data = [], columns = [], onEdit = () => {}, onDelete = () => {} }) => {
+  return (
+    <div className="bg-white rounded-lg shadow-md overflow-hidden w-full">
+      {/* Card Header */}
+      <div className="p-4 border-b border-gray-200 bg-gray-50">
+        <h2 className="text-lg font-medium text-gray-700">Daftar Data</h2>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                No
+              </th>
+              {/* dynamic column headers */}
+              {columns.map((col) => (
+                <th
+                  key={col.key}
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  {col.label}
+                </th>
+              ))}
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Aksi
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {data.map((item, index) => (
+              <tr key={item.id ?? index} className="hover:bg-gray-50">
+                {/* row index */}
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
+
+                {/* dynamic cells */}
+                {columns.map((col) => (
+                  <td key={col.key} className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{item[col.key]}</div>
+                  </td>
+                ))}
+
+                {/* action buttons */}
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div className="flex justify-end gap-2">
+                    <ButtonInput color="yellow" size="md" onClick={() => onEdit(item.id)}>
+                      <HiPencilSquare className="mr-1" size={16} />
+                      Edit
+                    </ButtonInput>
+
+                    <ButtonInput color="red" size="md" onClick={() => onDelete(item.id)}>
+                      <HiXMark className="mr-1" size={16} /> Hapus
+                    </ButtonInput>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* empty‑state indicator */}
+      {data.length === 0 && (
+        <div className="py-8 text-center text-gray-500">Belum ada data untuk ditampilkan.</div>
+      )}
+    </div>
+  )
+}
+
+export default TableContent

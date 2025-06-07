@@ -4,7 +4,7 @@ import InputField from '../components/InputField'
 import ModalEdit from '../../src/shared/ui/Modal'
 import React from 'react'
 import SearchField from '../components/SearchField'
-import TableContent from '../features/dashboard/ui/kelola-toko/TableContent'
+import TableContent from '../components/TableContent'
 import { useState } from 'react'
 
 const dataToko = [

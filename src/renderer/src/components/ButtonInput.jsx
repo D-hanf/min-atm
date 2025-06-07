@@ -34,13 +34,15 @@ const ButtonInput = ({
       type={type}
       {...props}
       className={clsx(
-        "flex w-full justify-center rounded-md font-semibold text-white shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2",
+        "flex w-full justify-center  rounded-md font-semibold text-white shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2",
         colorClass,
         sizeClass,
         className
       )}
     >
-      {children}
+      <div className="flex items-center ">
+        {children}
+      </div>
     </button>
   );
 };
