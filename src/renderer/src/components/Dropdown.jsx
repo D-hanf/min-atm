@@ -30,7 +30,7 @@ const DropdownHover = ({ label, items = [] }) => {
       onMouseEnter={() => setIsOpen(true)}
       
     >
-      <ButtonInput type="button" color="blue">
+      <ButtonInput type="button" color="gray">
         {selectedItem}
       </ButtonInput>
 

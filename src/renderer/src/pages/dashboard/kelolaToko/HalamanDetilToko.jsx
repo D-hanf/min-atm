@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
 import { HiPencilSquare, HiPlus, HiTrash, HiXMark } from 'react-icons/hi2'
+import React, { useState } from 'react'
 
 const HalamanDetilToko = () => {
   // Sample employee data - replace with your actual data source
