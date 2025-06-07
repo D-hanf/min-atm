@@ -3,6 +3,10 @@ import { Route } from "react-router-dom";
 import LoginForm from "../../pages/Login";
 import { DashboardLayout } from "../layout";
 import { DashboardPage } from "../../pages/dashboard/home";
+import KelolaToko from "../../pages/KelolaToko";
+import LoginForm from "../../pages/Login";
+import React from "react";
+import { Route } from "react-router-dom";
 
 // import ProtectedRoute from "./ProtectedRoute";
 
@@ -21,14 +25,11 @@ const DashboardRoutes = () => {
       {/* <Route element={<ProtectedRoute />}> */}
         <Route path="/dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
-          <Route path="transaksi" element={<HalamanTransaksi />} />
-          <Route path="pindah-saldo" element={<HalamanPindahSaldo />} />
-          <Route path="ambil-saldo" element={<HalamanAmbilSaldo />} />
-          <Route path="saldo-awal" element={<HalamanAwalSaldo />} />
-          <Route path="kelola-toko" element={<HalamanKelolaToko />} />
-          <Route path="kelola-toko/:id" element={<HalamanDetilToko />} />
-          <Route path="profile" element={<HalamanProfile />} />
-          {/* <Route path="password" element={<ChangePasswordPage />} /> */}
+          {/* <Route path="article" element={<ArticleManagePage />} />
+          <Route path="article/:id/edit" element={<ArticleEditPage />} />
+          <Route path="write" element={<ArticleWritePage />} />
+          <Route path="profile" element={<EditProfilePage />} /> */}
+          <Route path="kelola-toko" element={<KelolaToko />} />
         </Route>
         <Route path="/" element={<LoginForm />}>
         </Route>
