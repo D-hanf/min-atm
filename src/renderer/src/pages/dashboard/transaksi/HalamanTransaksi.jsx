@@ -235,20 +235,6 @@ import TableContent from '../../../components/TableContent'
     // You can add additional logic here to update the display
   }
 
-  const handlePrevDate = () => {
-    const currentDate = new Date(selectedDate.split('/').reverse().join('-'))
-    currentDate.setDate(currentDate.getDate() - 1)
-    const newDate = currentDate.toLocaleDateString('id-ID')
-    setSelectedDate(newDate)
-  }
-
-  const handleNextDate = () => {
-    const currentDate = new Date(selectedDate.split('/').reverse().join('-'))
-    currentDate.setDate(currentDate.getDate() + 1)
-    const newDate = currentDate.toLocaleDateString('id-ID')
-    setSelectedDate(newDate)
-  }
-
   const submitTransaction = (data) => {
     // Process and save transaction data
     const newTransaction = {
@@ -312,7 +298,14 @@ import TableContent from '../../../components/TableContent'
 
       {/* Transaction Data Table */}
 
-      <TableContent data={transactions} columns={transactionColumns} title={'Data Transaksi'} info={`Total Transaksi: ${transactions.length}`} btnSize={'xs'}>
+      <TableContent
+        data={transactions}
+        columns={transactionColumns}
+        title={'Data Transaksi'}
+        info={`Total Transaksi: ${transactions.length}`}
+        btnSize={'xs'}
+        onAdd={() => setShowTransactionModal(true)}
+      >
         <FormLayout
           onSubmit={submitTransaction}
           buttonText="Tambah"
@@ -320,8 +313,6 @@ import TableContent from '../../../components/TableContent'
           initialData={transactionFormData}
         />
       </TableContent>
-      
- 
 
       {/* Modals and Dialogs */}
       <ConfirmDialog

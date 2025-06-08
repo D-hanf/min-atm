@@ -3,25 +3,13 @@ import { HiPencilSquare, HiPlus, HiViewfinderCircle, HiXMark } from 'react-icons
 import ButtonInput from './ButtonInput'
 import React from 'react'
 
-/**
- * TableContent
- *
- * Props:
- * - data:     Array<{ id: string | number; [key: string]: any }>
- * - columns:  Array<{ key: string; label: string }>
- * - onEdit:   (id) => void
- * - onDelete: (id) => void
- *
- * NOTE: All business logic stays exactly the same—only the visual design was refreshed
- *       to match the “HalamanKelolaToko” aesthetic (card container, soft shadows,
- *       numbered rows, Icon‑label action buttons, hover row highlight, empty‑state copy).
- */
 const TableContent = ({
   data = [],
   columns = [],
   onEdit = () => {},
   onDelete = () => {},
   onView = () => {},
+  onAdd = () => {},
   showView = false, // whether to show the view button or not
   view,
   title,
@@ -37,7 +25,7 @@ const TableContent = ({
           <p className="text-sm text-gray-500">{info}</p>
         </div>
         <div>
-          <ButtonInput color="blue" size={btnSize} onClick={() => onView(item.id)}>
+          <ButtonInput color="blue" size={btnSize} onClick={onAdd}>
             <HiPlus />
             Tambah Data
           </ButtonInput>
