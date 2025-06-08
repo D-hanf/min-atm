@@ -40,67 +40,74 @@ const HalamanAmbilSaldo = () => {
       phone: '081234567893'
     }
   ])
-  
-  // Updated state for saldo transfers
+
+  // Updated state for balance withdrawals
   const [transfers, setTransfers] = useState([
     {
       id: 1,
       user: 'Ahmad Rizki',
       platform: 'DANA',
-      senderBalance: 'DANA Pusat',
-      receiverBalance: 'DANA Cabang',
+      currentBalance: 1500000,
       amount: 500000,
-      operational: 15000,
-      description: 'Transfer dana operasional cabang',
-      date: '2023-10-01'
+      fee: 15000,
+      withdrawalMethod: 'Transfer Bank',
+      withdrawalAccount: 'BCA - 1234567890',
+      withdrawalDate: '2023-10-01',
+      description: 'Pengambilan dana operasional'
     },
     {
       id: 2,
       user: 'Budi Santoso',
       platform: 'BRI',
-      senderBalance: 'BRI Pusat',
-      receiverBalance: 'CASH Pusat',
+      currentBalance: 3000000,
       amount: 1000000,
-      operational: 10000,
-      description: 'Penarikan kas untuk operasional',
-      date: '2023-10-02'
+      fee: 10000,
+      withdrawalMethod: 'Tunai',
+      withdrawalAccount: 'Kas Toko',
+      withdrawalDate: '2023-10-02',
+      description: 'Penarikan kas untuk operasional'
     },
     {
       id: 3,
       user: 'Cindy Permata',
       platform: 'MANDIRI',
-      senderBalance: 'MANDIRI Surabaya',
-      receiverBalance: 'MANDIRI Jakarta',
+      currentBalance: 5000000,
       amount: 2500000,
-      operational: 5000,
-      description: 'Transfer antar cabang',
-      date: '2023-10-03'
+      fee: 5000,
+      withdrawalMethod: 'Transfer Bank',
+      withdrawalAccount: 'Mandiri - 9876543210',
+      withdrawalDate: '2023-10-03',
+      description: 'Pengambilan dana bulanan'
     }
   ])
-  
+
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [formData, setFormData] = useState({
     user: '',
     platform: '',
-    senderBalance: '',
-    receiverBalance: '',
+    currentBalance: '',
     amount: '',
-    operational: '',
+    fee: '',
+    withdrawalMethod: '',
+    withdrawalAccount: '',
+    withdrawalDate: new Date().toISOString().split('T')[0],
     description: ''
   })
   const [filterText, setFilterText] = useState('')
 
-  // Updated columns definition
+  // Updated columns definition to match form fields
   const columns = [
     { key: 'no', label: 'No' },
-    { key: 'user', label: 'User Pemindah' },
+    { key: 'user', label: 'Petugas Pengambil' },
     { key: 'platform', label: 'Platform' },
-    { key: 'senderBalance', label: 'Saldo Pengirim' },
-    { key: 'receiverBalance', label: 'Saldo Penerima' },
-    { key: 'amount', label: 'Nominal' },
-    { key: 'operational', label: 'Operasional' },
+    { key: 'currentBalance', label: 'Saldo Platform' },
+    { key: 'amount', label: 'Nominal Pengambilan' },
+    { key: 'fee', label: 'Biaya Admin' },
+    { key: 'withdrawalMethod', label: 'Metode Pengambilan' },
+    { key: 'withdrawalAccount', label: 'Tujuan Pengambilan' },
+    { key: 'withdrawalDate', label: 'Tanggal Pengambilan' },
     { key: 'description', label: 'Keterangan' }
   ]
 
@@ -113,26 +120,17 @@ const HalamanAmbilSaldo = () => {
   }
 
   const handleAddTransfer = (formData) => {
-    const cleanedAmount = parseInt(
-      String(formData.amount).replace(/[^0-9]/g, ''),
-      10
-    )
-    
-    const cleanedOperational = parseInt(
-      String(formData.operational).replace(/[^0-9]/g, ''),
-      10
-    )
-
     const newTransfer = {
       id: Date.now(),
       user: formData.user,
       platform: formData.platform,
-      senderBalance: formData.senderBalance,
-      receiverBalance: formData.receiverBalance,
-      amount: cleanedAmount,
-      operational: cleanedOperational,
-      description: formData.description,
-      date: new Date().toISOString().split('T')[0]
+      currentBalance: parseInt(formData.currentBalance, 10) || 0,
+      amount: parseInt(formData.amount, 10) || 0,
+      fee: parseInt(formData.fee, 10) || 0,
+      withdrawalMethod: formData.withdrawalMethod,
+      withdrawalAccount: formData.withdrawalAccount,
+      withdrawalDate: formData.withdrawalDate,
+      description: formData.description
     }
 
     setTransfers([...transfers, newTransfer])
@@ -166,8 +164,9 @@ const HalamanAmbilSaldo = () => {
     .map((item, index) => ({
       ...item,
       no: index + 1, // Add row number
+      currentBalance: formatRupiah(item.currentBalance),
       amount: formatRupiah(item.amount),
-      operational: formatRupiah(item.operational)
+      fee: formatRupiah(item.fee)
     }))
 
   return (
@@ -176,7 +175,7 @@ const HalamanAmbilSaldo = () => {
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex-1 max-w-xs">
             <SearchField
-              placeholder="Cari data pemindahan saldo..."
+              placeholder="Cari data pengambilan saldo..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
@@ -190,7 +189,10 @@ const HalamanAmbilSaldo = () => {
             />
           </div>
           <div className="flex-1 flex justify-end">
-            <FormLayout onSubmit={handleAddTransfer} buttonText="Tambah Pengambilan Saldo"></FormLayout>
+            <FormLayout
+              onSubmit={handleAddTransfer}
+              buttonText="Tambah Pengambilan Saldo"
+            ></FormLayout>
           </div>
         </div>
       </div>
@@ -208,28 +210,18 @@ const HalamanAmbilSaldo = () => {
         onClose={() => setShowConfirmDialog(false)}
         onConfirm={confirmDelete}
         title="Konfirmasi Hapus"
-        message="Apakah Anda yakin ingin menghapus data pemindahan saldo ini?"
+        message="Apakah Anda yakin ingin menghapus data pengambilan saldo ini?"
       />
 
       <ModalEdit
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={(updatedData) => {
-          const cleanedAmount = parseInt(
-            String(updatedData.amount).replace(/[^0-9]/g, ''),
-            10
-          )
-          
-          const cleanedOperational = parseInt(
-            String(updatedData.operational).replace(/[^0-9]/g, ''),
-            10
-          )
-
           const updatedTransfer = {
             ...updatedData,
-            amount: cleanedAmount,
-            operational: cleanedOperational,
-            date: new Date().toISOString().split('T')[0]
+            currentBalance: parseInt(updatedData.currentBalance, 10) || 0,
+            amount: parseInt(updatedData.amount, 10) || 0,
+            fee: parseInt(updatedData.fee, 10) || 0
           }
 
           setTransfers((prev) =>
@@ -243,8 +235,9 @@ const HalamanAmbilSaldo = () => {
           value={formData.user || ''}
           onChange={(e) => setFormData({ ...formData, user: e.target.value })}
         >
-          User Pemindah
+          Petugas Pengambil
         </InputField>
+
         <InputField
           name="platform"
           value={formData.platform || ''}
@@ -252,36 +245,68 @@ const HalamanAmbilSaldo = () => {
         >
           Platform
         </InputField>
+
         <InputField
-          name="senderBalance"
-          value={formData.senderBalance || ''}
-          onChange={(e) => setFormData({ ...formData, senderBalance: e.target.value })}
+          name="currentBalance"
+          type="text"
+          value={formData.currentBalance || ''}
+          onChange={(e) => {
+            const numericValue = e.target.value.replace(/[^0-9]/g, '')
+            setFormData({ ...formData, currentBalance: numericValue })
+          }}
         >
-          Saldo Pengirim
+          Saldo Platform Saat Ini
         </InputField>
-        <InputField
-          name="receiverBalance"
-          value={formData.receiverBalance || ''}
-          onChange={(e) => setFormData({ ...formData, receiverBalance: e.target.value })}
-        >
-          Saldo Penerima
-        </InputField>
+
         <InputField
           name="amount"
-          type="number"
+          type="text"
           value={formData.amount || ''}
-          onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+          onChange={(e) => {
+            const numericValue = e.target.value.replace(/[^0-9]/g, '')
+            setFormData({ ...formData, amount: numericValue })
+          }}
         >
-          Nominal
+          Nominal Pengambilan
         </InputField>
+
         <InputField
-          name="operational"
-          type="number"
-          value={formData.operational || ''}
-          onChange={(e) => setFormData({ ...formData, operational: e.target.value })}
+          name="fee"
+          type="text"
+          value={formData.fee || ''}
+          onChange={(e) => {
+            const numericValue = e.target.value.replace(/[^0-9]/g, '')
+            setFormData({ ...formData, fee: numericValue })
+          }}
         >
-          Operasional
+          Biaya Admin
         </InputField>
+
+        <InputField
+          name="withdrawalMethod"
+          value={formData.withdrawalMethod || ''}
+          onChange={(e) => setFormData({ ...formData, withdrawalMethod: e.target.value })}
+        >
+          Metode Pengambilan
+        </InputField>
+
+        <InputField
+          name="withdrawalAccount"
+          value={formData.withdrawalAccount || ''}
+          onChange={(e) => setFormData({ ...formData, withdrawalAccount: e.target.value })}
+        >
+          Tujuan Pengambilan
+        </InputField>
+
+        <InputField
+          name="withdrawalDate"
+          type="date"
+          value={formData.withdrawalDate || new Date().toISOString().split('T')[0]}
+          onChange={(e) => setFormData({ ...formData, withdrawalDate: e.target.value })}
+        >
+          Tanggal Pengambilan
+        </InputField>
+
         <InputField
           name="description"
           value={formData.description || ''}
