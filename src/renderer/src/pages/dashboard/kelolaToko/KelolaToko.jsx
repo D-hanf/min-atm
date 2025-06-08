@@ -3,7 +3,6 @@ import FormLayout from '../../../features/dashboard/ui/kelola-toko/FormLayout'
 import InputField from '../../../components/InputField'
 import ModalEdit from '../../../shared/ui/Modal'
 import React from 'react'
-import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
@@ -97,14 +96,7 @@ const KelolaToko = () => {
   }
   return (
     <>
-      <div className="flex justify-end mb-4 w-full">
-        {/* add new data */}
-        <FormLayout onSubmit={handleFormSubmit}></FormLayout>
-      </div>
-
       {/* show all data  */}
-      <SearchField type="text" placeholder="Cari" value={filterText} onChange={(e) => setFilterText(e.target.value)}/>
-
       <TableContent
         data={filteredData}
         columns={[
@@ -118,6 +110,11 @@ const KelolaToko = () => {
         onView={handleManageStore}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        btnSize={'sm'}
+        title={'Data Toko'}
+        searchValue={filterText}
+        onSearchChange={setFilterText}
+        onAdd={ <FormLayout onSubmit={handleFormSubmit}></FormLayout>}
       />
 
       {/* pop up confirm to delete */}

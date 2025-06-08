@@ -2,6 +2,7 @@ import { HiPencilSquare, HiPlus, HiViewfinderCircle, HiXMark } from 'react-icons
 
 import ButtonInput from './ButtonInput'
 import React from 'react'
+import SearchField from './SearchField'
 
 const TableContent = ({
   data = [],
@@ -10,25 +11,32 @@ const TableContent = ({
   onDelete = () => {},
   onView = () => {},
   onAdd = () => {},
-  showView = false, // whether to show the view button or not
-  view,
+  onSearchChange = () => {},
+  showView = false,
   title,
   info,
-  btnSize
+  btnSize,
+  searchValue = '',
 }) => {
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden w-full">
       {/* Card Header */}
       <div className="p-4 border-b flex items-center justify-between border-gray-200 bg-gray-50">
-        <div className="flex flex-col">
+        <div className="flex flex-col w-full">
           <h2 className="text-lg font-medium text-gray-700">{title}</h2>
           <p className="text-sm text-gray-500">{info}</p>
         </div>
-        <div>
-          <ButtonInput color="blue" size={btnSize} onClick={onAdd}>
-            <HiPlus />
-            Tambah Data
-          </ButtonInput>
+        <div className='flex gap-10 w-full justify-end'>
+          <div className="flex-1 max-w-xs">
+          <SearchField
+            placeholder="Cari Data"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            value={searchValue}
+            onChange={(e) => onSearchChange?.(e.target.value)}
+          />
+        </div>
+        <div>{onAdd}</div>
         </div>
       </div>
 

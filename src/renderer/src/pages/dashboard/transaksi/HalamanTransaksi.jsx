@@ -87,7 +87,6 @@ import TableContent from '../../../components/TableContent'
     description: ''
   })
   const [filterText, setFilterText] = useState('')
-
   // const [currentStore, setCurrentStore] = useState('ERDIUS DIGITAL')
   const [selectedDate, setSelectedDate] = useState('26/12/2024')
   const [transactions, setTransactions] = useState([
@@ -107,6 +106,10 @@ import TableContent from '../../../components/TableContent'
       description: 'Penarikan dana'
     }
   ])
+  
+  const filteredData = transactions.filter(
+    (item) => item.nama?.toLowerCase().includes(filterText.toLowerCase()) // atau field lain
+  )
   // const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionFormData, setTransactionFormData] = useState({
     date: new Date().toISOString().split('T')[0],
@@ -258,19 +261,20 @@ import TableContent from '../../../components/TableContent'
       {/* Header/Navigation */}
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
-          <div className="flex-1 max-w-xs">
+          {/* <div className="flex-1 max-w-xs">
             <SearchField
               placeholder="Cari saldo atau sumber..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
             />
-          </div>
+          </div> */}
           <div className="flex-1 max-w-xs">
             <Dropdown
               className="w-full"
               label="Pindah Toko"
               items={stores.map((store) => store.name)}
+              color={'gray'}
             />
           </div>
         </div>
@@ -304,15 +308,17 @@ import TableContent from '../../../components/TableContent'
         title={'Data Transaksi'}
         info={`Total Transaksi: ${transactions.length}`}
         btnSize={'xs'}
-        onAdd={() => setShowTransactionModal(true)}
-      >
-        <FormLayout
-          onSubmit={submitTransaction}
-          buttonText="Tambah"
-          formType="transaction"
-          initialData={transactionFormData}
-        />
-      </TableContent>
+        onAdd={
+          <FormLayout
+            onSubmit={submitTransaction}
+            buttonText="Tambah Data"
+            formType="transaction"
+            initialData={transactionFormData}
+          />
+        }
+        searchValue={filterText}
+        onSearchChange={setFilterText}
+      />
 
       {/* Modals and Dialogs */}
       <ConfirmDialog

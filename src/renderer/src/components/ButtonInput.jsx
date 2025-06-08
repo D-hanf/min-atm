@@ -9,6 +9,7 @@ const colorVariants = {
   indigo: "bg-indigo-500 hover:bg-indigo-600 focus-visible:outline-indigo-600",
   yellow: "bg-yellow-500 hover:bg-yellow-600 focus-visible:outline-yellow-600",
   gray: "bg-gray-500 hover:bg-gray-600 focus-visible:outline-gray-600",
+  white: "bg-white hover:bg-gray-50 focus-visible:outline-gray-600",
 };
 
 // Map ukuran ke padding dan font-size
