@@ -19,7 +19,7 @@ import TableContent from '../../../components/TableContent'
  * Modals dan dialogs digunakan untuk mengedit dan menghapus data transaksi.
  * @returns {JSX.Element} Komponen Halaman Transaksi
  */
-/*******  3f798daa-87b2-4987-88d5-6362c1076dc0  *******/const HalamanTransaksi = () => {
+/*******  3f798daa-87b2-4987-88d5-6362c1076dc0  *******/ const HalamanTransaksi = () => {
   const [stores] = useState([
     {
       id: 1,
@@ -159,14 +159,6 @@ import TableContent from '../../../components/TableContent'
     { key: 'description', label: 'Keterangan' }
   ]
 
-  // const columns = [
-  //   { key: 'source', label: 'Sumber' },
-  //   { key: 'saldo', label: 'Saldo' },
-  //   { key: 'dateCreated', label: 'Tanggal Dibuat' },
-  //   { key: 'dateUpdated', label: 'Tanggal Diubah' },
-  //   { key: 'description', label: 'Deskripsi' }
-  // ]
-
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -239,9 +231,7 @@ import TableContent from '../../../components/TableContent'
   const handleDateChange = (date) => {
     setSelectedDate(date)
     // Filter transactions based on selected date
-    const filteredTransactions = transactions.filter(transaction => 
-      transaction.date === date
-    )
+    const filteredTransactions = transactions.filter((transaction) => transaction.date === date)
     // You can add additional logic here to update the display
   }
 
@@ -278,8 +268,7 @@ import TableContent from '../../../components/TableContent'
   }
 
   return (
-    
-    <div className="flex flex-col justify-end h-full" >
+    <div className="flex flex-col justify-end h-full">
       {/* Header/Navigation */}
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
@@ -322,96 +311,17 @@ import TableContent from '../../../components/TableContent'
       </div>
 
       {/* Transaction Data Table */}
-      <div className="bg-white flex flex-col shadow rounded-lg p-4 w-full">
-        <div className="flex justify-between items-center mb-4">
-          <div className="font-bold text-lg">DATA TRANSAKSI</div>
-          <div className="text-sm">Total Trx: {transactions.length}</div>
-          <div className="flex items-center gap-2">
-            <button onClick={handlePrevDate} className="p-1">
-              <HiChevronLeft />
-            </button>
-            <div className="relative">
-              <input
-                type="text"
-                value={selectedDate}
-                onChange={(e) => handleDateChange(e.target.value)}
-                className="border rounded-md px-3 py-1 pr-8"
-              />
-              <HiCalendar className="absolute right-2 top-2 text-gray-500" />
-            </div>
-            <button onClick={handleNextDate} className="p-1">
-              <HiChevronRight />
-            </button>
-            {/* Replace the ButtonInput with FormLayout */}
-            <FormLayout
-              onSubmit={submitTransaction}
-              buttonText="Tambah"
-              formType="transaction"
-              initialData={transactionFormData}
-            />
-          </div>
-        </div>
 
-          <div className=" overflow-x-auto">
-          <table className="overflow-x-auto min-w-full divide-y divide-gray-200 ">
-            <thead className="bg-gray-50">
-              <tr>
-                {transactionColumns.map((column) => (
-                  <th
-                    key={column.key}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    {column.label}
-                  </th>
-                ))}
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {transactions.length > 0 ? (
-                transactions.map((transaction, index) => (
-                  <tr key={transaction.id}>
-                    {transactionColumns.map((column) => (
-                      <td key={column.key} className="px-6 py-4 whitespace-nowrap">
-                        {column.key.includes('balance') ||
-                        column.key.includes('amount') ||
-                        column.key.includes('admin')
-                          ? formatRupiah(transaction[column.key])
-                          : transaction[column.key]}
-                      </td>
-                    ))}
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleEdit(transaction.id)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-2"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(transaction.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={transactionColumns.length + 1}
-                    className="px-6 py-4 text-center text-sm text-gray-500"
-                  >
-                    Data Kosong
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div> 
-      </div>
+      <TableContent data={transactions} columns={transactionColumns} title={'Data Transaksi'} info={`Total Transaksi: ${transactions.length}`} btnSize={'xs'}>
+        <FormLayout
+          onSubmit={submitTransaction}
+          buttonText="Tambah"
+          formType="transaction"
+          initialData={transactionFormData}
+        />
+      </TableContent>
+      
+ 
 
       {/* Modals and Dialogs */}
       <ConfirmDialog
@@ -439,7 +349,6 @@ import TableContent from '../../../components/TableContent'
         {/* ...existing modal content... */}
       </ModalEdit>
     </div>
-    
   )
 }
 

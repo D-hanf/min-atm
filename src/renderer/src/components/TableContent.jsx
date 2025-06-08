@@ -1,4 +1,4 @@
-import { HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
+import { HiPencilSquare, HiPlus, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
 
 import ButtonInput from './ButtonInput'
 import React from 'react'
@@ -23,13 +23,25 @@ const TableContent = ({
   onDelete = () => {},
   onView = () => {},
   showView = false, // whether to show the view button or not
-  view
+  view,
+  title,
+  info,
+  btnSize
 }) => {
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden w-full">
       {/* Card Header */}
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <h2 className="text-lg font-medium text-gray-700">Daftar Data</h2>
+      <div className="p-4 border-b flex items-center justify-between border-gray-200 bg-gray-50">
+        <div className="flex flex-col">
+          <h2 className="text-lg font-medium text-gray-700">{title}</h2>
+          <p className="text-sm text-gray-500">{info}</p>
+        </div>
+        <div>
+          <ButtonInput color="blue" size={btnSize} onClick={() => onView(item.id)}>
+            <HiPlus />
+            Tambah Data
+          </ButtonInput>
+        </div>
       </div>
 
       {/* Table */}
@@ -71,17 +83,17 @@ const TableContent = ({
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex justify-end gap-2">
                     {showView && (
-                      <ButtonInput color="blue" size="sm" onClick={() => onView(item.id)}>
+                      <ButtonInput color="blue" size={btnSize} onClick={() => onView(item.id)}>
                         <HiViewfinderCircle className="mr-1" size={16} />
                         Kelola
                       </ButtonInput>
                     )}
-                    <ButtonInput color="yellow" size="sm" onClick={() => onEdit(item.id)}>
+                    <ButtonInput color="yellow" size={btnSize} onClick={() => onEdit(item.id)}>
                       <HiPencilSquare className="mr-1" size={16} />
                       Edit
                     </ButtonInput>
 
-                    <ButtonInput color="red" size="sm" onClick={() => onDelete(item.id)}>
+                    <ButtonInput color="red" size={btnSize} onClick={() => onDelete(item.id)}>
                       <HiXMark className="mr-1" size={16} /> Hapus
                     </ButtonInput>
                   </div>
