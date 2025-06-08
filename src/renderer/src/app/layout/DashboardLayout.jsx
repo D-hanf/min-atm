@@ -1,23 +1,27 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate } from 'react-router-dom'
 
-import Breadcrumb from "../../shared/ui/BreadCrumb";
-import React from "react";
-import Sidebar from "../../shared/ui/Sidebar";
+import Breadcrumb from '../../shared/ui/BreadCrumb'
+import Sidebar from '../../shared/ui/Sidebar'
+import { useState } from 'react'
 
 const DashboardLayout = () => {
+  // const navigate = useNavigate()
   return (
-    <>
-      <div className="w-full mx-auto flex flex-col sm:flex-row">
-        <div className="w-full sm:w-3/12">
-          <Sidebar />
-        </div>
-        <div className="w-full sm:w-9/12 py-6 px-0 sm:px-4">
+    <div className="flex w-full h-full ">
+      <Sidebar className='w-1/3'/>
+      <div
+        className={`
+      flex-1 transition-all duration-300
+      ml-4 w-3/4
+    `}
+      >
+        <div className="py-6 px-4">
           <Breadcrumb />
           <Outlet />
         </div>
       </div>
-    </>
-  );
-};
+    </div>
+  )
+}
 
-export default DashboardLayout;
+export default DashboardLayout

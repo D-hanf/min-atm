@@ -1,5 +1,5 @@
+import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus } from 'react-icons/hi'
 import React, { useState } from 'react'
-import { HiArrowRight, HiPlus, HiChevronLeft, HiChevronRight, HiCalendar } from 'react-icons/hi'
 
 import ConfirmDialog from '../../../components/ConfirmDialog'
 import Dropdown from '../../../components/Dropdown'
@@ -9,7 +9,17 @@ import ModalEdit from '../../../shared/ui/Modal'
 import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
 
-const HalamanTransaksi = () => {
+/*************  ✨ Windsurf Command ⭐  *************/
+/**
+ * Halaman transaksi yang menampilkan data transaksi dan saldo.
+ * Komponen ini terdiri dari tiga bagian utama: header, financial summary cards, dan tabel transaksi.
+ * Header berisi fungsi pencarian dan dropdown untuk memilih toko.
+ * Financial summary cards menampilkan ringkasan keuangan.
+ * Tabel transaksi menampilkan data transaksi yang dapat difilter berdasarkan tanggal dan sumber dana.
+ * Modals dan dialogs digunakan untuk mengedit dan menghapus data transaksi.
+ * @returns {JSX.Element} Komponen Halaman Transaksi
+ */
+/*******  3f798daa-87b2-4987-88d5-6362c1076dc0  *******/const HalamanTransaksi = () => {
   const [stores] = useState([
     {
       id: 1,
@@ -78,10 +88,26 @@ const HalamanTransaksi = () => {
   })
   const [filterText, setFilterText] = useState('')
 
-  const [currentStore, setCurrentStore] = useState('ERDIUS DIGITAL')
+  // const [currentStore, setCurrentStore] = useState('ERDIUS DIGITAL')
   const [selectedDate, setSelectedDate] = useState('26/12/2024')
-  const [transactions, setTransactions] = useState([])
-  const [showTransactionModal, setShowTransactionModal] = useState(false)
+  const [transactions, setTransactions] = useState([
+    {
+      id: 1,
+      date: '2023-10-01',
+      transactionNumber: 'TR001',
+      fundSource: 'DANA',
+      type: 'Withdrawal',
+      transactionType: 'Cash Withdrawal',
+      initialBalance: 1000000,
+      amount: 500000,
+      internalAdmin: 100000,
+      externalAdmin: 200000,
+      bankAdmin: 300000,
+      finalBalance: 500000,
+      description: 'Penarikan dana'
+    }
+  ])
+  // const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionFormData, setTransactionFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     transactionNumber: '',
@@ -133,13 +159,13 @@ const HalamanTransaksi = () => {
     { key: 'description', label: 'Keterangan' }
   ]
 
-  const columns = [
-    { key: 'source', label: 'Sumber' },
-    { key: 'saldo', label: 'Saldo' },
-    { key: 'dateCreated', label: 'Tanggal Dibuat' },
-    { key: 'dateUpdated', label: 'Tanggal Diubah' },
-    { key: 'description', label: 'Deskripsi' }
-  ]
+  // const columns = [
+  //   { key: 'source', label: 'Sumber' },
+  //   { key: 'saldo', label: 'Saldo' },
+  //   { key: 'dateCreated', label: 'Tanggal Dibuat' },
+  //   { key: 'dateUpdated', label: 'Tanggal Diubah' },
+  //   { key: 'description', label: 'Deskripsi' }
+  // ]
 
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -149,27 +175,27 @@ const HalamanTransaksi = () => {
     }).format(value)
   }
 
-  const formattedSaldo = saldo.map((item) => ({
-    ...item,
-    saldo: formatRupiah(item.saldo)
-  }))
+  // const formattedSaldo = saldo.map((item) => ({
+  //   ...item,
+  //   saldo: formatRupiah(item.saldo)
+  // }))
 
-  const handleAddSaldo = (formData) => {
-    const cleanedSaldo = parseInt(
-      formData.saldo.replace(/[^0-9]/g, ''), // hapus semua selain angka
-      10
-    )
+  // const handleAddSaldo = (formData) => {
+  //   const cleanedSaldo = parseInt(
+  //     formData.saldo.replace(/[^0-9]/g, ''), // hapus semua selain angka
+  //     10
+  //   )
 
-    const newSaldo = {
-      id: Date.now(),
-      source: formData.source,
-      saldo: cleanedSaldo,
-      dateCreated: new Date().toISOString().split('T')[0],
-      description: formData.description
-    }
+  //   const newSaldo = {
+  //     id: Date.now(),
+  //     source: formData.source,
+  //     saldo: cleanedSaldo,
+  //     dateCreated: new Date().toISOString().split('T')[0],
+  //     description: formData.description
+  //   }
 
-    setSaldo([...saldo, newSaldo])
-  }
+  //   setSaldo([...saldo, newSaldo])
+  // }
 
   const handleDelete = (id) => {
     setDeleteId(id)
@@ -190,25 +216,25 @@ const HalamanTransaksi = () => {
     }
   }
 
-  const filteredData = saldo
-    .filter((item) =>
-      Object.values(item).some((val) =>
-        String(val).toLowerCase().includes(filterText.toLowerCase())
-      )
-    )
-    .map((item) => ({
-      ...item,
-      saldo: new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0
-      }).format(item.saldo)
-    }))
+  // const filteredData = saldo
+  //   .filter((item) =>
+  //     Object.values(item).some((val) =>
+  //       String(val).toLowerCase().includes(filterText.toLowerCase())
+  //     )
+  //   )
+  //   .map((item) => ({
+  //     ...item,
+  //     saldo: new Intl.NumberFormat('id-ID', {
+  //       style: 'currency',
+  //       currency: 'IDR',
+  //       minimumFractionDigits: 0
+  //     }).format(item.saldo)
+  //   }))
 
-  const handleStoreChange = (storeName) => {
-    setCurrentStore(storeName)
-    // Here you would load data specific to the selected store
-  }
+  // const handleStoreChange = (storeName) => {
+  //   setCurrentStore(storeName)
+  //   // Here you would load data specific to the selected store
+  // }
 
   const handleDateChange = (date) => {
     setSelectedDate(date)
@@ -252,7 +278,8 @@ const HalamanTransaksi = () => {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    
+    <div className="flex flex-col justify-end h-full" >
       {/* Header/Navigation */}
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
@@ -278,7 +305,7 @@ const HalamanTransaksi = () => {
       <FinancialSummaryCards financialSummary={financialSummary} formatRupiah={formatRupiah} />
 
       {/* Total Assets and Fund Sources */}
-      <div className="bg-white shadow rounded-lg p-4 mb-6">
+      <div className="bg-white shadow rounded-lg p-4 mb-6 ">
         <div className="font-bold text-xl mb-3">
           TOTAL ASET: {formatRupiah(financialSummary.totalAssets)}
         </div>
@@ -295,7 +322,7 @@ const HalamanTransaksi = () => {
       </div>
 
       {/* Transaction Data Table */}
-      <div className="bg-white shadow rounded-lg p-4">
+      <div className="bg-white flex flex-col shadow rounded-lg p-4 w-full">
         <div className="flex justify-between items-center mb-4">
           <div className="font-bold text-lg">DATA TRANSAKSI</div>
           <div className="text-sm">Total Trx: {transactions.length}</div>
@@ -325,8 +352,8 @@ const HalamanTransaksi = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <div className=" overflow-x-auto">
+          <table className="overflow-x-auto min-w-full divide-y divide-gray-200 ">
             <thead className="bg-gray-50">
               <tr>
                 {transactionColumns.map((column) => (
@@ -383,7 +410,7 @@ const HalamanTransaksi = () => {
               )}
             </tbody>
           </table>
-        </div>
+        </div> 
       </div>
 
       {/* Modals and Dialogs */}
@@ -412,6 +439,7 @@ const HalamanTransaksi = () => {
         {/* ...existing modal content... */}
       </ModalEdit>
     </div>
+    
   )
 }
 
