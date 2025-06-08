@@ -9,14 +9,17 @@ const colorVariants = {
   indigo: "bg-indigo-500 hover:bg-indigo-600 focus-visible:outline-indigo-600",
   yellow: "bg-yellow-500 hover:bg-yellow-600 focus-visible:outline-yellow-600",
   gray: "bg-gray-500 hover:bg-gray-600 focus-visible:outline-gray-600",
+  white: "bg-white hover:bg-gray-50 focus-visible:outline-gray-600",
 };
 
 // Map ukuran ke padding dan font-size
 const sizeVariants = {
-  sm: "px-2 py-1 text-sm min-w-24",
-  md: "px-3 py-1.5 text-md min-w-32",
-  lg: "px-4 py-2 text-lg min-w-40",
+  xs: "px-1.5 py-0.5 text-xs min-w-20 rounded-md font-medium",     // ~80px
+  sm: "px-2 py-1 text-sm min-w-24 rounded-md font-medium",         // ~96px
+  md: "px-3 py-1.5 text-base min-w-32 rounded-md font-medium",     // ~128px
+  lg: "px-5 py-2.5 text-lg min-w-44 rounded-md font-semibold",     // ~176px
 };
+
 
 const ButtonInput = ({
   children,

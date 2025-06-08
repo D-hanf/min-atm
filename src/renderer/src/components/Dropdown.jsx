@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 
 import ButtonInput from '../components/ButtonInput'
 
-const DropdownHover = ({ label, items = [] }) => {
+const DropdownHover = ({ label, items = [], color }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedItem, setSelectedItem] = useState(label)
   const dropdownRef = useRef(null)
@@ -30,7 +30,7 @@ const DropdownHover = ({ label, items = [] }) => {
       onMouseEnter={() => setIsOpen(true)}
       
     >
-      <ButtonInput type="button" color="gray">
+      <ButtonInput type="button" color={color} size="sm" className="w-full border-gray-300 border-1">
         {selectedItem}
       </ButtonInput>
 

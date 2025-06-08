@@ -1,5 +1,5 @@
+import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus } from 'react-icons/hi'
 import React, { useState } from 'react'
-import { HiArrowRight, HiPlus, HiChevronLeft, HiChevronRight, HiCalendar } from 'react-icons/hi'
 
 import ConfirmDialog from '../../../components/ConfirmDialog'
 import Dropdown from '../../../components/Dropdown'
@@ -9,7 +9,17 @@ import ModalEdit from '../../../shared/ui/Modal'
 import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
 
-const HalamanTransaksi = () => {
+/*************  ✨ Windsurf Command ⭐  *************/
+/**
+ * Halaman transaksi yang menampilkan data transaksi dan saldo.
+ * Komponen ini terdiri dari tiga bagian utama: header, financial summary cards, dan tabel transaksi.
+ * Header berisi fungsi pencarian dan dropdown untuk memilih toko.
+ * Financial summary cards menampilkan ringkasan keuangan.
+ * Tabel transaksi menampilkan data transaksi yang dapat difilter berdasarkan tanggal dan sumber dana.
+ * Modals dan dialogs digunakan untuk mengedit dan menghapus data transaksi.
+ * @returns {JSX.Element} Komponen Halaman Transaksi
+ */
+/*******  3f798daa-87b2-4987-88d5-6362c1076dc0  *******/ const HalamanTransaksi = () => {
   const [stores] = useState([
     {
       id: 1,
@@ -77,11 +87,30 @@ const HalamanTransaksi = () => {
     description: ''
   })
   const [filterText, setFilterText] = useState('')
-
-  const [currentStore, setCurrentStore] = useState('ERDIUS DIGITAL')
+  // const [currentStore, setCurrentStore] = useState('ERDIUS DIGITAL')
   const [selectedDate, setSelectedDate] = useState('26/12/2024')
-  const [transactions, setTransactions] = useState([])
-  const [showTransactionModal, setShowTransactionModal] = useState(false)
+  const [transactions, setTransactions] = useState([
+    {
+      id: 1,
+      date: '2023-10-01',
+      transactionNumber: 'TR001',
+      fundSource: 'DANA',
+      type: 'Withdrawal',
+      transactionType: 'Cash Withdrawal',
+      initialBalance: 1000000,
+      amount: 500000,
+      internalAdmin: 100000,
+      externalAdmin: 200000,
+      bankAdmin: 300000,
+      finalBalance: 500000,
+      description: 'Penarikan dana'
+    }
+  ])
+  
+  const filteredData = transactions.filter(
+    (item) => item.nama?.toLowerCase().includes(filterText.toLowerCase()) // atau field lain
+  )
+  // const [showTransactionModal, setShowTransactionModal] = useState(false)
   const [transactionFormData, setTransactionFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     transactionNumber: '',
@@ -133,14 +162,6 @@ const HalamanTransaksi = () => {
     { key: 'description', label: 'Keterangan' }
   ]
 
-  const columns = [
-    { key: 'source', label: 'Sumber' },
-    { key: 'saldo', label: 'Saldo' },
-    { key: 'dateCreated', label: 'Tanggal Dibuat' },
-    { key: 'dateUpdated', label: 'Tanggal Diubah' },
-    { key: 'description', label: 'Deskripsi' }
-  ]
-
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -149,27 +170,27 @@ const HalamanTransaksi = () => {
     }).format(value)
   }
 
-  const formattedSaldo = saldo.map((item) => ({
-    ...item,
-    saldo: formatRupiah(item.saldo)
-  }))
+  // const formattedSaldo = saldo.map((item) => ({
+  //   ...item,
+  //   saldo: formatRupiah(item.saldo)
+  // }))
 
-  const handleAddSaldo = (formData) => {
-    const cleanedSaldo = parseInt(
-      formData.saldo.replace(/[^0-9]/g, ''), // hapus semua selain angka
-      10
-    )
+  // const handleAddSaldo = (formData) => {
+  //   const cleanedSaldo = parseInt(
+  //     formData.saldo.replace(/[^0-9]/g, ''), // hapus semua selain angka
+  //     10
+  //   )
 
-    const newSaldo = {
-      id: Date.now(),
-      source: formData.source,
-      saldo: cleanedSaldo,
-      dateCreated: new Date().toISOString().split('T')[0],
-      description: formData.description
-    }
+  //   const newSaldo = {
+  //     id: Date.now(),
+  //     source: formData.source,
+  //     saldo: cleanedSaldo,
+  //     dateCreated: new Date().toISOString().split('T')[0],
+  //     description: formData.description
+  //   }
 
-    setSaldo([...saldo, newSaldo])
-  }
+  //   setSaldo([...saldo, newSaldo])
+  // }
 
   const handleDelete = (id) => {
     setDeleteId(id)
@@ -190,47 +211,31 @@ const HalamanTransaksi = () => {
     }
   }
 
-  const filteredData = saldo
-    .filter((item) =>
-      Object.values(item).some((val) =>
-        String(val).toLowerCase().includes(filterText.toLowerCase())
-      )
-    )
-    .map((item) => ({
-      ...item,
-      saldo: new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0
-      }).format(item.saldo)
-    }))
+  // const filteredData = saldo
+  //   .filter((item) =>
+  //     Object.values(item).some((val) =>
+  //       String(val).toLowerCase().includes(filterText.toLowerCase())
+  //     )
+  //   )
+  //   .map((item) => ({
+  //     ...item,
+  //     saldo: new Intl.NumberFormat('id-ID', {
+  //       style: 'currency',
+  //       currency: 'IDR',
+  //       minimumFractionDigits: 0
+  //     }).format(item.saldo)
+  //   }))
 
-  const handleStoreChange = (storeName) => {
-    setCurrentStore(storeName)
-    // Here you would load data specific to the selected store
-  }
+  // const handleStoreChange = (storeName) => {
+  //   setCurrentStore(storeName)
+  //   // Here you would load data specific to the selected store
+  // }
 
   const handleDateChange = (date) => {
     setSelectedDate(date)
     // Filter transactions based on selected date
-    const filteredTransactions = transactions.filter(transaction => 
-      transaction.date === date
-    )
+    const filteredTransactions = transactions.filter((transaction) => transaction.date === date)
     // You can add additional logic here to update the display
-  }
-
-  const handlePrevDate = () => {
-    const currentDate = new Date(selectedDate.split('/').reverse().join('-'))
-    currentDate.setDate(currentDate.getDate() - 1)
-    const newDate = currentDate.toLocaleDateString('id-ID')
-    setSelectedDate(newDate)
-  }
-
-  const handleNextDate = () => {
-    const currentDate = new Date(selectedDate.split('/').reverse().join('-'))
-    currentDate.setDate(currentDate.getDate() + 1)
-    const newDate = currentDate.toLocaleDateString('id-ID')
-    setSelectedDate(newDate)
   }
 
   const submitTransaction = (data) => {
@@ -252,23 +257,24 @@ const HalamanTransaksi = () => {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col justify-end h-full">
       {/* Header/Navigation */}
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
-          <div className="flex-1 max-w-xs">
+          {/* <div className="flex-1 max-w-xs">
             <SearchField
               placeholder="Cari saldo atau sumber..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
             />
-          </div>
+          </div> */}
           <div className="flex-1 max-w-xs">
             <Dropdown
               className="w-full"
               label="Pindah Toko"
               items={stores.map((store) => store.name)}
+              color={'gray'}
             />
           </div>
         </div>
@@ -278,7 +284,7 @@ const HalamanTransaksi = () => {
       <FinancialSummaryCards financialSummary={financialSummary} formatRupiah={formatRupiah} />
 
       {/* Total Assets and Fund Sources */}
-      <div className="bg-white shadow rounded-lg p-4 mb-6">
+      <div className="bg-white shadow rounded-lg p-4 mb-6 ">
         <div className="font-bold text-xl mb-3">
           TOTAL ASET: {formatRupiah(financialSummary.totalAssets)}
         </div>
@@ -295,96 +301,24 @@ const HalamanTransaksi = () => {
       </div>
 
       {/* Transaction Data Table */}
-      <div className="bg-white shadow rounded-lg p-4">
-        <div className="flex justify-between items-center mb-4">
-          <div className="font-bold text-lg">DATA TRANSAKSI</div>
-          <div className="text-sm">Total Trx: {transactions.length}</div>
-          <div className="flex items-center gap-2">
-            <button onClick={handlePrevDate} className="p-1">
-              <HiChevronLeft />
-            </button>
-            <div className="relative">
-              <input
-                type="text"
-                value={selectedDate}
-                onChange={(e) => handleDateChange(e.target.value)}
-                className="border rounded-md px-3 py-1 pr-8"
-              />
-              <HiCalendar className="absolute right-2 top-2 text-gray-500" />
-            </div>
-            <button onClick={handleNextDate} className="p-1">
-              <HiChevronRight />
-            </button>
-            {/* Replace the ButtonInput with FormLayout */}
-            <FormLayout
-              onSubmit={submitTransaction}
-              buttonText="Tambah"
-              formType="transaction"
-              initialData={transactionFormData}
-            />
-          </div>
-        </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                {transactionColumns.map((column) => (
-                  <th
-                    key={column.key}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    {column.label}
-                  </th>
-                ))}
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {transactions.length > 0 ? (
-                transactions.map((transaction, index) => (
-                  <tr key={transaction.id}>
-                    {transactionColumns.map((column) => (
-                      <td key={column.key} className="px-6 py-4 whitespace-nowrap">
-                        {column.key.includes('balance') ||
-                        column.key.includes('amount') ||
-                        column.key.includes('admin')
-                          ? formatRupiah(transaction[column.key])
-                          : transaction[column.key]}
-                      </td>
-                    ))}
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleEdit(transaction.id)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-2"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(transaction.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={transactionColumns.length + 1}
-                    className="px-6 py-4 text-center text-sm text-gray-500"
-                  >
-                    Data Kosong
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <TableContent
+        data={transactions}
+        columns={transactionColumns}
+        title={'Data Transaksi'}
+        info={`Total Transaksi: ${transactions.length}`}
+        btnSize={'xs'}
+        onAdd={
+          <FormLayout
+            onSubmit={submitTransaction}
+            buttonText="Tambah Data"
+            formType="transaction"
+            initialData={transactionFormData}
+          />
+        }
+        searchValue={filterText}
+        onSearchChange={setFilterText}
+      />
 
       {/* Modals and Dialogs */}
       <ConfirmDialog

@@ -1,10 +1,11 @@
+import { FaExchangeAlt, FaStar, FaUniversity, FaWallet } from 'react-icons/fa'
+
 import React from 'react'
-import { FaWallet, FaExchangeAlt, FaUniversity, FaStar } from 'react-icons/fa'
 
 const FinancialSummaryCards = ({ financialSummary, formatRupiah }) => {
   return (
     <div className="grid grid-cols-4 gap-4 mb-6">
-      <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between">
+      <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between  transition-transform hover:shadow-lg hover:-translate-y-1">
         <div className="flex items-center">
           <div className="bg-blue-100 p-2 rounded-full mr-3">
             <FaWallet className="text-blue-500" />
@@ -16,7 +17,7 @@ const FinancialSummaryCards = ({ financialSummary, formatRupiah }) => {
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between">
+      <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between  transition-transform hover:shadow-lg hover:-translate-y-1">
         <div className="flex items-center">
           <div className="bg-green-100 p-2 rounded-full mr-3">
             <FaExchangeAlt className="text-green-500" />
@@ -28,7 +29,7 @@ const FinancialSummaryCards = ({ financialSummary, formatRupiah }) => {
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between">
+      <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between  transition-transform hover:shadow-lg hover:-translate-y-1">
         <div className="flex items-center">
           <div className="bg-purple-100 p-2 rounded-full mr-3">
             <FaUniversity className="text-purple-500" />
@@ -40,7 +41,7 @@ const FinancialSummaryCards = ({ financialSummary, formatRupiah }) => {
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between">
+      <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between  transition-transform hover:shadow-lg hover:-translate-y-1">
         <div className="flex items-center">
           <div className="bg-yellow-100 p-2 rounded-full mr-3">
             <FaStar className="text-yellow-500" />

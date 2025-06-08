@@ -16,11 +16,6 @@ import { Route } from "react-router-dom";
 
 // import ProtectedRoute from "./ProtectedRoute";
 
-
-
-
-
-
 const DashboardRoutes = () => {
   return (
     <>
