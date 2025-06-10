@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
-import DashboardCard from "../../../features/dashboard/ui/DashboardCard";
-import { HiShoppingBag, HiUserGroup, HiCurrencyDollar } from "react-icons/hi2";
-import { Link } from "react-router-dom";
+import { HiCurrencyDollar, HiShoppingBag, HiUserGroup } from 'react-icons/hi2'
+import React, { useEffect, useState } from 'react'
+
+import DashboardCard from '../../../features/dashboard/ui/DashboardCard'
+import { Link } from 'react-router-dom'
 
 const DashboardPage = () => {
   // Sample store data - in a real app, this would come from a context, API or props
@@ -34,40 +35,70 @@ const DashboardPage = () => {
       address: 'Jl. Sudirman No. 78, Jakarta',
       phone: '081234567893'
     }
-  ]);
+  ])
 
   // Calculate statistics
-  const totalStores = stores.length;
-  const totalEmployees = stores.reduce((total, store) => total + store.totalEmployees, 0);
-  
+  const totalStores = stores.length
+  const totalEmployees = stores.reduce((total, store) => total + store.totalEmployees, 0)
+
   // Sample sales data
-  const totalSales = 25000000;
+  const totalSales = 25000000
 
   const statistic = [
     {
-      name: "Total Toko",
+      name: 'Total Toko',
       value: totalStores,
       icon: <HiShoppingBag size={24} className="text-blue-600" />,
-      linkTo: "/dashboard/kelola-toko"
+      linkTo: '/dashboard/kelola-toko'
     },
     {
-      name: "Total Pegawai",
+      name: 'Total Pegawai',
       value: totalEmployees,
       icon: <HiUserGroup size={24} className="text-green-600" />,
-      linkTo: "/dashboard/kelola-toko"
+      linkTo: '/dashboard/kelola-toko'
     },
     {
-      name: "Total Penjualan",
-      value: `Rp ${(totalSales).toLocaleString('id-ID')}`,
+      name: 'Total Penjualan',
+      value: `Rp ${totalSales.toLocaleString('id-ID')}`,
       icon: <HiCurrencyDollar size={24} className="text-yellow-600" />,
-      linkTo: "/dashboard/laporan"
+      linkTo: '/dashboard/laporan'
     }
-  ];
+  ]
+  // Tambahkan ini di atas useEffect:
+  const [users, setUsers] = useState([])
+
+  useEffect(() => {
+    if (window.api && typeof window.api.getUsers === 'function') {
+      window.api.getUsers().then((users) => {
+        console.log('Users:', users)
+        setUsers(users) // kamu belum punya setUsers di state
+      })
+    } else {
+      console.warn('window.api.getUsers is not available')
+    }
+  }, [])
 
   return (
     <div>
+      <table className="table-auto border-collapse border border-gray-400">
+  <thead>
+    <tr>
+      <th className="border border-gray-300 px-4 py-2">Name</th>
+      <th className="border border-gray-300 px-4 py-2">Email</th>
+    </tr>
+  </thead>
+  <tbody>
+    {users.map((user) => (
+      <tr key={user.id}>
+        <td className="border border-gray-300 px-4 py-2">{user.name}</td>
+        <td className="border border-gray-300 px-4 py-2">{user.email}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {statistic.map((stat, index) => (
           <Link to={stat.linkTo} key={index} className="block hover:no-underline">
@@ -77,9 +108,7 @@ const DashboardPage = () => {
                   <p className="text-gray-500 text-sm">{stat.name}</p>
                   <p className="text-2xl font-bold mt-1">{stat.value}</p>
                 </div>
-                <div className="p-3 bg-gray-100 rounded-full">
-                  {stat.icon}
-                </div>
+                <div className="p-3 bg-gray-100 rounded-full">{stat.icon}</div>
               </div>
             </div>
           </Link>
@@ -89,14 +118,14 @@ const DashboardPage = () => {
       <div className="mt-12">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold">Daftar Toko</h2>
-          <Link 
-            to="/dashboard/kelola-toko" 
+          <Link
+            to="/dashboard/kelola-toko"
             className="text-blue-600 hover:text-blue-800 text-sm font-medium"
           >
             Lihat Semua
           </Link>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {stores.map((store) => (
             <div key={store.id} className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -118,7 +147,7 @@ const DashboardPage = () => {
                 </div>
               </div>
               <div className="bg-gray-50 p-4 border-t border-gray-100">
-                <Link 
+                <Link
                   to={`/dashboard/kelola-toko/${store.id}`}
                   className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
@@ -130,7 +159,7 @@ const DashboardPage = () => {
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default DashboardPage;
+export default DashboardPage
