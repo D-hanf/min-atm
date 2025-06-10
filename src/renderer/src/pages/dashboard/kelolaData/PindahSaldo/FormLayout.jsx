@@ -1,10 +1,12 @@
+import React, { use, useEffect } from 'react'
+
 import ButtonInput from '../../../../components/ButtonInput'
+import Dropdown from '../../../../components/Dropdown'
 import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
-import React, { useEffect } from 'react'
+import SelectItems from '../../../../components/SelectItems'
 import { useState } from 'react'
-import Dropdown from '../../../../components/Dropdown'
 
 const FormLayout = ({ onSubmit, buttonText = 'Tambah Pemindahan Saldo', initialData = {} }) => {
   const [modalOpen, setModalOpen] = useState(false)
@@ -17,17 +19,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Tambah Pemindahan Saldo', initialD
   }
 
   // Platform options
-  const platformOptions = [
-    'BRI',
-    'BNI',
-    'Mandiri',
-    'BTN',
-    'DANA',
-    'OVO',
-    'GoPay',
-    'ShopeePay',
-    'LinkAja'
-  ]
+  const [platformOptions,setPlatformOptions ]= useState('')
 
   // Format currency
   const formatRupiah = (value) => {
@@ -64,7 +56,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Tambah Pemindahan Saldo', initialD
     const { name, value } = e.target
 
     // Special handling for amount and operational fields
-    if (name === 'amount' || name === 'operational'|| name === 'senderBalance' || name === 'receiverBalance') {
+    if (name === 'amount' || name === 'operational') {
       const numericValue = extractNumeric(value)
       setFormData({
         ...formData,
@@ -109,7 +101,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Tambah Pemindahan Saldo', initialD
   return (
     <>
       <div className="w-full flex justify-end">
-        <ButtonInput size="md" onClick={() => setModalOpen(true)}>
+        <ButtonInput size="xs" onClick={() => setModalOpen(true)}>
           <HiPlus size={18} />
           {buttonText}
         </ButtonInput>
@@ -121,20 +113,23 @@ const FormLayout = ({ onSubmit, buttonText = 'Tambah Pemindahan Saldo', initialD
           value={formData.user || currentUser.name}
           onChange={handleInputChange}
           disabled={true}
-          className="bg-gray-100" // Visual indication that it's read-only
         >
           User Pemindah
         </InputField>
 
         <div className="col-span-2 mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Platform</label>
-          <Dropdown
-            className="w-full"
+          <SelectItems
+            onChange={(e) => {
+              setPlatformOptions(e.target.value)
+            }}
+            name="platform"
             label="Pilih Platform"
-            value={formData.platform}
-            items={platformOptions}
-            onChange={handlePlatformChange}
-          />
+            value={platformOptions}
+            options={[
+              {label: 'DANA', value: 'dana'},
+              {label: 'GOPAY', value: 'gopay'}
+            ]}
+          ></SelectItems>
         </div>
 
         <InputField
@@ -176,6 +171,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Tambah Pemindahan Saldo', initialD
         </InputField>
 
         <InputField
+          required={false}
           name="description"
           className="col-span-2"
           value={formData.description || ''}

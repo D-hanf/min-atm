@@ -1,30 +1,40 @@
-import { AiOutlineMinus, AiOutlinePlus, AiOutlineShop } from 'react-icons/ai'
 import {
-  HiBars3,
   HiOutlineArrowLeftEndOnRectangle,
-  HiOutlineCog,
+  HiOutlineBars4,
+  HiOutlineChevronDoubleLeft,
   HiOutlineCube,
-  HiOutlineCurrencyDollar,
   HiOutlineHome,
-  HiOutlineShoppingBag,
-  HiOutlineUser,
-  HiXMark
+  HiOutlineShoppingBag
 } from 'react-icons/hi2'
-import { HiOutlineBars4, HiOutlineChevronDoubleLeft } from 'react-icons/hi2'
 import { Link, useLocation } from 'react-router-dom'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+
+import { AiOutlineShop } from 'react-icons/ai'
 
 const Sidebar = () => {
   const location = useLocation()
   const currentLocation = location.pathname
-  const [isOpen, setIsOpen] = useState(true)
-  const [expandedMenu, setExpandedMenu] = useState(null)
+  const [isOpen, setIsOpen] = useState(false)
+  const [hoveringSidebar, setHoveringSidebar] = useState(false)
+  const [openSubmenu, setOpenSubmenu] = useState(null)
 
-  const toggleSubMenu = (index) => {
-    if (expandedMenu === index) {
-      setExpandedMenu(null)
-    } else {
-      setExpandedMenu(index)
+  // Atur sidebar open/close sesuai hover state
+  useEffect(() => {
+    setIsOpen(hoveringSidebar)
+    if (!hoveringSidebar) setOpenSubmenu(null)
+  }, [hoveringSidebar])
+
+  // Toggle submenu saat sidebar terbuka klik menu
+  const toggleSubmenu = (index) => {
+    if (isOpen) {
+      setOpenSubmenu((prev) => (prev === index ? null : index))
+    }
+  }
+
+  // Hover submenu muncul saat sidebar tertutup
+  const handleSubmenuHover = (index) => {
+    if (!isOpen) {
+      setOpenSubmenu(index)
     }
   }
 
@@ -47,18 +57,9 @@ const Sidebar = () => {
           icon: <HiOutlineCube size={18} />,
           hasSubmenu: true,
           submenu: [
-            {
-              label: 'Pindah Saldo',
-              to: '/dashboard/pindah-saldo'
-            },
-            {
-              label: 'Ambil Saldo',
-              to: '/dashboard/ambil-saldo'
-            },
-            {
-              label: 'Saldo Awal',
-              to: '/dashboard/saldo-awal'
-            }
+            { label: 'Pindah Saldo', to: '/dashboard/pindah-saldo' },
+            { label: 'Ambil Saldo', to: '/dashboard/ambil-saldo' },
+            { label: 'Saldo Awal', to: '/dashboard/saldo-awal' }
           ]
         }
       ]
@@ -68,11 +69,6 @@ const Sidebar = () => {
       items: [
         {
           label: 'Kelola Toko',
-          icon: <HiOutlineCog size={18} />,
-          to: '/dashboard/kelola-toko'
-        },
-        {
-          label: 'Kelola Toko',
           icon: <AiOutlineShop size={18} />,
           to: '/dashboard/kelola-toko'
         },
@@ -80,7 +76,6 @@ const Sidebar = () => {
           label: 'Logout',
           icon: <HiOutlineArrowLeftEndOnRectangle size={18} />,
           to: '/'
-          // onClick: logout, // Uncomment if you want to handle logout
         }
       ]
     }
@@ -88,93 +83,141 @@ const Sidebar = () => {
 
   return (
     <div
-  className={`
-    flex flex-col h-screen bg-white border-r border-zinc-200 overflow-y-auto
-    transition-all duration-300 ease-in-out
-    ${isOpen ? "w-64" : "w-16"}
-  `}
->
-  <div className="flex justify-between items-center px-4 py-6">
-    {isOpen ? (
-      <>
-        <h1 className="text-xl font-bold text-zinc-800">Cashier App</h1>
-        <HiOutlineChevronDoubleLeft
-          onClick={() => setIsOpen(false)}
-          className="cursor-pointer"
-          size={24}
-        />
-      </>
-    ) : (
-      <HiOutlineBars4
-        onClick={() => setIsOpen(true)}
-        className="cursor-pointer mx-auto"
-        size={24}
-      />
-    )}
-  </div>
-
-  {isOpen && (
-    <div className="flex items-center gap-3 px-4 py-4 border-t border-b border-zinc-200">
-      <div className="w-10 h-10 rounded-full bg-zinc-200 overflow-hidden">
-        <img
-          src="/placeholder-profile.jpg"
-          alt="Profile"
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.target.onerror = null
-            e.target.src =
-              "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23999'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E"
-          }}
-        />
+      onMouseEnter={() => setHoveringSidebar(true)}
+      onMouseLeave={() => setHoveringSidebar(false)}
+      className={`flex flex-col h-screen bg-white border-r border-zinc-200 overflow-y-auto
+        transition-all duration-300 ease-in-out
+        ${isOpen ? 'w-64 opacity-100' : 'w-20 opacity-80'}
+        relative`}
+      style={{
+        transform: isOpen ? 'translateX(0)' : 'translateX(-10px)',
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-6">
+        {isOpen && <h1 className="text-xl font-bold text-zinc-800 select-none">Cashier App</h1>}
       </div>
-      <div>
-        <p className="font-medium text-sm">John Doe</p>
-        <p className="text-xs text-zinc-500">Admin Toko</p>
+
+      {/* Profile section: selalu tampil */}
+      <div
+        className={`flex items-center gap-3 px-4 py-4 border-t border-b border-zinc-200 cursor-default transition-all duration-300
+          ${isOpen ? 'w-full' : 'w-12 mx-auto justify-center'}`}
+      >
+        <div className={`rounded-full overflow-hidden bg-zinc-200 flex-shrink-0 transition-all duration-300
+          ${isOpen ? 'w-10 h-10' : 'w-8 h-8'}`}>
+          <img
+            src="/placeholder-profile.jpg"
+            alt="Profile"
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.onerror = null
+              e.target.src =
+                "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23999'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E"
+            }}
+          />
+        </div>
+        {isOpen && (
+          <div className="select-none">
+            <p className="font-medium text-sm">John Doe</p>
+            <p className="text-xs text-zinc-500">Admin Toko</p>
+          </div>
+        )}
+      </div>
+
+      {/* Navigation items */}
+      <div className="flex-1 py-6 px-5">
+        {navigations.map((section, iSection) => (
+          <div key={iSection} className={iSection > 0 ? 'mt-6' : ''}>
+            {isOpen && (
+              <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 px-2 select-none">
+                {section.title}
+              </h3>
+            )}
+            <ul>
+              {section.items.map((item, iItem) => (
+                <li
+                  key={iItem}
+                  className="relative group"
+                  onMouseEnter={() => handleSubmenuHover(`${iSection}-${iItem}`)}
+                  onMouseLeave={() => !isOpen && setOpenSubmenu(null)}
+                >
+                  {item.hasSubmenu ? (
+                    <>
+                      <button
+                        onClick={() => toggleSubmenu(`${iSection}-${iItem}`)}
+                        className={`flex items-center gap-x-3 w-full p-2.5 rounded-md
+                        transition-colors duration-200
+                        hover:bg-zinc-50 text-sm text-zinc-700 select-none
+                        ${currentLocation.startsWith(item.to) ? 'bg-zinc-100 font-medium text-zinc-800' : ''}`}
+                      >
+                        <span className="text-zinc-600 min-w-[20px]">{item.icon}</span>
+                        <span
+                          className={`transition-all duration-300 ease-in-out
+                          ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
+                        >
+                          {item.label}
+                        </span>
+                      </button>
+
+                      {/* Submenu saat sidebar terbuka dan toggle aktif */}
+                      {isOpen && openSubmenu === `${iSection}-${iItem}` && (
+                        <div className="ml-6 mt-2 space-y-1 select-none">
+                          {item.submenu.map((sub, subIdx) => (
+                            <Link
+                              key={subIdx}
+                              to={sub.to}
+                              className={`block px-2 py-1 rounded text-sm transition-colors
+                              ${currentLocation === sub.to
+                                ? 'bg-zinc-100 font-medium text-zinc-800'
+                                : 'text-zinc-600 hover:bg-zinc-50'}`}
+                            >
+                              {sub.label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Submenu dropdown saat sidebar tertutup dan hover menu */}
+                      {!isOpen && openSubmenu === `${iSection}-${iItem}` && (
+                        <div className="absolute left-full top-0 ml-2 w-48 bg-white border border-zinc-200 rounded shadow-lg opacity-100 visible transition-opacity duration-200 z-20">
+                          <ul className="py-2">
+                            {item.submenu.map((sub, subIdx) => (
+                              <li key={subIdx}>
+                                <Link
+                                  to={sub.to}
+                                  className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 whitespace-nowrap"
+                                >
+                                  {sub.label}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <Link
+                      to={item.to}
+                      className={`flex items-center gap-x-3 p-2.5 rounded-md transition-colors duration-200
+                      ${currentLocation === item.to ? 'bg-zinc-100 text-zinc-800 font-medium' : 'text-zinc-600 hover:bg-zinc-50'}
+                      select-none`}
+                    >
+                      <span className="text-zinc-600 min-w-[20px]">{item.icon}</span>
+                      <span
+                        className={`transition-all duration-300 ease-in-out
+                        ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
+                      >
+                        {item.label}
+                      </span>
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
     </div>
-  )}
-
-  <div className="flex-1 py-6 px-2">
-    {navigations.map((section, index) => (
-      <div key={index} className={index > 0 ? "mt-8" : ""}>
-        {isOpen && (
-          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 px-2">
-            {section.title}
-          </h3>
-        )}
-        <ul className="space-y-2">
-          {section.items.map((item, idx) => (
-            <li key={idx}>
-              {item.hasSubmenu ? (
-                <button
-                  onClick={() => toggleSubMenu(`${index}-${idx}`)}
-                  className={`flex items-center gap-x-3 w-full p-2.5 rounded-md transition-colors hover:bg-zinc-50 text-sm text-zinc-700`}
-                >
-                  <span className="text-zinc-600 min-w-[20px]">{item.icon}</span>
-                  {isOpen && <span>{item.label}</span>}
-                </button>
-              ) : (
-                <Link
-                  to={item.to}
-                  className={`flex items-center gap-x-3 p-2.5 rounded-md transition-colors ${
-                    currentLocation === item.to
-                      ? "bg-zinc-100 text-zinc-800 font-medium"
-                      : "text-zinc-600 hover:bg-zinc-50"
-                  }`}
-                  onClick={item.onClick}
-                >
-                  <span className="text-zinc-600 min-w-[20px]">{item.icon}</span>
-                  {isOpen && <span className="text-sm">{item.label}</span>}
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
-      </div>
-    ))}
-  </div>
-</div>
-
   )
 }
 

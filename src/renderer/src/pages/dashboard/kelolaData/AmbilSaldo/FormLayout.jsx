@@ -1,10 +1,11 @@
+import React, { useEffect } from 'react'
+
 import ButtonInput from '../../../../components/ButtonInput'
+import Dropdown from '../../../../components/Dropdown'
 import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
-import React, { useEffect } from 'react'
 import { useState } from 'react'
-import Dropdown from '../../../../components/Dropdown'
 
 const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) => {
   const [modalOpen, setModalOpen] = useState(false)
@@ -113,7 +114,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
   return (
     <>
       <div className="w-full flex justify-end">
-        <ButtonInput size="md" onClick={() => setModalOpen(true)}>
+        <ButtonInput size="xs" onClick={() => setModalOpen(true)}>
           <HiPlus size={18} />
           {buttonText}
         </ButtonInput>
@@ -206,6 +207,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
           value={formData.description || ''}
           onChange={handleInputChange}
           placeholder="Tambahan informasi pengambilan saldo"
+          required={false}
         >
           Keterangan
         </InputField>

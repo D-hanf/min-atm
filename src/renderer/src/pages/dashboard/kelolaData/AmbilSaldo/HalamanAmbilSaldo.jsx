@@ -173,31 +173,32 @@ const HalamanAmbilSaldo = () => {
     <>
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
-          <div className="flex-1 max-w-xs">
-            <SearchField
-              placeholder="Cari data pengambilan saldo..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-            />
-          </div>
+             <div className='flex items-center'>
+          <h1 className="text-2xl font-bold text-gray-800 ">Ambil Saldo </h1>
+
+        </div>
           <div className="flex-1 max-w-xs">
             <Dropdown
               className="w-full"
               label="Pilih Toko"
+              color={'gray'}
               items={stores.map((store) => store.name)}
             />
-          </div>
-          <div className="flex-1 flex justify-end">
-            <FormLayout
-              onSubmit={handleAddTransfer}
-              buttonText="Tambah Pengambilan Saldo"
-            ></FormLayout>
           </div>
         </div>
       </div>
       <div>
         <TableContent
+          searchValue={filterText}
+          onSearchChange={setFilterText}
+          title="Data Pengambilan Saldo"
+          btnSize={'xs'}
+          onAdd={
+            <FormLayout
+              onSubmit={handleAddTransfer}
+              buttonText="Tambah Pengambilan Saldo"
+            ></FormLayout>
+          }
           data={filteredData}
           columns={columns}
           onDelete={handleDelete}
@@ -311,6 +312,7 @@ const HalamanAmbilSaldo = () => {
           name="description"
           value={formData.description || ''}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          required={false}
         >
           Keterangan
         </InputField>

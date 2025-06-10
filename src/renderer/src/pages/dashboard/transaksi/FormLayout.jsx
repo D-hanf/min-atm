@@ -67,7 +67,7 @@ const FormLayout = ({
   return (
     <>
       <div className="w-full flex justify-end">
-        <ButtonInput size="sm" onClick={() => setModalOpen(true)}>
+        <ButtonInput size="xs" onClick={() => setModalOpen(true)}>
           <HiPlus size={18} />
           {buttonText}
         </ButtonInput>
@@ -97,6 +97,7 @@ const FormLayout = ({
               className="col-span-2"
               value={formData.description || ''}
               onChange={handleInputChange}
+              required={false}
             >
               Keterangan
             </InputField>
@@ -199,6 +200,8 @@ const FormLayout = ({
               name="description"
               className="col-span-2"
               value={formData.description || ''}
+          required={false}
+
               onChange={handleInputChange}
             >
               Keterangan

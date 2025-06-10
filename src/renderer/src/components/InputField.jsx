@@ -16,6 +16,7 @@ const InputHere = ({
   placeholder,
   onChange,
   ...props
+  
 }) => {
   return (
     <div className="mt-2">
@@ -42,6 +43,7 @@ const InputField = ({
   placeholder,
   value,
   onChange,
+  required,
   className,
   ...props
 }) => {
@@ -56,6 +58,7 @@ const InputField = ({
         name={name}
         placeholder={placeholder}
         value={value}
+        required={required}
         onChange={onChange}
         {...props}
       />

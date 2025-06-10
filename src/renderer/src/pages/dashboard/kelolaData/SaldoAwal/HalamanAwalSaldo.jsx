@@ -154,30 +154,31 @@ const HalamanAwalSaldo = () => {
     <>
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
-          <div className="flex-1 max-w-xs">
-            <SearchField
-              placeholder="Cari saldo atau sumber..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-            />
-          </div>
+             <div className='flex items-center'>
+          <h1 className="text-2xl font-bold text-gray-800 ">Saldo Awal</h1>
+
+        </div>
           <div className="flex-1 max-w-xs">
             <Dropdown
               className="w-full"
+              color={"gray"}
               label="Pindah Toko"
               items={stores.map((store) => store.name)}
             />
-          </div>
-          <div className="flex-1 flex justify-end">
-            <FormLayout onSubmit={handleAddSaldo}></FormLayout>
           </div>
         </div>
       </div>
       <div>
         <TableContent
+                 searchValue={filterText}
+        onSearchChange={setFilterText}
           data={filteredData}
+          btnSize={'xs'}
+          title="Data Saldo Awal"
           columns={columns}
+          onAdd={
+            <FormLayout onSubmit={handleAddSaldo}></FormLayout>
+          }
           onDelete={handleDelete}
           onEdit={handleEdit}
         />
@@ -225,6 +226,7 @@ const HalamanAwalSaldo = () => {
           className={'col-span-2'}
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          
         >
           Keterangan
         </InputField>
@@ -233,6 +235,8 @@ const HalamanAwalSaldo = () => {
           type="hidden"
           value={Date.now()}
           onChange={(e) => setFormData({ ...formData, dateCreated: Date.now() })}
+          required={false}
+
         ></InputField>
       </ModalEdit>
     </>

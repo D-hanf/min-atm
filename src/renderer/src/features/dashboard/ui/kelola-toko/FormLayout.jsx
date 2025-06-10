@@ -10,7 +10,7 @@ const FormLayout = ({ onSubmit }) => {
   return (
     <>
       <div className="">
-        <ButtonInput size="sm" onClick={() => setModalOpen(true)}>
+        <ButtonInput size="xs" onClick={() => setModalOpen(true)}>
           <HiPlus size={18} />
           Tambah toko
         </ButtonInput>
@@ -27,7 +27,7 @@ const FormLayout = ({ onSubmit }) => {
         <InputField placeholder={'08xxxxxxxx'} type="number" name="phone">
           No.Telp
         </InputField>
-        <InputField name="totalEmployees  " type="number">
+        <InputField name="totalEmployees" type="number">
           Jumlah Karyawan
         </InputField>
         <InputField name="address" className="">

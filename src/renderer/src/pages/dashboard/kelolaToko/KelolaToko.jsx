@@ -45,10 +45,10 @@ const KelolaToko = () => {
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [formData, setFormData] = useState({
-    namaToko: '',
-    noTlp: '',
-    alamat: '',
-    jumlahKaryawan: 0
+    name: '',
+    phone: '',
+    address: '',
+    totalEmployees: 0
   })
   const [filterText, setFilterText] = useState('')
 
@@ -103,14 +103,14 @@ const KelolaToko = () => {
           { key: 'name', label: 'Nama Toko' },
           { key: 'phone', label: 'No. Telp' },
           { key: 'totalEmployees', label: 'Jumlah Karyawan' },
-          { key: 'address', label: 'Alamat' }
+          { key: 'address', label: 'address' }
         ]}
         // onEdit={(item) => console.log('Edit', item)}
         showView={true}
         onView={handleManageStore}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        btnSize={'sm'}
+        btnSize={'xs'}
         title={'Data Toko'}
         searchValue={filterText}
         onSearchChange={setFilterText}
@@ -132,36 +132,36 @@ const KelolaToko = () => {
             prevData.map((item) => (item.id === formData.id ? { ...item, ...updatedData } : item))
           )
           setModalOpen(false)
-          setFormData({ namaToko: '', noTlp: '', alamat: '', jumlahKaryawan: 0 })
+          setFormData({ name: '', phone: '', address: '', totalEmployees: 0 })
         }}
       >
         <InputField
-          name="namaToko"
-          value={formData.namaToko}
-          onChange={(e) => setFormData({ ...formData, namaToko: e.target.value })}
+          name="name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
         >
           Nama Toko
         </InputField>
         <InputField
-          name="noTlp"
-          value={formData.noTlp}
+          name="phone"
+          value={formData.phone}
           type="number"
-          onChange={(e) => setFormData({ ...formData, noTlp: e.target.value })}
+          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
         >
           No. Telp
         </InputField>
         <InputField
-          name="jumlahKaryawan"
-          value={formData.jumlahKaryawan}
+          name="totalEmployees"
+          value={formData.totalEmployees}
           type="number"
-          onChange={(e) => setFormData({ ...formData, jumlahKaryawan: e.target.value })}
+          onChange={(e) => setFormData({ ...formData, totalEmployees: e.target.value })}
         >
           Jumlah Karyawan
         </InputField>
         <InputField
-          name="alamat"
-          value={formData.alamat}
-          onChange={(e) => setFormData({ ...formData, alamat: e.target.value })}
+          name="address"
+          value={formData.address}
+          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
         >
           Alamat
         </InputField>

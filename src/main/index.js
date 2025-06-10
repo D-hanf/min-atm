@@ -7,18 +7,20 @@ import { join } from 'path'
 const path = require('path')
 const sqlite3 = require('sqlite3').verbose()
 
-const db = new sqlite3.Database( path.join(__dirname, 'cashier.db'), (err) => {
-    if (err) {
-      console.error('Error opening database:', err.message)
-    } else {
-      console.log('Connected to the SQLite database.')
-    }
+const db = new sqlite3.Database(path.join(__dirname, 'cashier.db'), (err) => {
+  if (err) {
+    console.error('Error opening database:', err.message)
+  } else {
+    console.log('Connected to the SQLite database.')
   }
-)
+})
+
 function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    fullscreen: true,
+    width: 1280,
+    height: 720,
+    title: 'Cashier App',
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -50,6 +52,42 @@ function createWindow() {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  db.run(
+    `
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL
+  )
+`,
+    (err) => {
+      if (err) {
+        console.error('Gagal buat tabel:', err.message)
+      } else {
+        console.log('Tabel users siap.')
+        // Masukkan data (opsional, hanya jika kamu ingin isi awal)
+        const insertStmt = `INSERT OR IGNORE INTO users (name, email) VALUES (?, ?)`
+
+        db.run(insertStmt, ['Alice', 'alice@example.com'])
+        db.run(insertStmt, ['Bob', 'bob@example.com'])
+        console.log('Data telah dimasukkan.')
+
+        ipcMain.handle('get-users', (event) => {
+          return new Promise((resolve, reject) => {
+            db.all('SELECT * FROM users', [], (err, rows) => {
+              if (err) {
+                console.error('Gagal ambil data:', err.message)
+                reject(err)
+              } else {
+                resolve(rows)
+              }
+            })
+          })
+        })
+      }
+    }
+  )
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
