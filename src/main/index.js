@@ -26,9 +26,13 @@ function createWindow() {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
       sandbox: false
     }
+    
   })
+console.log('✅ Loading preload from', join(__dirname, '../preload/index.js'))
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()

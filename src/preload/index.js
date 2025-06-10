@@ -1,9 +1,13 @@
-import { contextBridge, ipcRenderer} from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
+
 import { electronAPI } from '@electron-toolkit/preload'
 
+console.log('✅ Preload file executed hehe wkwkwk') 
+
 // Custom APIs for renderer
-const api = {}
-const { contextBridge, ipcRenderer } = require('electron');
+const api = {
+  getUsers: () => ipcRenderer.invoke('get-users')
+}
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -12,6 +16,8 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
+    console.log('✅ Preload is loaded')
+
   } catch (error) {
     console.error(error)
   }
