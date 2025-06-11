@@ -64,14 +64,14 @@ const DashboardPage = () => {
       linkTo: '/dashboard/laporan'
     }
   ]
-  // Tambahkan ini di atas useEffect:
+
   const [users, setUsers] = useState([])
 
   useEffect(() => {
     if (window.api && typeof window.api.getUsers === 'function') {
       window.api.getUsers().then((users) => {
         console.log('Users:', users)
-        setUsers(users) // kamu belum punya setUsers di state
+        setUsers(users)
       })
     } else {
       console.warn('window.api.getUsers is not available')
@@ -80,22 +80,24 @@ const DashboardPage = () => {
 
   return (
     <div>
-      <table className="table-auto border-collapse border border-gray-400">
-  <thead>
-    <tr>
-      <th className="border border-gray-300 px-4 py-2">Name</th>
-      <th className="border border-gray-300 px-4 py-2">Email</th>
-    </tr>
-  </thead>
-  <tbody>
-    {users.map((user) => (
-      <tr key={user.id}>
-        <td className="border border-gray-300 px-4 py-2">{user.name}</td>
-        <td className="border border-gray-300 px-4 py-2">{user.email}</td>
-      </tr>
-    ))}
-  </tbody>
-</table>
+      <table>
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Email</th>
+            <th>Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((user) => (
+            <tr key={user.id}>
+              <td>{user.name}</td>
+              <td>{user.email}</td>
+              <td>{user.role}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
 

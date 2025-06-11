@@ -30,9 +30,8 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false
     }
-    
   })
-console.log('✅ Loading preload from', join(__dirname, '../preload/index.js'))
+  console.log('✅ Loading preload from', join(__dirname, '../preload/index.js'))
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -58,23 +57,31 @@ console.log('✅ Loading preload from', join(__dirname, '../preload/index.js'))
 app.whenReady().then(() => {
   db.run(
     `
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL
-  )
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  role TEXT DEFAULT 'pegawai'
+)
+
 `,
     (err) => {
       if (err) {
         console.error('Gagal buat tabel:', err.message)
       } else {
         console.log('Tabel users siap.')
-        // Masukkan data (opsional, hanya jika kamu ingin isi awal)
-        const insertStmt = `INSERT OR IGNORE INTO users (name, email) VALUES (?, ?)`
 
-        db.run(insertStmt, ['Alice', 'alice@example.com'])
-        db.run(insertStmt, ['Bob', 'bob@example.com'])
-        console.log('Data telah dimasukkan.')
+        const dummyUsers = [
+          ['Alice', 'alice@example.com', 'admin'],
+          ['Bob', 'bob@example.com', 'pegawai'],
+          ['Charlie', 'charlie@example.com', 'pegawai']
+        ]
+
+        const insertStmt = `INSERT OR IGNORE INTO users (name, email, role) VALUES (?, ?, ?)`
+        dummyUsers.forEach((user) => {
+          db.run(insertStmt, user)
+        })
+        console.log('✅ Dummy data inserted')
 
         ipcMain.handle('get-users', (event) => {
           return new Promise((resolve, reject) => {
@@ -84,6 +91,67 @@ app.whenReady().then(() => {
                 reject(err)
               } else {
                 resolve(rows)
+              }
+            })
+          })
+        })
+        
+        // CREATE - Tambah user
+        ipcMain.handle('create-user', (event, user) => {
+          return new Promise((resolve, reject) => {
+            const query = `INSERT INTO users (name, email, role) VALUES (?, ?, ?)`
+            db.run(query, [user.name, user.email, user.role || 'pegawai'], function (err) {
+              if (err) {
+                console.error('Gagal tambah user:', err.message)
+                reject(err)
+              } else {
+                resolve({ id: this.lastID })
+              }
+            })
+          })
+        })
+
+        // READ - (Sudah ada: get-users)
+
+        // UPDATE - Edit user
+        ipcMain.handle('update-user', (event, user) => {
+          return new Promise((resolve, reject) => {
+            const query = `UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?`
+            db.run(query, [user.name, user.email, user.role, user.id], function (err) {
+              if (err) {
+                console.error('Gagal update user:', err.message)
+                reject(err)
+              } else {
+                resolve({ changes: this.changes })
+              }
+            })
+          })
+        })
+
+        // DELETE - Hapus user
+        ipcMain.handle('delete-user', (event, userId) => {
+          return new Promise((resolve, reject) => {
+            const query = `DELETE FROM users WHERE id = ?`
+            db.run(query, [userId], function (err) {
+              if (err) {
+                console.error('Gagal hapus user:', err.message)
+                reject(err)
+              } else {
+                resolve({ changes: this.changes })
+              }
+            })
+          })
+        })
+
+        // CEK ROLE - Ambil role berdasarkan email
+        ipcMain.handle('get-user-role', (event, email) => {
+          return new Promise((resolve, reject) => {
+            db.get(`SELECT role FROM users WHERE email = ?`, [email], (err, row) => {
+              if (err) {
+                console.error('Gagal ambil role:', err.message)
+                reject(err)
+              } else {
+                resolve(row ? row.role : null)
               }
             })
           })
