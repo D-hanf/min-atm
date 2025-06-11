@@ -25,6 +25,8 @@ npm run dev
 ```
 
 ```build app
-npm run build
+npm run build:win --> for windows
+npm run build:mac --> for macOS
+npm run build:linux --> for linux
 ```
-### 3. apps running on port 3000
+### 3. apps running on port 5173
