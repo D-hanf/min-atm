@@ -54,132 +54,157 @@ function createWindow() {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
+
 app.whenReady().then(() => {
-  db.run(
-    `
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  role TEXT DEFAULT 'pegawai'
-)
+  db.serialize(() => {
+    // CREATE TABLES
+    db.run(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nama TEXT NOT NULL,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS toko (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nama_toko TEXT NOT NULL,
+        no_telepon TEXT,
+        alamat TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS karyawan (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        toko_id INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (toko_id) REFERENCES toko(id)
+      )
+    `)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS saldo_awal (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nama_sumber_dana TEXT NOT NULL,
+        saldo REAL NOT NULL,
+        biaya_admin REAL DEFAULT 0,
+        keterangan TEXT,
+        tanggal_buat DATE DEFAULT CURRENT_DATE,
+        tanggal_update DATE DEFAULT CURRENT_DATE
+      )
+    `)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS transaksi (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
+        no_transaksi TEXT UNIQUE NOT NULL,
+        sumber_dana TEXT NOT NULL,
+        jenis_transaksi TEXT NOT NULL,
+        tipe_transaksi TEXT,
+        nominal_transaksi REAL NOT NULL,
+        fee REAL DEFAULT 0,
+        keterangan TEXT
+      )
+    `)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS pindah_saldo (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sumber_dana TEXT NOT NULL,
+        tujuan_dana TEXT NOT NULL,
+        user_pemindah TEXT NOT NULL,
+        nominal REAL NOT NULL,
+        platform TEXT,
+        biaya_admin REAL DEFAULT 0,
+        keterangan TEXT,
+        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS ambil_saldo (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sumber_dana TEXT NOT NULL,
+        nominal REAL NOT NULL,
+        biaya_admin REAL DEFAULT 0,
+        keterangan TEXT,
+        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
 
-`,
-    (err) => {
-      if (err) {
-        console.error('Gagal buat tabel:', err.message)
-      } else {
-        console.log('Tabel users siap.')
+    // INSERT DUMMY USERS
+    const users = [
+      ['Admin', 'iniadminsaya', 'adminsayaajaya', 'admin'],
+      ['Budi', 'budi123', 'kasirpass', 'kasir'],
+      ['Siti', 'siti321', 'supervisorpass', 'supervisor']
+    ]
+    const insertUser = db.prepare(`INSERT OR IGNORE INTO users (nama, username, password, role) VALUES (?, ?, ?, ?)`)
+    users.forEach(user => insertUser.run(user))
+    insertUser.finalize()
 
-        const dummyUsers = [
-          ['Alice', 'alice@example.com', 'admin'],
-          ['Bob', 'bob@example.com', 'pegawai'],
-          ['Charlie', 'charlie@example.com', 'pegawai']
-        ]
+    // INSERT DUMMY TOKO
+    const stores = [
+      ['Toko A', '08123456789', 'Jl. Merdeka 1'],
+      ['Toko B', '08123456788', 'Jl. Sudirman 2']
+    ]
+    const insertToko = db.prepare(`INSERT OR IGNORE INTO toko (nama_toko, no_telepon, alamat) VALUES (?, ?, ?)`)
+    stores.forEach(store => insertToko.run(store))
+    insertToko.finalize()
 
-        const insertStmt = `INSERT OR IGNORE INTO users (name, email, role) VALUES (?, ?, ?)`
-        dummyUsers.forEach((user) => {
-          db.run(insertStmt, user)
+    console.log('✅ Semua tabel dibuat dan dummy data dimasukkan')
+
+    // REGISTER IPC HANDLERS
+    ipcMain.handle('get-users', () => {
+      return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM users', [], (err, rows) => {
+          if (err) reject(err)
+          else resolve(rows)
         })
-        console.log('✅ Dummy data inserted')
+      })
+    })
 
-        ipcMain.handle('get-users', (event) => {
-          return new Promise((resolve, reject) => {
-            db.all('SELECT * FROM users', [], (err, rows) => {
-              if (err) {
-                console.error('Gagal ambil data:', err.message)
-                reject(err)
-              } else {
-                resolve(rows)
-              }
-            })
-          })
+    ipcMain.handle('create-user', (event, user) => {
+      return new Promise((resolve, reject) => {
+        const query = `INSERT INTO users (nama, username, password, role) VALUES (?, ?, ?, ?)`
+        db.run(query, [user.nama, user.username, user.password, user.role], function (err) {
+          if (err) reject(err)
+          else resolve({ id: this.lastID })
         })
-        
-        // CREATE - Tambah user
-        ipcMain.handle('create-user', (event, user) => {
-          return new Promise((resolve, reject) => {
-            const query = `INSERT INTO users (name, email, role) VALUES (?, ?, ?)`
-            db.run(query, [user.name, user.email, user.role || 'pegawai'], function (err) {
-              if (err) {
-                console.error('Gagal tambah user:', err.message)
-                reject(err)
-              } else {
-                resolve({ id: this.lastID })
-              }
-            })
-          })
+      })
+    })
+
+    ipcMain.handle('update-user', (event, user) => {
+      return new Promise((resolve, reject) => {
+        const query = `UPDATE users SET nama = ?, username = ?, password = ?, role = ? WHERE id = ?`
+        db.run(query, [user.nama, user.username, user.password, user.role, user.id], function (err) {
+          if (err) reject(err)
+          else resolve({ changes: this.changes })
         })
+      })
+    })
 
-        // READ - (Sudah ada: get-users)
-
-        // UPDATE - Edit user
-        ipcMain.handle('update-user', (event, user) => {
-          return new Promise((resolve, reject) => {
-            const query = `UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?`
-            db.run(query, [user.name, user.email, user.role, user.id], function (err) {
-              if (err) {
-                console.error('Gagal update user:', err.message)
-                reject(err)
-              } else {
-                resolve({ changes: this.changes })
-              }
-            })
-          })
+    ipcMain.handle('delete-user', (event, id) => {
+      return new Promise((resolve, reject) => {
+        db.run(`DELETE FROM users WHERE id = ?`, [id], function (err) {
+          if (err) reject(err)
+          else resolve({ changes: this.changes })
         })
+      })
+    })
 
-        // DELETE - Hapus user
-        ipcMain.handle('delete-user', (event, userId) => {
-          return new Promise((resolve, reject) => {
-            const query = `DELETE FROM users WHERE id = ?`
-            db.run(query, [userId], function (err) {
-              if (err) {
-                console.error('Gagal hapus user:', err.message)
-                reject(err)
-              } else {
-                resolve({ changes: this.changes })
-              }
-            })
-          })
+    ipcMain.handle('get-user-role', (event, username) => {
+      return new Promise((resolve, reject) => {
+        db.get(`SELECT role FROM users WHERE username = ?`, [username], (err, row) => {
+          if (err) reject(err)
+          else resolve(row ? row.role : null)
         })
-
-        // CEK ROLE - Ambil role berdasarkan email
-        ipcMain.handle('get-user-role', (event, email) => {
-          return new Promise((resolve, reject) => {
-            db.get(`SELECT role FROM users WHERE email = ?`, [email], (err, row) => {
-              if (err) {
-                console.error('Gagal ambil role:', err.message)
-                reject(err)
-              } else {
-                resolve(row ? row.role : null)
-              }
-            })
-          })
-        })
-      }
-    }
-  )
-
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
-
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-  app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+      })
+    })
   })
-
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
-
+  
   createWindow()
-
-  app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
