@@ -93,44 +93,53 @@ app.whenReady().then(() => {
         saldo REAL NOT NULL,
         biaya_admin REAL DEFAULT 0,
         keterangan TEXT,
-        tanggal_buat DATE DEFAULT CURRENT_DATE,
-        tanggal_update DATE DEFAULT CURRENT_DATE
+        tanggal_buat DATETIME DEFAULT CURRENT_TIMESTAMP,
+        tanggal_update DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `)
     db.run(`
       CREATE TABLE IF NOT EXISTS transaksi (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
-        no_transaksi TEXT UNIQUE NOT NULL,
-        sumber_dana TEXT NOT NULL,
-        jenis_transaksi TEXT NOT NULL,
-        tipe_transaksi TEXT,
-        nominal_transaksi REAL NOT NULL,
-        fee REAL DEFAULT 0,
-        keterangan TEXT
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
+          no_transaksi TEXT UNIQUE NOT NULL,
+          sumber_dana_id INTEGER NOT NULL,
+          jenis_transaksi TEXT NOT NULL,
+          tipe_transaksi TEXT, 
+          nominal_transaksi REAL NOT NULL,
+          tujuan_dana_id INTEGER,
+          biaya_admin_bank REAL DEFAULT 0, 
+          fee REAL DEFAULT 0,
+          metode_pembayaran TEXT, 
+          keterangan TEXT,
+          FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id)
+          FOREIGN KEY (tujuan_dana_id) REFERENCES saldo_awal(id)
       )
     `)
     db.run(`
       CREATE TABLE IF NOT EXISTS pindah_saldo (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sumber_dana TEXT NOT NULL,
-        tujuan_dana TEXT NOT NULL,
-        user_pemindah TEXT NOT NULL,
+        sumber_dana_id INTEGER NOT NULL,
+        tujuan_dana_id INTEGER NOT NULL,
+        user_pemindah_id INTEGER NOT NULL,
         nominal REAL NOT NULL,
         platform TEXT,
         biaya_admin REAL DEFAULT 0,
         keterangan TEXT,
-        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP
+        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
+        FOREIGN KEY (tujuan_dana_id) REFERENCES saldo_awal(id),
+        FOREIGN KEY (user_pemindah_id) REFERENCES users(id)
       )
     `)
     db.run(`
       CREATE TABLE IF NOT EXISTS ambil_saldo (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sumber_dana TEXT NOT NULL,
+        sumber_dana_id INTEGER NOT NULL,
         nominal REAL NOT NULL,
         biaya_admin REAL DEFAULT 0,
         keterangan TEXT,
-        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP
+        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id)
       )
     `)
 
@@ -140,8 +149,10 @@ app.whenReady().then(() => {
       ['Budi', 'budi123', 'kasirpass', 'kasir'],
       ['Siti', 'siti321', 'supervisorpass', 'supervisor']
     ]
-    const insertUser = db.prepare(`INSERT OR IGNORE INTO users (nama, username, password, role) VALUES (?, ?, ?, ?)`)
-    users.forEach(user => insertUser.run(user))
+    const insertUser = db.prepare(
+      `INSERT OR IGNORE INTO users (nama, username, password, role) VALUES (?, ?, ?, ?)`
+    )
+    users.forEach((user) => insertUser.run(user))
     insertUser.finalize()
 
     // INSERT DUMMY TOKO
@@ -149,8 +160,10 @@ app.whenReady().then(() => {
       ['Toko A', '08123456789', 'Jl. Merdeka 1'],
       ['Toko B', '08123456788', 'Jl. Sudirman 2']
     ]
-    const insertToko = db.prepare(`INSERT OR IGNORE INTO toko (nama_toko, no_telepon, alamat) VALUES (?, ?, ?)`)
-    stores.forEach(store => insertToko.run(store))
+    const insertToko = db.prepare(
+      `INSERT OR IGNORE INTO toko (nama_toko, no_telepon, alamat) VALUES (?, ?, ?)`
+    )
+    stores.forEach((store) => insertToko.run(store))
     insertToko.finalize()
 
     console.log('✅ Semua tabel dibuat dan dummy data dimasukkan')
@@ -178,10 +191,14 @@ app.whenReady().then(() => {
     ipcMain.handle('update-user', (event, user) => {
       return new Promise((resolve, reject) => {
         const query = `UPDATE users SET nama = ?, username = ?, password = ?, role = ? WHERE id = ?`
-        db.run(query, [user.nama, user.username, user.password, user.role, user.id], function (err) {
-          if (err) reject(err)
-          else resolve({ changes: this.changes })
-        })
+        db.run(
+          query,
+          [user.nama, user.username, user.password, user.role, user.id],
+          function (err) {
+            if (err) reject(err)
+            else resolve({ changes: this.changes })
+          }
+        )
       })
     })
 
@@ -203,7 +220,7 @@ app.whenReady().then(() => {
       })
     })
   })
-  
+
   createWindow()
 })
 
