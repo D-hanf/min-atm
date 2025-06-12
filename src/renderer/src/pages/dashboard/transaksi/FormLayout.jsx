@@ -1,11 +1,13 @@
-import React, { useEffect } from 'react'
-
+import React, { useEffect, useState } from 'react'
 import ButtonInput from '../../../components/ButtonInput'
 import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../components/InputField'
 import Modal from '../../../shared/ui/Modal'
-import SelectItems from '../../../components/SelectItems'
-import { useState } from 'react'
+import TransactionMenu from './TransactionMenu'
+import TarikTunaiForm from './forms/TarikTunaiForm'
+import TransferForm from './forms/TransferForm'
+import JasaTransferForm from './forms/JasaTransferForm'
+import ModePulsaForm from './forms/ModePulsaForm'
 
 const FormLayout = ({
   onSubmit,
@@ -15,11 +17,13 @@ const FormLayout = ({
 }) => {
   const [modalOpen, setModalOpen] = useState(false)
   const [formData, setFormData] = useState(initialData)
+  const [showMenu, setShowMenu] = useState(true)
+  const [selectedTransactionType, setSelectedTransactionType] = useState('')
+  const [selectedTransactionId, setSelectedTransactionId] = useState('')
 
   // Generate transaction number when modal is opened for transaction form
   useEffect(() => {
     if (modalOpen && formType === 'transaction' && !formData.transactionNumber) {
-      // Generate transaction number format: TRX-YYYYMMDD-RANDOM
       const today = new Date()
       const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
       const randomStr = Math.floor(Math.random() * 10000)
@@ -36,16 +40,35 @@ const FormLayout = ({
     }
   }, [modalOpen, formType])
 
+  // Reset menu when modal is closed
+  useEffect(() => {
+    if (!modalOpen) {
+      setShowMenu(true)
+      setSelectedTransactionType('')
+      setSelectedTransactionId('')
+    }
+  }, [modalOpen])
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData({ ...formData, [name]: value })
+  }
+
+  const handleTransactionSelect = (id, name) => {
+    setSelectedTransactionId(id)
+    setSelectedTransactionType(name)
+    setShowMenu(false)
+    setFormData((prev) => ({
+      ...prev,
+      transactionType: name
+    }))
   }
 
   const handleSubmit = () => {
     onSubmit(formData)
     setModalOpen(false)
 
-    // Reset form data after submission if it's a transaction
+    // Reset form data after submission
     if (formType === 'transaction') {
       setFormData({
         date: new Date().toISOString().split('T')[0],
@@ -64,6 +87,32 @@ const FormLayout = ({
     }
   }
 
+  const handleBackToMenu = () => {
+    setShowMenu(true)
+    setSelectedTransactionType('')
+    setSelectedTransactionId('')
+  }
+
+  const renderTransactionForm = () => {
+    const formProps = {
+      formData,
+      onChange: handleInputChange
+    }
+
+    switch (selectedTransactionId) {
+      case 'tarik-tunai':
+        return <TarikTunaiForm {...formProps} />
+      case 'transfer':
+        return <TransferForm {...formProps} />
+      case 'jasa-transfer':
+        return <JasaTransferForm {...formProps} />
+      case 'mode-pulsa':
+        return <ModePulsaForm {...formProps} />
+      default:
+        return null
+    }
+  }
+
   return (
     <>
       <div className="w-full flex justify-end">
@@ -72,9 +121,17 @@ const FormLayout = ({
           {buttonText}
         </ButtonInput>
       </div>
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}>
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleSubmit}
+        hideSubmit={formType === 'transaction' && showMenu}
+        fullWidthCancel={formType === 'transaction' && showMenu}
+        showBackButton={formType === 'transaction' && !showMenu}
+        onBack={handleBackToMenu}
+        title={formType === 'transaction' && !showMenu ? selectedTransactionType : ''}
+      >
         {formType === 'saldo' ? (
-          // Original saldo form fields
           <>
             <InputField
               name="source"
@@ -103,109 +160,12 @@ const FormLayout = ({
             </InputField>
           </>
         ) : (
-          // Transaction form fields
           <>
-            <InputField
-              name="date"
-              type="date"
-              value={formData.date || new Date().toISOString().split('T')[0]}
-              onChange={handleInputChange}
-            >
-              Tanggal
-            </InputField>
-            <InputField
-              name="transactionNumber"
-              type="text"
-              value={formData.transactionNumber || ''}
-              onChange={handleInputChange}
-              disabled={true}
-            >
-              No Transaksi
-            </InputField>
-            {/* <InputField
-              name="fundSource"
-              type="text"
-              value={formData.fundSource || ''}
-              onChange={handleInputChange}
-            >
-              Sumber Dana
-            </InputField> */}
-            <SelectItems
-              options={[
-                { label: 'Dana', value: 'Dana' },
-                { label: 'BRI', value: 'BRI' },
-                { label: 'BNI', value: 'BNI' },
-                { label: 'BCA', value: 'BCA' },
-                { label: 'Mandiri', value: 'Mandiri' }
-              ]}
-              label="Sumber Dana"
-            />
-            <InputField
-              name="type"
-              type="text"
-              value={formData.type || ''}
-              onChange={handleInputChange}
-            >
-              Jenis
-            </InputField>
-            <InputField
-              name="transactionType"
-              type="text"
-              value={formData.transactionType || ''}
-              onChange={handleInputChange}
-            >
-              Tipe Transaksi
-            </InputField>
-            <InputField
-              name="initialBalance"
-              type="number"
-              value={formData.initialBalance || 0}
-              onChange={handleInputChange}
-            >
-              Saldo Awal
-            </InputField>
-            <InputField
-              name="amount"
-              type="number"
-              value={formData.amount || 0}
-              onChange={handleInputChange}
-            >
-              Nominal
-            </InputField>
-            <InputField
-              name="internalAdmin"
-              type="number"
-              value={formData.internalAdmin || 0}
-              onChange={handleInputChange}
-            >
-              Admin Dalam
-            </InputField>
-            <InputField
-              name="externalAdmin"
-              type="number"
-              value={formData.externalAdmin || 0}
-              onChange={handleInputChange}
-            >
-              Admin Luar
-            </InputField>
-            <InputField
-              name="bankAdmin"
-              type="number"
-              value={formData.bankAdmin || 0}
-              onChange={handleInputChange}
-            >
-              Adm Bank
-            </InputField>
-            <InputField
-              name="description"
-              className="col-span-2"
-              value={formData.description || ''}
-          required={false}
-
-              onChange={handleInputChange}
-            >
-              Keterangan
-            </InputField>
+            {showMenu ? (
+              <TransactionMenu onSelectTransaction={handleTransactionSelect} />
+            ) : (
+              renderTransactionForm()
+            )}
           </>
         )}
       </Modal>
