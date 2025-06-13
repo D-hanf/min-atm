@@ -1,8 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
 import InputField from '../../../../components/InputField'
 import SelectItems from '../../../../components/SelectItems'
 
 const JasaTransferForm = ({ formData, onChange }) => {
+  const [feeType, setFeeType] = useState('Digital')
   // Format number to Rupiah
   const formatRupiah = (value) => {
     if (!value) return ''
@@ -35,6 +36,11 @@ const JasaTransferForm = ({ formData, onChange }) => {
     }
 
     onChange(syntheticEvent)
+  }
+
+  // Handle fee type change
+  const handleFeeTypeChange = (e) => {
+    setFeeType(e.target.value)
   }
 
   return (
@@ -73,15 +79,27 @@ const JasaTransferForm = ({ formData, onChange }) => {
         onChange={onChange}
       />
 
-      <InputField
-        name="admin"
-        type="text"
-        value={formatRupiah(formData.admin)}
-        onChange={handleCurrencyChange}
-        placeholder="Rp 0"
-      >
-        Admin
-      </InputField>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Fee</label>
+        <div className="relative">
+          <input
+            name="fee"
+            type="text"
+            value={formatRupiah(formData.amount || '2500')}
+            onChange={handleCurrencyChange}
+            placeholder="Rp 2.500"
+            className="w-full pl-3 pr-24 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <select
+            value={feeType}
+            onChange={handleFeeTypeChange}
+            className="absolute right-0 top-0 h-full px-3 py-2 border-l border-gray-300 bg-gray-50 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="Digital">Digital</option>
+            <option value="Cash">Cash</option>
+          </select>
+        </div>
+      </div>
 
       {/* Large textarea for description */}
       <div className="col-span-2">
