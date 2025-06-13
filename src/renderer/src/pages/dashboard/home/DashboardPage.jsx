@@ -1,4 +1,4 @@
-import { HiCurrencyDollar, HiShoppingBag, HiUserGroup } from 'react-icons/hi2'
+import { HiCurrencyDollar, HiShoppingBag, HiUserGroup, HiWallet } from 'react-icons/hi2'
 import React, { useEffect, useState } from 'react'
 
 import DashboardCard from '../../../features/dashboard/ui/DashboardCard'
@@ -37,6 +37,19 @@ const DashboardPage = () => {
     }
   ])
 
+  // Sample account balances
+  const [accountBalances, setAccountBalances] = useState([
+    { platform: 'BRI', balance: 5000000 },
+    { platform: 'BNI', balance: 3500000 },
+    { platform: 'Mandiri', balance: 4200000 },
+    { platform: 'DANA', balance: 1800000 },
+    { platform: 'OVO', balance: 950000 },
+    { platform: 'GoPay', balance: 1200000 }
+  ])
+
+  // Calculate total balance from all accounts
+  const totalBalance = accountBalances.reduce((total, account) => total + account.balance, 0)
+
   // Calculate statistics
   const totalStores = stores.length
   const totalEmployees = stores.reduce((total, store) => total + store.totalEmployees, 0)
@@ -62,8 +75,15 @@ const DashboardPage = () => {
       value: `Rp ${totalSales.toLocaleString('id-ID')}`,
       icon: <HiCurrencyDollar size={24} className="text-yellow-600" />,
       linkTo: '/dashboard/laporan'
+    },
+    {
+      name: 'Total Saldo',
+      value: `Rp ${totalBalance.toLocaleString('id-ID')}`,
+      icon: <HiWallet size={24} className="text-purple-600" />,
+      linkTo: '/dashboard/kelola-data/ambil-saldo'
     }
   ]
+
   // Tambahkan ini di atas useEffect:
   const [users, setUsers] = useState([])
 
@@ -81,25 +101,25 @@ const DashboardPage = () => {
   return (
     <div>
       <table className="table-auto border-collapse border border-gray-400">
-  <thead>
-    <tr>
-      <th className="border border-gray-300 px-4 py-2">Name</th>
-      <th className="border border-gray-300 px-4 py-2">Email</th>
-    </tr>
-  </thead>
-  <tbody>
-    {users.map((user) => (
-      <tr key={user.id}>
-        <td className="border border-gray-300 px-4 py-2">{user.name}</td>
-        <td className="border border-gray-300 px-4 py-2">{user.email}</td>
-      </tr>
-    ))}
-  </tbody>
-</table>
+        <thead>
+          <tr>
+            <th className="border border-gray-300 px-4 py-2">Name</th>
+            <th className="border border-gray-300 px-4 py-2">Email</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((user) => (
+            <tr key={user.id}>
+              <td className="border border-gray-300 px-4 py-2">{user.name}</td>
+              <td className="border border-gray-300 px-4 py-2">{user.email}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statistic.map((stat, index) => (
           <Link to={stat.linkTo} key={index} className="block hover:no-underline">
             <div className="bg-white rounded-lg shadow-md p-6 transition-transform hover:shadow-lg hover:-translate-y-1">
@@ -154,6 +174,34 @@ const DashboardPage = () => {
                   Lihat Detail
                 </Link>
               </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Add Account Balances Section */}
+      <div className="mt-12">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold">Saldo Rekening</h2>
+          <Link
+            to="/dashboard/kelola-data/ambil-saldo"
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+          >
+            Lihat Semua
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {accountBalances.map((account, index) => (
+            <div key={index} className="bg-white rounded-lg shadow-md p-4">
+              <h3 className="font-semibold text-gray-700">{account.platform}</h3>
+              <p className="text-lg font-bold mt-2">
+                {new Intl.NumberFormat('id-ID', {
+                  style: 'currency',
+                  currency: 'IDR',
+                  minimumFractionDigits: 0
+                }).format(account.balance)}
+              </p>
             </div>
           ))}
         </div>
