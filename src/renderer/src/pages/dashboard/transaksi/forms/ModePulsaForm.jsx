@@ -1,8 +1,10 @@
 import React from 'react'
+import { useState } from 'react'
 import InputField from '../../../../components/InputField'
 import SelectItems from '../../../../components/SelectItems'
 
 const ModePulsaForm = ({ formData, onChange }) => {
+  const [feeType, setFeeType] = useState('Digital')
   // Format number to Rupiah
   const formatRupiah = (value) => {
     if (!value) return ''
@@ -26,6 +28,21 @@ const ModePulsaForm = ({ formData, onChange }) => {
     // Remove currency formatting to get numeric value
     const numericValue = value.replace(/[^0-9]/g, '')
 
+    // Validate nominal (initialBalance) - max 10,000,000
+    if (name === 'initialBalance') {
+      const numValue = parseInt(numericValue) || 0
+      if (numValue > 10000000) {
+        return // Don't update if exceeds limit
+      }
+
+      // Update nominal
+      onChange({
+        target: { name: 'initialBalance', value: numericValue }
+      })
+
+      return
+    }
+
     // Create synthetic event with numeric value for the parent handler
     const syntheticEvent = {
       target: {
@@ -36,6 +53,24 @@ const ModePulsaForm = ({ formData, onChange }) => {
 
     onChange(syntheticEvent)
   }
+
+  // Handle nominal change and auto-update fee
+  const handleNominalChange = (e) => {
+    const { value } = e.target
+    const numericValue = value.replace(/[^0-9]/g, '')
+    let numValue = parseInt(numericValue) || 0
+
+    // Update both values
+    onChange({
+      target: { name: 'initialBalance', value: numValue.toString() }
+    })
+  }
+
+  // Handle fee type change
+  const handleFeeTypeChange = (e) => {
+    setFeeType(e.target.value)
+  }
+
 
   return (
     <>
@@ -48,27 +83,6 @@ const ModePulsaForm = ({ formData, onChange }) => {
           </span>
         </div>
       </div>
-
-      {/* <InputField
-        name="date"
-        type="date"
-        value={formData.date || new Date().toISOString().split('T')[0]}
-        onChange={onChange}
-      >
-        Tanggal
-      </InputField> */}
-
-      {/* <SelectItems
-        options={[
-          { label: 'Briva', value: 'Briva' },
-          { label: 'Antar Bank', value: 'Antar Bank' },
-          { label: 'Sesama Bank', value: 'Sesama Bank' }
-        ]}
-        label="Tipe Transaksi"
-        name="transactionType"
-        value={formData.transactionType || ''}
-        onChange={onChange}
-      /> */}
 
       <SelectItems
         options={[
@@ -99,25 +113,40 @@ const ModePulsaForm = ({ formData, onChange }) => {
         onChange={onChange}
       />
 
-      <InputField
-        name="hargajual"
-        type="text"
-        value={formatRupiah(formData.hargajual)}
-        onChange={handleCurrencyChange}
-        placeholder="Rp 0"
-      >
-        Harga jual
-      </InputField>
+      <div>
+        <InputField
+          name="initialBalance"
+          type="text"
+          value={formatRupiah(formData.initialBalance)}
+          onChange={handleNominalChange}
+          placeholder="Rp 0"
+        >
+          Nominal
+        </InputField>
+      </div>
 
-      <InputField
-        name="hargamodal"
-        type="text"
-        value={formatRupiah(formData.hargamodal)}
-        onChange={handleCurrencyChange}
-        placeholder="Rp 0"
-      >
-        Harga Modal
-      </InputField>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Fee</label>
+        <div className="relative">
+          <input
+            name="fee"
+            type="text"
+            value={formatRupiah(formData.amount || '2500')}
+            onChange={handleCurrencyChange}
+            placeholder="Rp 2.500"
+            className="w-full pl-3 pr-24 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <select
+            value={feeType}
+            onChange={handleFeeTypeChange}
+            className="absolute right-0 top-0 h-full px-3 py-2 border-l border-gray-300 bg-gray-50 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="Digital">Digital</option>
+            <option value="Cash">Cash</option>
+          </select>
+        </div>
+      </div>
+
 
       {/* <InputField
         name="adminBank"

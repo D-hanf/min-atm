@@ -13,17 +13,50 @@ const FormLayout = ({
   onSubmit,
   buttonText = 'Tambah Sumber Dana',
   formType = 'saldo',
-  initialData = {}
+  initialData = {},
+  isEdit = false,
+  editData = null,
+  onClose = null
 }) => {
-  const [modalOpen, setModalOpen] = useState(false)
+  const [modalOpen, setModalOpen] = useState(isEdit) // Initialize based on isEdit
   const [formData, setFormData] = useState(initialData)
   const [showMenu, setShowMenu] = useState(true)
   const [selectedTransactionType, setSelectedTransactionType] = useState('')
   const [selectedTransactionId, setSelectedTransactionId] = useState('')
 
+  // Map transaction types to form IDs
+  const getTransactionId = (transactionType) => {
+    const typeMap = {
+      'Cash Withdrawal': 'tarik-tunai',
+      'Tarik Tunai': 'tarik-tunai',
+      Transfer: 'transfer',
+      Briva: 'transfer',
+      'Antar Bank': 'transfer',
+      'Sesama Bank': 'transfer',
+      'Jasa Transfer': 'jasa-transfer',
+      'Mode Pulsa': 'mode-pulsa',
+      Pulsa: 'mode-pulsa'
+    }
+    return typeMap[transactionType] || ''
+  }
+
+  // Auto-open modal for edit mode and initialize form
+  useEffect(() => {
+    if (isEdit && editData) {
+      setModalOpen(true)
+      setFormData(editData)
+      const transactionId = getTransactionId(editData.transactionType)
+      if (transactionId) {
+        setSelectedTransactionId(transactionId)
+        setSelectedTransactionType(editData.transactionType)
+        setShowMenu(false)
+      }
+    }
+  }, [isEdit, editData])
+
   // Generate transaction number when modal is opened for transaction form
   useEffect(() => {
-    if (modalOpen && formType === 'transaction' && !formData.transactionNumber) {
+    if (modalOpen && formType === 'transaction' && !isEdit && !formData.transactionNumber) {
       const today = new Date()
       const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
       const randomStr = Math.floor(Math.random() * 10000)
@@ -38,16 +71,7 @@ const FormLayout = ({
         date: prev.date || today.toISOString().split('T')[0]
       }))
     }
-  }, [modalOpen, formType])
-
-  // Reset menu when modal is closed
-  useEffect(() => {
-    if (!modalOpen) {
-      setShowMenu(true)
-      setSelectedTransactionType('')
-      setSelectedTransactionId('')
-    }
-  }, [modalOpen])
+  }, [modalOpen, formType, isEdit])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -68,8 +92,8 @@ const FormLayout = ({
     onSubmit(formData)
     setModalOpen(false)
 
-    // Reset form data after submission
-    if (formType === 'transaction') {
+    // Reset form data after submission for add mode only
+    if (formType === 'transaction' && !isEdit) {
       setFormData({
         date: new Date().toISOString().split('T')[0],
         transactionNumber: '',
@@ -91,6 +115,17 @@ const FormLayout = ({
     setShowMenu(true)
     setSelectedTransactionType('')
     setSelectedTransactionId('')
+  }
+
+  const handleModalClose = () => {
+    setModalOpen(false)
+    if (isEdit && onClose) {
+      onClose()
+    } else {
+      setShowMenu(true)
+      setSelectedTransactionType('')
+      setSelectedTransactionId('')
+    }
   }
 
   const renderTransactionForm = () => {
@@ -115,21 +150,29 @@ const FormLayout = ({
 
   return (
     <>
-      <div className="w-full flex justify-end">
-        <ButtonInput size="xs" onClick={() => setModalOpen(true)}>
-          <HiPlus size={18} />
-          {buttonText}
-        </ButtonInput>
-      </div>
+      {!isEdit && (
+        <div className="w-full flex justify-end">
+          <ButtonInput size="xs" onClick={() => setModalOpen(true)}>
+            <HiPlus size={18} />
+            {buttonText}
+          </ButtonInput>
+        </div>
+      )}
       <Modal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={handleModalClose}
         onSubmit={handleSubmit}
-        hideSubmit={formType === 'transaction' && showMenu}
-        fullWidthCancel={formType === 'transaction' && showMenu}
-        showBackButton={formType === 'transaction' && !showMenu}
+        hideSubmit={formType === 'transaction' && showMenu && !isEdit}
+        fullWidthCancel={formType === 'transaction' && showMenu && !isEdit}
+        showBackButton={formType === 'transaction' && !showMenu && !isEdit}
         onBack={handleBackToMenu}
-        title={formType === 'transaction' && !showMenu ? selectedTransactionType : ''}
+        title={
+          formType === 'transaction' && !showMenu
+            ? selectedTransactionType
+            : isEdit
+              ? `Edit ${selectedTransactionType}`
+              : ''
+        }
       >
         {formType === 'saldo' ? (
           <>
@@ -161,7 +204,7 @@ const FormLayout = ({
           </>
         ) : (
           <>
-            {showMenu ? (
+            {showMenu && !isEdit ? (
               <TransactionMenu onSelectTransaction={handleTransactionSelect} />
             ) : (
               renderTransactionForm()
