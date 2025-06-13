@@ -48,7 +48,7 @@ const FinancialSummaryCards = ({ financialSummary, formatRupiah, userRole }) => 
               <FaStar className="text-yellow-500" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Profit</p>
+              <p className="text-sm text-gray-500">Jumlah Admin</p>
               <p className="font-bold">{formatRupiah(financialSummary.profit)}</p>
             </div>
           </div>

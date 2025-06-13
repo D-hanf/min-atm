@@ -1,25 +1,16 @@
 import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus } from 'react-icons/hi'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 import ConfirmDialog from '../../../components/ConfirmDialog'
 import Dropdown from '../../../components/Dropdown'
 import FinancialSummaryCards from '../../../components/FinancialSummaryCards'
+import FundSourcesCard from '../../../components/FundSourcesCard' // Import komponen baru
 import FormLayout from './FormLayout'
 import ModalEdit from '../../../shared/ui/Modal'
 import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
 
-/*************  ✨ Windsurf Command ⭐  *************/
-/**
- * Halaman transaksi yang menampilkan data transaksi dan saldo.
- * Komponen ini terdiri dari tiga bagian utama: header, financial summary cards, dan tabel transaksi.
- * Header berisi fungsi pencarian dan dropdown untuk memilih toko.
- * Financial summary cards menampilkan ringkasan keuangan.
- * Tabel transaksi menampilkan data transaksi yang dapat difilter berdasarkan tanggal dan sumber dana.
- * Modals dan dialogs digunakan untuk mengedit dan menghapus data transaksi.
- * @returns {JSX.Element} Komponen Halaman Transaksi
- */
-/*******  3f798daa-87b2-4987-88d5-6362c1076dc0  *******/ const HalamanTransaksi = () => {
+const HalamanTransaksi = () => {
   const [stores] = useState([
     {
       id: 1,
@@ -88,7 +79,6 @@ import TableContent from '../../../components/TableContent'
     description: ''
   })
   const [filterText, setFilterText] = useState('')
-  // const [currentStore, setCurrentStore] = useState('ERDIUS DIGITAL')
   const [selectedDate, setSelectedDate] = useState('26/12/2024')
   const [transactions, setTransactions] = useState([
     {
@@ -155,8 +145,7 @@ import TableContent from '../../../components/TableContent'
     { key: 'transactionType', label: 'Tipe Transaksi' },
     { key: 'initialBalance', label: 'Saldo Awal' },
     { key: 'amount', label: 'Nominal' },
-    { key: 'internalAdmin', label: 'Admin Dalam' },
-    { key: 'externalAdmin', label: 'Admin Luar' },
+    { key: 'fee', label: 'Fee' },
     { key: 'bankAdmin', label: 'Adm Bank' },
     { key: 'finalBalance', label: 'Saldo Akhir' },
     { key: 'description', label: 'Keterangan' }
@@ -169,28 +158,6 @@ import TableContent from '../../../components/TableContent'
       minimumFractionDigits: 0
     }).format(value)
   }
-
-  // const formattedSaldo = saldo.map((item) => ({
-  //   ...item,
-  //   saldo: formatRupiah(item.saldo)
-  // }))
-
-  // const handleAddSaldo = (formData) => {
-  //   const cleanedSaldo = parseInt(
-  //     formData.saldo.replace(/[^0-9]/g, ''), // hapus semua selain angka
-  //     10
-  //   )
-
-  //   const newSaldo = {
-  //     id: Date.now(),
-  //     source: formData.source,
-  //     saldo: cleanedSaldo,
-  //     dateCreated: new Date().toISOString().split('T')[0],
-  //     description: formData.description
-  //   }
-
-  //   setSaldo([...saldo, newSaldo])
-  // }
 
   const handleDelete = (id) => {
     setDeleteId(id)
@@ -236,6 +203,9 @@ import TableContent from '../../../components/TableContent'
     setTransactions([...transactions, newTransaction])
   }
 
+  // Tambahkan ini di atas useEffect:
+  const [users, setUsers] = useState([])
+
   return (
     <div className="flex flex-col justify-end h-full">
       {/* Header/Navigation */}
@@ -255,32 +225,21 @@ import TableContent from '../../../components/TableContent'
         </div>
       </div>
 
-      {/* Financial Summary Cards - Replaced with component */}
+      {/* Financial Summary Cards */}
       <FinancialSummaryCards
         financialSummary={financialSummary}
         formatRupiah={formatRupiah}
         userRole={userRole}
       />
 
-      {/* Total Assets and Fund Sources */}
-      <div className="bg-white shadow rounded-lg p-4 mb-6 ">
-        <div className="font-bold text-xl mb-3">
-          TOTAL ASET: {formatRupiah(financialSummary.totalAssets)}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {fundSources.map((source, index) => (
-            <div
-              key={index}
-              className={`px-4 py-2 rounded-md bg-gray-100 hover:bg-blue-100 cursor-pointer`}
-            >
-              {source.name} {formatRupiah(source.balance)}
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Fund Sources Card - Replace old section */}
+      <FundSourcesCard
+        totalAssets={financialSummary.totalAssets}
+        fundSources={fundSources}
+        formatRupiah={formatRupiah}
+      />
 
       {/* Transaction Data Table */}
-
       <TableContent
         data={transactions}
         columns={transactionColumns}
