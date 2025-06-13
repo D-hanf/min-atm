@@ -97,6 +97,8 @@ const HalamanTransaksi = () => {
       description: 'Penarikan dana'
     }
   ])
+  const [editingTransaction, setEditingTransaction] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   const filteredData = transactions.filter(
     (item) => item.nama?.toLowerCase().includes(filterText.toLowerCase()) // atau field lain
@@ -206,6 +208,33 @@ const HalamanTransaksi = () => {
   // Tambahkan ini di atas useEffect:
   const [users, setUsers] = useState([])
 
+  const handleTransactionEdit = (id) => {
+    console.log('Edit clicked for ID:', id) // Debug log
+    const transactionToEdit = transactions.find((transaction) => transaction.id === id)
+    console.log('Transaction to edit:', transactionToEdit) // Debug log
+    if (transactionToEdit) {
+      setEditingTransaction(transactionToEdit)
+      setShowEditModal(true)
+    }
+  }
+
+  const handleEditSubmit = (updatedData) => {
+    console.log('Edit submit:', updatedData) // Debug log
+    setTransactions((prevTransactions) =>
+      prevTransactions.map((transaction) =>
+        transaction.id === editingTransaction.id ? { ...transaction, ...updatedData } : transaction
+      )
+    )
+    setShowEditModal(false)
+    setEditingTransaction(null)
+  }
+
+  const handleEditClose = () => {
+    console.log('Edit modal closed') // Debug log
+    setShowEditModal(false)
+    setEditingTransaction(null)
+  }
+
   return (
     <div className="flex flex-col justify-end h-full">
       {/* Header/Navigation */}
@@ -246,7 +275,8 @@ const HalamanTransaksi = () => {
         title={'Data Transaksi'}
         info={`Total Transaksi: ${transactions.length}`}
         btnSize={'xs'}
-        userRole={userRole} // tambah prop ini
+        userRole={userRole}
+        onEdit={handleTransactionEdit} // Add this prop
         onAdd={
           <FormLayout
             onSubmit={submitTransaction}
@@ -258,6 +288,20 @@ const HalamanTransaksi = () => {
         searchValue={filterText}
         onSearchChange={setFilterText}
       />
+
+      {/* Edit Transaction Modal */}
+      {showEditModal && editingTransaction && (
+        <div>
+          {console.log('Rendering edit modal with:', editingTransaction)} {/* Debug log */}
+          <FormLayout
+            onSubmit={handleEditSubmit}
+            onClose={handleEditClose}
+            formType="transaction"
+            isEdit={true}
+            editData={editingTransaction}
+          />
+        </div>
+      )}
 
       {/* Modals and Dialogs */}
       <ConfirmDialog

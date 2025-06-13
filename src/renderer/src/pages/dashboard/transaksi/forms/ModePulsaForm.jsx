@@ -4,7 +4,6 @@ import InputField from '../../../../components/InputField'
 import SelectItems from '../../../../components/SelectItems'
 
 const ModePulsaForm = ({ formData, onChange }) => {
-  const [nominalError, setNominalError] = useState('')
   const [feeType, setFeeType] = useState('Digital')
   // Format number to Rupiah
   const formatRupiah = (value) => {
@@ -61,28 +60,10 @@ const ModePulsaForm = ({ formData, onChange }) => {
     const numericValue = value.replace(/[^0-9]/g, '')
     let numValue = parseInt(numericValue) || 0
 
-    // Cap at maximum and show error
-    if (numValue > 10000000) {
-      numValue = 10000000
-      setNominalError('Tidak boleh melebihi Rp 10.000.000')
-    } else {
-      setNominalError('')
-    }
-
-    // Auto-update fee based on nominal amount
-    const newFee = numValue > 5000000 ? '5000' : '2500'
-
     // Update both values
     onChange({
       target: { name: 'initialBalance', value: numValue.toString() }
     })
-
-    // Update fee if it's different from current
-    if (formData.amount !== newFee) {
-      onChange({
-        target: { name: 'amount', value: newFee }
-      })
-    }
   }
 
   // Handle fee type change
@@ -102,27 +83,6 @@ const ModePulsaForm = ({ formData, onChange }) => {
           </span>
         </div>
       </div>
-
-      {/* <InputField
-        name="date"
-        type="date"
-        value={formData.date || new Date().toISOString().split('T')[0]}
-        onChange={onChange}
-      >
-        Tanggal
-      </InputField> */}
-
-      {/* <SelectItems
-        options={[
-          { label: 'Briva', value: 'Briva' },
-          { label: 'Antar Bank', value: 'Antar Bank' },
-          { label: 'Sesama Bank', value: 'Sesama Bank' }
-        ]}
-        label="Tipe Transaksi"
-        name="transactionType"
-        value={formData.transactionType || ''}
-        onChange={onChange}
-      /> */}
 
       <SelectItems
         options={[
@@ -163,7 +123,6 @@ const ModePulsaForm = ({ formData, onChange }) => {
         >
           Nominal
         </InputField>
-        {nominalError && <p className="mt-1 text-sm text-red-600">{nominalError}</p>}
       </div>
 
       <div>
