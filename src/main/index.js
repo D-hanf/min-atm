@@ -254,10 +254,10 @@ app.whenReady().then(() => {
     ipcMain.handle('update-saldo-awal', (event, data) => {
       const { id, nama_sumber_dana, saldo, biaya_admin, keterangan, tanggal_update } = data
       const query = `
-    UPDATE saldo_awal
-    SET nama_sumber_dana = ?, saldo = ?, biaya_admin = ?, keterangan = ?, tanggal_update = ?
-    WHERE id = ?
-  `
+          UPDATE saldo_awal
+          SET nama_sumber_dana = ?, saldo = ?, biaya_admin = ?, keterangan = ?, tanggal_update = ?
+          WHERE id = ?
+        `
       return new Promise((resolve, reject) => {
         db.run(
           query,

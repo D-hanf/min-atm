@@ -51,23 +51,19 @@ const HalamanAwalSaldo = () => {
     id: null,
     source: '',
     saldo: '',
+    biaya_admin: '',
     dateCreated: '',
     dateUpdated: '',
     description: ''
   })
   const [filterText, setFilterText] = useState('')
-   const sumberDanaOptions = [
-    { value: 'DANA', label: 'DANA' },
-    { value: 'CASH', label: 'Cash' },
-    { value: 'BTN', label: 'Bank BTN' }
-  ]
-
   const columns = [
     { key: 'nama_sumber_dana', label: 'Sumber' },
     { key: 'saldo', label: 'Saldo' },
+    { key: 'biaya_admin', label: 'Biaya Admin' },
     { key: 'tanggal_buat', label: 'Tanggal Dibuat' },
     { key: 'tanggal_update', label: 'Tanggal Diubah' },
-    { key: 'keterangan', label: 'Deskripsi' } // ← ini yang benar kalau backend kirim 'keterangan'
+    { key: 'keterangan', label: 'Deskripsi' }
   ]
 
   const formatRupiah = (value) =>
@@ -91,14 +87,14 @@ const HalamanAwalSaldo = () => {
   }
 
   const handleAddSaldo = async (formData) => {
-    const cleanedSaldo = parseInt(formData.saldo.replace(/[^0-9]/g, ''), 10)
+    const cleanedSaldo = parseFloat(formData.saldo.replace(/[^0-9]/g, ''), 10)
     const newSaldo = {
       nama_sumber_dana: formData.source,
       saldo: cleanedSaldo,
       tanggal_buat: new Date().toISOString().split('T')[0],
       tanggal_update: new Date().toISOString().split('T')[0],
       keterangan: formData.description,
-      biaya_admin: 0 // kalau kolom ini NULL, bisa kasih default
+      biaya_admin: parseFloat(formData.biaya_admin) ? parseFloat(formData.biaya_admin) : 0
     }
 
     try {
@@ -128,35 +124,37 @@ const HalamanAwalSaldo = () => {
   }
 
   const handleEdit = (id) => {
-    const itemToEdit = saldo.find((item) => item.id === id)
-    if (itemToEdit) {
-      setFormData(itemToEdit)
-      setModalOpen(true)
-    }
+  const itemToEdit = saldo.find((item) => item.id === id)
+  if (itemToEdit) {
+    setFormData({
+      id: itemToEdit.id,
+      source: itemToEdit.nama_sumber_dana,
+      saldo: itemToEdit.saldo.toString(),
+      biaya_admin: itemToEdit.biaya_admin?.toString() || '',
+      description: itemToEdit.keterangan,
+      dateCreated: itemToEdit.tanggal_buat,
+      dateUpdated: itemToEdit.tanggal_update
+    })
+    setModalOpen(true)
   }
+}
 
   const handleSubmitEdit = async (updatedData) => {
+    console.log('🔧 Mengirim data update:', updatedData.id)
     const updatedEntry = {
       id: updatedData.id,
       nama_sumber_dana: updatedData.source,
       saldo: parseInt(updatedData.saldo),
-      tanggal_dibuat: updatedData.dateCreated,
-      tanggal_diubah: new Date().toISOString().split('T')[0],
-      deskripsi: updatedData.description
+      biaya_admin: parseInt(updatedData.biaya_admin || 0),
+      tanggal_buat: updatedData.dateCreated,
+      tanggal_update: new Date().toISOString().split('T')[0],
+      keterangan: updatedData.description
     }
 
     try {
       await window.api.updateSaldoAwal(updatedEntry)
-      fetchSaldo()
+      await fetchSaldo()
       setModalOpen(false)
-      setFormData({
-        id: itemToEdit.id,
-        source: itemToEdit.nama_sumber_dana,
-        saldo: itemToEdit.saldo,
-        dateCreated: itemToEdit.tanggal_dibuat,
-        dateUpdated: itemToEdit.tanggal_diubah,
-        description: itemToEdit.deskripsi
-      })
     } catch (err) {
       console.error('Gagal update saldo:', err)
     }
@@ -170,9 +168,9 @@ const HalamanAwalSaldo = () => {
     )
     .map((item) => ({
       ...item,
-      saldo: formatRupiah(item.saldo)
+      saldo: formatRupiah(item.saldo),
+      biaya_admin: formatRupiah(item.biaya_admin)
     }))
-
 
   return (
     <>
@@ -212,14 +210,14 @@ const HalamanAwalSaldo = () => {
         onConfirm={confirmDelete}
       />
 
-      <ModalEdit isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmitEdit}>
-        <SelectItems
-          options={sumberDanaOptions}
+      <ModalEdit isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={()=>handleSubmitEdit(formData)}>
+        <InputField
           name="source"
-          label="Sumber Dana"
           value={formData.source}
           onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-        />
+        >
+          Sumber Dana
+        </InputField>
         <InputField
           name="saldo"
           type="number"
@@ -228,9 +226,13 @@ const HalamanAwalSaldo = () => {
         >
           Jumlah Saldo
         </InputField>
+        <InputField name="biaya_admin" type="number" value={formData.biaya_admin} onChange={(e) => setFormData({ ...formData, biaya_admin: e.target.value })}>
+          biaya admin
+        </InputField>
         <InputField
           name="description"
           className="col-span-2"
+          type="text"
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
         >
