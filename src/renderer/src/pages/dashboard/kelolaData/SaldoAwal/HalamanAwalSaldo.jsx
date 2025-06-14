@@ -8,6 +8,7 @@ import InputField from '../../../../components/InputField'
 import ModalEdit from '../../../../shared/ui/Modal'
 import SearchField from '../../../../components/SearchField'
 import TableContent from '../../../../components/TableContent'
+import { useEffect } from 'react'
 
 const HalamanAwalSaldo = () => {
   const [stores] = useState([
@@ -99,22 +100,22 @@ const HalamanAwalSaldo = () => {
     saldo: formatRupiah(item.saldo)
   }))
 
-  const handleAddSaldo = (formData) => {
-    const cleanedSaldo = parseInt(
-      formData.saldo.replace(/[^0-9]/g, ''), // hapus semua selain angka
-      10
-    )
+  // const handleAddSaldo = (formData) => {
+  //   const cleanedSaldo = parseInt(
+  //     formData.saldo.replace(/[^0-9]/g, ''), // hapus semua selain angka
+  //     10
+  //   )
 
-    const newSaldo = {
-      id: Date.now(),
-      source: formData.source,
-      saldo: cleanedSaldo,
-      dateCreated: new Date().toISOString().split('T')[0],
-      description: formData.description
-    }
+  //   const newSaldo = {
+  //     id: Date.now(),
+  //     source: formData.source,
+  //     saldo: cleanedSaldo,
+  //     dateCreated: new Date().toISOString().split('T')[0],
+  //     description: formData.description
+  //   }
 
-    setSaldo([...saldo, newSaldo])
-  }
+  //   setSaldo([...saldo, newSaldo])
+  // }
 
   const handleDelete = (id) => {
     setDeleteId(id)
@@ -150,18 +151,52 @@ const HalamanAwalSaldo = () => {
       }).format(item.saldo)
     }))
 
+  // pake db
+
+  useEffect(() => {
+    const fetchSaldo = async () => {
+      try {
+        const result = await window.api.getSaldoAwal()
+        setSaldo(result)
+      } catch (error) {
+        console.error('❌ Gagal ambil data saldo:', error)
+      }
+    }
+
+    fetchSaldo()
+  }, [])
+
+  const handleAddSaldo = async (formData) => {
+    const cleanedSaldo = parseInt(formData.saldo.replace(/[^0-9]/g, ''), 10)
+
+    const newSaldo = {
+      source: formData.source,
+      saldo: cleanedSaldo,
+      dateCreated: new Date().toISOString().split('T')[0],
+      dateUpdated: new Date().toISOString().split('T')[0],
+      description: formData.description
+    }
+
+    try {
+      await window.api.createSaldoAwal(newSaldo)
+      const updated = await window.api.getSaldo()
+      setSaldo(updated)
+    } catch (err) {
+      console.error('Gagal tambah saldo:', err)
+    }
+  }
+
   return (
     <>
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
-             <div className='flex items-center'>
-          <h1 className="text-2xl font-bold text-gray-800 ">Saldo Awal</h1>
-
-        </div>
+          <div className="flex items-center">
+            <h1 className="text-2xl font-bold text-gray-800 ">Saldo Awal</h1>
+          </div>
           <div className="flex-1 max-w-xs">
             <Dropdown
               className="w-full"
-              color={"gray"}
+              color={'gray'}
               label="Pindah Toko"
               items={stores.map((store) => store.name)}
             />
@@ -170,15 +205,13 @@ const HalamanAwalSaldo = () => {
       </div>
       <div>
         <TableContent
-                 searchValue={filterText}
-        onSearchChange={setFilterText}
+          searchValue={filterText}
+          onSearchChange={setFilterText}
           data={filteredData}
           btnSize={'xs'}
           title="Data Saldo Awal"
           columns={columns}
-          onAdd={
-            <FormLayout onSubmit={handleAddSaldo}></FormLayout>
-          }
+          onAdd={<FormLayout onSubmit={handleAddSaldo}></FormLayout>}
           onDelete={handleDelete}
           onEdit={handleEdit}
         />
@@ -226,7 +259,6 @@ const HalamanAwalSaldo = () => {
           className={'col-span-2'}
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          
         >
           Keterangan
         </InputField>
@@ -236,7 +268,6 @@ const HalamanAwalSaldo = () => {
           value={Date.now()}
           onChange={(e) => setFormData({ ...formData, dateCreated: Date.now() })}
           required={false}
-
         ></InputField>
       </ModalEdit>
     </>

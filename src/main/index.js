@@ -7,7 +7,7 @@ import { join } from 'path'
 const path = require('path')
 const sqlite3 = require('sqlite3').verbose()
 
-const db = new sqlite3.Database(path.join(__dirname, 'cashier.db'), (err) => {
+const db = new sqlite3.Database(path.join(__dirname, 'miniAtn.db'), (err) => {
   if (err) {
     console.error('Error opening database:', err.message)
   } else {
@@ -216,6 +216,53 @@ app.whenReady().then(() => {
         db.get(`SELECT role FROM users WHERE username = ?`, [username], (err, row) => {
           if (err) reject(err)
           else resolve(row ? row.role : null)
+        })
+      })
+    })
+
+    ipcMain.handle('get-saldo-awal', () => {
+      return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM saldo_awal', [], (err, rows) => {
+          if (err) reject(err)
+          else resolve(rows)
+        })
+      })
+    })
+
+    ipcMain.handle('create-saldo-awal', (event, data) => {
+      const { id,nama_sumber_dana,saldo,biaya_admin,keterangan,tanggal_buat,tanggal_update } = data
+      const query = `
+    INSERT INTO saldo_awal (id,nama_sumber_dana,saldo,biaya_admin,keterangan,tanggal_buat,tanggal_update)
+    VALUES (?, ?, ?, ?,?,?,?)
+  `
+      return new Promise((resolve, reject) => {
+        db.run(query, [id,nama_sumber_dana,saldo,biaya_admin,keterangan,tanggal_buat,tanggal_update], function (err) {
+          if (err) reject(err)
+          else resolve({ id: this.lastID })
+        })
+      })
+    })
+
+    ipcMain.handle('update-saldo-awal', (event, data) => {
+      const { id, source, saldo, dateUpdated, description } = data
+      const query = `
+    UPDATE saldo_awal
+    SET source = ?, saldo = ?, dateUpdated = ?, description = ?
+    WHERE id = ?
+  `
+      return new Promise((resolve, reject) => {
+        db.run(query, [source, saldo, dateUpdated, description, id], function (err) {
+          if (err) reject(err)
+          else resolve({ changes: this.changes })
+        })
+      })
+    })
+
+    ipcMain.handle('delete-saldo-awal', (event, id) => {
+      return new Promise((resolve, reject) => {
+        db.run('DELETE FROM saldo_awal WHERE id = ?', [id], function (err) {
+          if (err) reject(err)
+          else resolve({ changes: this.changes })
         })
       })
     })

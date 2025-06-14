@@ -10,7 +10,11 @@ const api = {
   createUser: (user) => ipcRenderer.invoke('create-user', user),
   updateUser: (user) => ipcRenderer.invoke('update-user', user),
   deleteUser: (userId) => ipcRenderer.invoke('delete-user', userId),
-  getUserRole: (email) => ipcRenderer.invoke('get-user-role', email)
+  getUserRole: (username) => ipcRenderer.invoke('get-user-role', email),
+  getSaldoAwal: () => ipcRenderer.invoke('get-saldo-awal'),
+  createSaldoAwal: (data) => ipcRenderer.invoke('create-saldo-awal', data),
+  updateSaldoAwal: (data) => ipcRenderer.invoke('update-saldo-awal', data),
+  deleteSaldoAwal: (id) => ipcRenderer.invoke('delete-saldo-awal', id),
 }
 
 
