@@ -7,11 +7,14 @@ import { join } from 'path'
 const path = require('path')
 const sqlite3 = require('sqlite3').verbose()
 
-const db = new sqlite3.Database(path.join(__dirname, 'miniAtn.db'), (err) => {
+const dbPath = path.join(app.getPath('userData'), 'miniAtm.db')
+console.log('📁 Lokasi fix database:', dbPath)
+
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening database:', err.message)
   } else {
-    console.log('Connected to the SQLite database.')
+    console.log('✅ Connected to the SQLite database.')
   }
 })
 
@@ -230,31 +233,40 @@ app.whenReady().then(() => {
     })
 
     ipcMain.handle('create-saldo-awal', (event, data) => {
-      const { id,nama_sumber_dana,saldo,biaya_admin,keterangan,tanggal_buat,tanggal_update } = data
+      const { nama_sumber_dana, saldo, biaya_admin, keterangan, tanggal_buat, tanggal_update } =
+        data
       const query = `
-    INSERT INTO saldo_awal (id,nama_sumber_dana,saldo,biaya_admin,keterangan,tanggal_buat,tanggal_update)
-    VALUES (?, ?, ?, ?,?,?,?)
+    INSERT INTO saldo_awal (nama_sumber_dana, saldo, biaya_admin, keterangan, tanggal_buat, tanggal_update)
+    VALUES (?, ?, ?, ?, ?, ?)
   `
       return new Promise((resolve, reject) => {
-        db.run(query, [id,nama_sumber_dana,saldo,biaya_admin,keterangan,tanggal_buat,tanggal_update], function (err) {
-          if (err) reject(err)
-          else resolve({ id: this.lastID })
-        })
+        db.run(
+          query,
+          [nama_sumber_dana, saldo, biaya_admin, keterangan, tanggal_buat, tanggal_update],
+          function (err) {
+            if (err) reject(err)
+            else resolve({ id: this.lastID })
+          }
+        )
       })
     })
 
     ipcMain.handle('update-saldo-awal', (event, data) => {
-      const { id, source, saldo, dateUpdated, description } = data
+      const { id, nama_sumber_dana, saldo, biaya_admin, keterangan, tanggal_update } = data
       const query = `
     UPDATE saldo_awal
-    SET source = ?, saldo = ?, dateUpdated = ?, description = ?
+    SET nama_sumber_dana = ?, saldo = ?, biaya_admin = ?, keterangan = ?, tanggal_update = ?
     WHERE id = ?
   `
       return new Promise((resolve, reject) => {
-        db.run(query, [source, saldo, dateUpdated, description, id], function (err) {
-          if (err) reject(err)
-          else resolve({ changes: this.changes })
-        })
+        db.run(
+          query,
+          [nama_sumber_dana, saldo, biaya_admin, keterangan, tanggal_update, id],
+          function (err) {
+            if (err) reject(err)
+            else resolve({ changes: this.changes })
+          }
+        )
       })
     })
 

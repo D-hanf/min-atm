@@ -7,6 +7,7 @@ import FormLayout from './FormLayout'
 import InputField from '../../../../components/InputField'
 import ModalEdit from '../../../../shared/ui/Modal'
 import SearchField from '../../../../components/SearchField'
+import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
 import { useEffect } from 'react'
 
@@ -41,36 +42,13 @@ const HalamanAwalSaldo = () => {
       phone: '081234567893'
     }
   ])
-  const [saldo, setSaldo] = useState([
-    {
-      id: 1,
-      source: 'DANA',
-      saldo: 1000000,
-      dateCreated: '2023-10-01',
-      dateUpdated: '2023-10-01',
-      description: 'Saldo di Dana'
-    },
-    {
-      id: 2,
-      source: 'CASH',
-      saldo: 5000000,
-      dateCreated: '2023-10-02',
-      dateUpdated: '2023-10-02',
-      description: 'Saldo awal yang tersedia di kasir'
-    },
-    {
-      id: 3,
-      source: 'BTN',
-      saldo: 7500000,
-      dateCreated: '2023-10-03',
-      dateUpdated: '2023-10-03',
-      description: 'Saldo awal di Bank BTN'
-    }
-  ])
+
+  const [saldo, setSaldo] = useState([])
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [formData, setFormData] = useState({
+    id: null,
     source: '',
     saldo: '',
     dateCreated: '',
@@ -78,54 +56,75 @@ const HalamanAwalSaldo = () => {
     description: ''
   })
   const [filterText, setFilterText] = useState('')
-
-  const columns = [
-    { key: 'source', label: 'Sumber' },
-    { key: 'saldo', label: 'Saldo' },
-    { key: 'dateCreated', label: 'Tanggal Dibuat' },
-    { key: 'dateUpdated', label: 'Tanggal Diubah' },
-    { key: 'description', label: 'Deskripsi' }
+   const sumberDanaOptions = [
+    { value: 'DANA', label: 'DANA' },
+    { value: 'CASH', label: 'Cash' },
+    { value: 'BTN', label: 'Bank BTN' }
   ]
 
-  const formatRupiah = (value) => {
-    return new Intl.NumberFormat('id-ID', {
+  const columns = [
+    { key: 'nama_sumber_dana', label: 'Sumber' },
+    { key: 'saldo', label: 'Saldo' },
+    { key: 'tanggal_buat', label: 'Tanggal Dibuat' },
+    { key: 'tanggal_update', label: 'Tanggal Diubah' },
+    { key: 'keterangan', label: 'Deskripsi' } // ← ini yang benar kalau backend kirim 'keterangan'
+  ]
+
+  const formatRupiah = (value) =>
+    new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0
     }).format(value)
+
+  useEffect(() => {
+    fetchSaldo()
+  }, [])
+
+  const fetchSaldo = async () => {
+    try {
+      const result = await window.api.getSaldoAwal()
+      setSaldo(result)
+    } catch (error) {
+      console.error('❌ Gagal ambil data saldo:', error)
+    }
   }
 
-  const formattedSaldo = saldo.map((item) => ({
-    ...item,
-    saldo: formatRupiah(item.saldo)
-  }))
+  const handleAddSaldo = async (formData) => {
+    const cleanedSaldo = parseInt(formData.saldo.replace(/[^0-9]/g, ''), 10)
+    const newSaldo = {
+      nama_sumber_dana: formData.source,
+      saldo: cleanedSaldo,
+      tanggal_buat: new Date().toISOString().split('T')[0],
+      tanggal_update: new Date().toISOString().split('T')[0],
+      keterangan: formData.description,
+      biaya_admin: 0 // kalau kolom ini NULL, bisa kasih default
+    }
 
-  // const handleAddSaldo = (formData) => {
-  //   const cleanedSaldo = parseInt(
-  //     formData.saldo.replace(/[^0-9]/g, ''), // hapus semua selain angka
-  //     10
-  //   )
-
-  //   const newSaldo = {
-  //     id: Date.now(),
-  //     source: formData.source,
-  //     saldo: cleanedSaldo,
-  //     dateCreated: new Date().toISOString().split('T')[0],
-  //     description: formData.description
-  //   }
-
-  //   setSaldo([...saldo, newSaldo])
-  // }
+    try {
+      await window.api.createSaldoAwal(newSaldo)
+      fetchSaldo()
+      console.log('data =>', newSaldo)
+    } catch (err) {
+      console.error('Gagal tambah saldo:', err)
+    }
+  }
 
   const handleDelete = (id) => {
     setDeleteId(id)
     setShowConfirmDialog(true)
   }
 
-  const confirmDelete = () => {
-    setSaldo((prev) => prev.filter((item) => item.id !== deleteId))
-    setShowConfirmDialog(false)
-    setDeleteId(null)
+  const confirmDelete = async () => {
+    try {
+      await window.api.deleteSaldoAwal(deleteId)
+      fetchSaldo()
+    } catch (err) {
+      console.error('Gagal hapus saldo:', err)
+    } finally {
+      setShowConfirmDialog(false)
+      setDeleteId(null)
+    }
   }
 
   const handleEdit = (id) => {
@@ -133,6 +132,33 @@ const HalamanAwalSaldo = () => {
     if (itemToEdit) {
       setFormData(itemToEdit)
       setModalOpen(true)
+    }
+  }
+
+  const handleSubmitEdit = async (updatedData) => {
+    const updatedEntry = {
+      id: updatedData.id,
+      nama_sumber_dana: updatedData.source,
+      saldo: parseInt(updatedData.saldo),
+      tanggal_dibuat: updatedData.dateCreated,
+      tanggal_diubah: new Date().toISOString().split('T')[0],
+      deskripsi: updatedData.description
+    }
+
+    try {
+      await window.api.updateSaldoAwal(updatedEntry)
+      fetchSaldo()
+      setModalOpen(false)
+      setFormData({
+        id: itemToEdit.id,
+        source: itemToEdit.nama_sumber_dana,
+        saldo: itemToEdit.saldo,
+        dateCreated: itemToEdit.tanggal_dibuat,
+        dateUpdated: itemToEdit.tanggal_diubah,
+        description: itemToEdit.deskripsi
+      })
+    } catch (err) {
+      console.error('Gagal update saldo:', err)
     }
   }
 
@@ -144,47 +170,9 @@ const HalamanAwalSaldo = () => {
     )
     .map((item) => ({
       ...item,
-      saldo: new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        minimumFractionDigits: 0
-      }).format(item.saldo)
+      saldo: formatRupiah(item.saldo)
     }))
 
-  // pake db
-
-  useEffect(() => {
-    const fetchSaldo = async () => {
-      try {
-        const result = await window.api.getSaldoAwal()
-        setSaldo(result)
-      } catch (error) {
-        console.error('❌ Gagal ambil data saldo:', error)
-      }
-    }
-
-    fetchSaldo()
-  }, [])
-
-  const handleAddSaldo = async (formData) => {
-    const cleanedSaldo = parseInt(formData.saldo.replace(/[^0-9]/g, ''), 10)
-
-    const newSaldo = {
-      source: formData.source,
-      saldo: cleanedSaldo,
-      dateCreated: new Date().toISOString().split('T')[0],
-      dateUpdated: new Date().toISOString().split('T')[0],
-      description: formData.description
-    }
-
-    try {
-      await window.api.createSaldoAwal(newSaldo)
-      const updated = await window.api.getSaldo()
-      setSaldo(updated)
-    } catch (err) {
-      console.error('Gagal tambah saldo:', err)
-    }
-  }
 
   return (
     <>
@@ -203,6 +191,7 @@ const HalamanAwalSaldo = () => {
           </div>
         </div>
       </div>
+
       <div>
         <TableContent
           searchValue={filterText}
@@ -211,41 +200,26 @@ const HalamanAwalSaldo = () => {
           btnSize={'xs'}
           title="Data Saldo Awal"
           columns={columns}
-          onAdd={<FormLayout onSubmit={handleAddSaldo}></FormLayout>}
+          onAdd={<FormLayout onSubmit={handleAddSaldo} />}
           onDelete={handleDelete}
           onEdit={handleEdit}
         />
       </div>
+
       <ConfirmDialog
         isOpen={showConfirmDialog}
         onClose={() => setShowConfirmDialog(false)}
         onConfirm={confirmDelete}
       />
 
-      <ModalEdit
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={(updatedData) => {
-          const updatedEntry = {
-            ...updatedData,
-            dateUpdated: new Date().toISOString().split('T')[0] // set ke hari ini
-          }
-
-          setSaldo((prevData) =>
-            prevData.map((item) => (item.id === formData.id ? { ...item, ...updatedEntry } : item))
-          )
-          setModalOpen(false)
-          setFormData({ source: '', saldo: '', dateCreated: '', dateUpdated: '', description: '' })
-        }}
-      >
-        <InputField
+      <ModalEdit isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmitEdit}>
+        <SelectItems
+          options={sumberDanaOptions}
           name="source"
-          type="text"
+          label="Sumber Dana"
           value={formData.source}
           onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-        >
-          Sumber Dana
-        </InputField>
+        />
         <InputField
           name="saldo"
           type="number"
@@ -256,19 +230,12 @@ const HalamanAwalSaldo = () => {
         </InputField>
         <InputField
           name="description"
-          className={'col-span-2'}
+          className="col-span-2"
           value={formData.description}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
         >
           Keterangan
         </InputField>
-        <InputField
-          name="dateUpdated"
-          type="hidden"
-          value={Date.now()}
-          onChange={(e) => setFormData({ ...formData, dateCreated: Date.now() })}
-          required={false}
-        ></InputField>
       </ModalEdit>
     </>
   )
