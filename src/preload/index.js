@@ -10,7 +10,7 @@ const api = {
   createUser: (user) => ipcRenderer.invoke('create-user', user),
   updateUser: (user) => ipcRenderer.invoke('update-user', user),
   deleteUser: (userId) => ipcRenderer.invoke('delete-user', userId),
-  getUserRole: (username) => ipcRenderer.invoke('get-user-role', email),
+  getUserRole: (username) => ipcRenderer.invoke('get-user-role', username),
   
   // saldo awal
   getSaldoAwal: () => ipcRenderer.invoke('get-saldo-awal'),
@@ -33,6 +33,9 @@ const api = {
   deleteKaryawan: (id) => ipcRenderer.invoke('delete-karyawan', id),
   countKaryawan: () => ipcRenderer.invoke('count-karyawan'),
   
+  // login
+  loginUser: (credentials) => ipcRenderer.invoke('login-user', credentials),
+
 }
 
 

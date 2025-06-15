@@ -102,7 +102,6 @@ const HalamanAwalSaldo = () => {
     try {
       await window.api.createSaldoAwal(newSaldo)
       fetchSaldo()
-      console.log('data =>', newSaldo)
     } catch (err) {
       console.error('Gagal tambah saldo:', err)
     }
@@ -142,7 +141,6 @@ const HalamanAwalSaldo = () => {
 }
 
   const handleSubmitEdit = async (updatedData) => {
-    console.log('🔧 Mengirim data update:', updatedData.id)
     const updatedEntry = {
       id: updatedData.id,
       nama_sumber_dana: updatedData.source,

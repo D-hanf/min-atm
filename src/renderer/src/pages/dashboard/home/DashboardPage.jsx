@@ -41,8 +41,6 @@ const DashboardPage = () => {
   const countTotalKaryawan = async () => {
     try {
       const result = await window.api.countKaryawan()
-      console.log(result)
-      console.log('apinya',window.api)
       setTotalSeluruhPegawai(result)
     } catch (error) {
       console.error('Gagal ambil data Users:', error)
