@@ -31,6 +31,7 @@ const api = {
   createKaryawan: (data) => ipcRenderer.invoke('create-karyawan', data),
   updateKaryawan: (data) => ipcRenderer.invoke('update-karyawan', data),
   deleteKaryawan: (id) => ipcRenderer.invoke('delete-karyawan', id),
+  countKaryawan: () => ipcRenderer.invoke('count-karyawan'),
   
 }
 

@@ -444,6 +444,20 @@ app.whenReady().then(() => {
       const stmt = db.prepare(`DELETE FROM users WHERE id = ?`)
       return stmt.run(user_id)
     })
+
+    ipcMain.handle('count-karyawan', () => {
+      return new Promise((resolve, reject) => {
+        db.get(`SELECT COUNT(*) AS count FROM users WHERE role != 'admin'`, [], (err, row) => {
+          if (err) {
+            console.error('Error count-karyawan:', err)
+            reject(err)
+          } else {
+            console.log('[MAIN] row:', row)
+            resolve(row.count)
+          }
+        })
+      })
+    })
   })
   createWindow()
 })
