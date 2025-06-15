@@ -67,7 +67,9 @@ app.whenReady().then(() => {
         nama TEXT NOT NULL,
         username TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
+        no_telepon TEXT,
         role TEXT NOT NULL,
+        toko_id INTEGER,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `)
@@ -145,6 +147,7 @@ app.whenReady().then(() => {
         FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id)
       )
     `)
+    // db.run(`ALTER TABLE users ADD COLUMN toko_id INTEGER`) =>  untuk menambahkan kolom toko_id&no_telepon di table users
 
     // INSERT DUMMY USERS
     const users = [
@@ -157,26 +160,13 @@ app.whenReady().then(() => {
     )
     users.forEach((user) => insertUser.run(user))
     insertUser.finalize()
-
-    // INSERT DUMMY TOKO
-    const stores = [
-      ['Toko A', '08123456789', 'Jl. Merdeka 1'],
-      ['Toko B', '08123456788', 'Jl. Sudirman 2']
-    ]
-    const insertToko = db.prepare(
-      `INSERT OR IGNORE INTO toko (nama_toko, no_telepon, alamat) VALUES (?, ?, ?)`
-    )
-    stores.forEach((store) => insertToko.run(store))
-    insertToko.finalize()
-
-    console.log('✅ Semua tabel dibuat dan dummy data dimasukkan')
-
     // REGISTER IPC HANDLERS
     ipcMain.handle('get-users', () => {
       return new Promise((resolve, reject) => {
         db.all('SELECT * FROM users', [], (err, rows) => {
           if (err) reject(err)
           else resolve(rows)
+          console.log(rows)
         })
       })
     })
@@ -222,6 +212,8 @@ app.whenReady().then(() => {
         })
       })
     })
+
+    // ============================= saldo awal handler =============================
 
     ipcMain.handle('get-saldo-awal', () => {
       return new Promise((resolve, reject) => {
@@ -278,8 +270,181 @@ app.whenReady().then(() => {
         })
       })
     })
-  })
 
+    // ============================= end saldo awal handler =============================
+
+    // ============================== kelola toko handler ===============================
+    ipcMain.handle('create-toko', (event, data) => {
+      const { nama_toko, no_telepon, alamat } = data
+
+      const query = `
+    INSERT INTO toko (nama_toko, no_telepon, alamat)
+    VALUES (?, ?, ?)
+  `
+
+      return new Promise((resolve, reject) => {
+        db.run(query, [nama_toko, no_telepon, alamat], function (err) {
+          if (err) reject(err)
+          else resolve({ success: true, id: this.lastID })
+        })
+      })
+    })
+
+    ipcMain.handle('get-toko', () => {
+      const query = `SELECT * FROM toko ORDER BY id DESC`
+      return new Promise((resolve, reject) => {
+        db.all(query, [], (err, rows) => {
+          if (err) reject(err)
+          else resolve(rows)
+        })
+      })
+    })
+
+    ipcMain.handle('update-toko', (event, data) => {
+      const { id, nama_toko, no_telepon, alamat } = data
+
+      const query = `
+    UPDATE toko
+    SET nama_toko = ?, no_telepon = ?, alamat = ?
+    WHERE id = ?
+  `
+
+      return new Promise((resolve, reject) => {
+        db.run(query, [nama_toko, no_telepon, alamat, id], function (err) {
+          if (err) reject(err)
+          else resolve({ success: true, changes: this.changes })
+        })
+      })
+    })
+
+    ipcMain.handle('delete-toko', (event, id) => {
+      const query = `DELETE FROM toko WHERE id = ?`
+      return new Promise((resolve, reject) => {
+        db.run(query, [id], function (err) {
+          if (err) reject(err)
+          else resolve({ success: true, changes: this.changes })
+        })
+      })
+    })
+
+    ipcMain.handle('get-toko-by-id', async (event, tokoId) => {
+      return new Promise((resolve, reject) => {
+        const query = `SELECT * FROM toko WHERE id = ?`
+        db.get(query, [tokoId], (err, row) => {
+          if (err) {
+            console.error('❌ Gagal ambil data toko:', err)
+            reject(err)
+          } else {
+            console.log('✅ Data toko ditemukan:', row)
+            resolve(row)
+          }
+        })
+      })
+    })
+
+    ipcMain.handle('get-toko-with-employee-count', () => {
+      const query = `
+    SELECT t.*, COUNT(u.id) as totalEmployees
+    FROM toko t
+    LEFT JOIN users u ON t.id = u.toko_id
+    GROUP BY t.id
+    ORDER BY t.id DESC
+  `
+      return new Promise((resolve, reject) => {
+        db.all(query, [], (err, rows) => {
+          if (err) reject(err)
+          else resolve(rows)
+        })
+      })
+    })
+    // ============================== end kelola toko handler ===============================
+
+    // ============================== karyawan handler ======================================
+
+    // Tambah karyawan (langsung ke tabel users)
+    ipcMain.handle('create-karyawan', async (event, data) => {
+      return new Promise((resolve, reject) => {
+        const check = db
+          .prepare(`SELECT COUNT(*) AS count FROM users WHERE username = ?`)
+          .get(data.username)
+
+        if (check.count > 0) {
+          return reject(new Error('Username sudah digunakan'))
+        }
+
+        const stmt = db.prepare(`
+      INSERT INTO users (nama, username, password, role, no_telepon, toko_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `)
+
+        stmt.run(
+          data.nama,
+          data.username,
+          data.password,
+          data.role,
+          data.no_telepon,
+          data.toko_id,
+          function (err) {
+            if (err) return reject(err)
+            resolve({ success: true, id: this.lastID })
+          }
+        )
+      })
+    })
+
+    // Ambil semua user berdasarkan toko_id
+    ipcMain.handle('get-karyawan', async (event, toko_id) => {
+      return new Promise((resolve, reject) => {
+        db.all(`SELECT * FROM users WHERE toko_id = ?`, [toko_id], (err, rows) => {
+          if (err) {
+            console.error('❌ Query error:', err)
+            reject([])
+          } else {
+            console.log('✅ Data karyawan:', rows)
+            resolve(rows)
+          }
+        })
+      })
+    })
+
+    // Update user
+    ipcMain.handle('update-karyawan', (event, data) => {
+      // Cek apakah username sudah dipakai oleh user lain
+      const check = db
+        .prepare(
+          `
+    SELECT COUNT(*) AS count FROM users 
+    WHERE username = ? AND id != ?
+  `
+        )
+        .get(data.username, data.user_id)
+
+      if (check.count > 0) {
+        throw new Error('Username sudah digunakan oleh user lain')
+      }
+
+      const stmt = db.prepare(`
+    UPDATE users
+    SET nama = ?, username = ?, password = ?, role = ?, no_telepon = ?
+    WHERE id = ?
+  `)
+
+      return stmt.run(
+        data.nama,
+        data.username,
+        data.password,
+        data.role,
+        data.no_telepon,
+        data.user_id
+      )
+    })
+
+    // Hapus user
+    ipcMain.handle('delete-karyawan', (event, user_id) => {
+      const stmt = db.prepare(`DELETE FROM users WHERE id = ?`)
+      return stmt.run(user_id)
+    })
+  })
   createWindow()
 })
 

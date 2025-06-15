@@ -11,10 +11,27 @@ const api = {
   updateUser: (user) => ipcRenderer.invoke('update-user', user),
   deleteUser: (userId) => ipcRenderer.invoke('delete-user', userId),
   getUserRole: (username) => ipcRenderer.invoke('get-user-role', email),
+  
+  // saldo awal
   getSaldoAwal: () => ipcRenderer.invoke('get-saldo-awal'),
   createSaldoAwal: (data) => ipcRenderer.invoke('create-saldo-awal', data),
   updateSaldoAwal: (data) => ipcRenderer.invoke('update-saldo-awal', data),
   deleteSaldoAwal: (id) => ipcRenderer.invoke('delete-saldo-awal', id),
+
+  // kelola toko
+  getToko: () => ipcRenderer.invoke('get-toko'),
+  createToko: (data) => ipcRenderer.invoke('create-toko', data),
+  updateToko: (data) => ipcRenderer.invoke('update-toko', data),
+  deleteToko: (id) => ipcRenderer.invoke('delete-toko', id),
+  getTokoById: (id) => ipcRenderer.invoke('get-toko-by-id', id),
+  getTokoWithEmployeeCount: () => ipcRenderer.invoke('get-toko-with-employee-count'),
+  
+  // kelola karyawan
+  getKaryawan: (toko_id) => ipcRenderer.invoke('get-karyawan',toko_id),
+  createKaryawan: (data) => ipcRenderer.invoke('create-karyawan', data),
+  updateKaryawan: (data) => ipcRenderer.invoke('update-karyawan', data),
+  deleteKaryawan: (id) => ipcRenderer.invoke('delete-karyawan', id),
+  
 }
 
 

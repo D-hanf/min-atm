@@ -57,6 +57,7 @@ const HalamanAwalSaldo = () => {
     description: ''
   })
   const [filterText, setFilterText] = useState('')
+  
   const columns = [
     { key: 'nama_sumber_dana', label: 'Sumber' },
     { key: 'saldo', label: 'Saldo' },
@@ -73,18 +74,19 @@ const HalamanAwalSaldo = () => {
       minimumFractionDigits: 0
     }).format(value)
 
+    const fetchSaldo = async () => {
+      try {
+        const result = await window.api.getSaldoAwal()
+        setSaldo(result)
+      } catch (error) {
+        console.error('❌ Gagal ambil data saldo:', error)
+      }
+    }
+
   useEffect(() => {
     fetchSaldo()
   }, [])
 
-  const fetchSaldo = async () => {
-    try {
-      const result = await window.api.getSaldoAwal()
-      setSaldo(result)
-    } catch (error) {
-      console.error('❌ Gagal ambil data saldo:', error)
-    }
-  }
 
   const handleAddSaldo = async (formData) => {
     const cleanedSaldo = parseFloat(formData.saldo.replace(/[^0-9]/g, ''), 10)
