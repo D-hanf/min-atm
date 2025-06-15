@@ -7,6 +7,30 @@ import { useState } from 'react'
 
 const FormLayout = ({ onSubmit }) => {
   const [modalOpen, setModalOpen] = useState(false)
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    address: ''
+  })
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handleSubmit = () => {
+    onSubmit(formData)
+    setFormData({
+      name: '',
+      phone: '',
+      totalEmployees: 0,
+      address: ''
+    })
+    setModalOpen(false)
+  }
   return (
     <>
       <div className="">
@@ -18,19 +42,13 @@ const FormLayout = ({ onSubmit }) => {
       <Modal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSubmit={(data) => {
-          onSubmit(data) // teruskan ke parent (KelolaToko)
-          setModalOpen(false)
-        }}
+        onSubmit={handleSubmit}
       >
-        <InputField name="name">Nama toko</InputField>
-        <InputField placeholder={'08xxxxxxxx'} type="number" name="phone">
+        <InputField name="name" value={formData.name} onChange={handleChange}>Nama toko</InputField>
+        <InputField placeholder={'08xxxxxxxx'} type="number" name="phone" onChange={handleChange} value={formData.phone}>
           No.Telp
         </InputField>
-        <InputField name="totalEmployees" type="number">
-          Jumlah Karyawan
-        </InputField>
-        <InputField name="address" className="">
+        <InputField name="address" className="" onChange={handleChange} value={formData.address}>
           alamat
         </InputField>
       </Modal>

@@ -91,7 +91,7 @@ const DashboardPage = () => {
     if (window.api && typeof window.api.getUsers === 'function') {
       window.api.getUsers().then((users) => {
         console.log('Users:', users)
-        setUsers(users) // kamu belum punya setUsers di state
+        setUsers(users)
       })
     } else {
       console.warn('window.api.getUsers is not available')
@@ -104,14 +104,14 @@ const DashboardPage = () => {
         <thead>
           <tr>
             <th className="border border-gray-300 px-4 py-2">Name</th>
-            <th className="border border-gray-300 px-4 py-2">Email</th>
+            <th className="border border-gray-300 px-4 py-2">password</th>
           </tr>
         </thead>
         <tbody>
           {users.map((user) => (
             <tr key={user.id}>
-              <td className="border border-gray-300 px-4 py-2">{user.name}</td>
-              <td className="border border-gray-300 px-4 py-2">{user.email}</td>
+              <td className="border border-gray-300 px-4 py-2">{user.nama}</td>
+              <td className="border border-gray-300 px-4 py-2">{user.password}</td>
             </tr>
           ))}
         </tbody>

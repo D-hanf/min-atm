@@ -1,248 +1,153 @@
 import { HiPencilSquare, HiPlus, HiTrash, HiXMark } from 'react-icons/hi2'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
+import ConfirmDialog from '../../../../components/ConfirmDialog'
 import FormLayout from './FormLayout'
+import InputField from '../../../../components/InputField'
+import ModalEdit from '../../../../shared/ui/Modal'
 import TableContent from '../../../../components/TableContent'
+import { useParams } from 'react-router-dom'
 
 const HalamanDetilToko = () => {
   // Sample employee data - replace with your actual data source
-  const [employees, setEmployees] = useState([
-    {
-      id: 1,
-      name: 'John Doe',
-      address: 'Jl. Kenanga No. 10, Malang',
-      phone: '081234567890',
-      role: 'Kasir'
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      address: 'Jl. Mawar No. 25, Malang',
-      phone: '081234567891',
-      role: 'Manager'
-    },
-    {
-      id: 3,
-      name: 'Robert Johnson',
-      address: 'Jl. Melati No. 15, Malang',
-      phone: '081234567892',
-      role: 'Admin'
-    },
-    {
-      id: 4,
-      name: 'Sarah Williams',
-      address: 'Jl. Anggrek No. 7, Malang',
-      phone: '081234567893',
-      role: 'Kasir'
-    }
-  ])
-  
+  const [employees, setEmployees] = useState([])
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+
   // State for modal
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isEditMode, setIsEditMode] = useState(false)
   const [editEmployeeId, setEditEmployeeId] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
-    address: '',
+    username: '',
+    password: '',
     phone: '',
-    role: 'Kasir'
+    role: ''
   })
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setFormData({
-      ...formData,
-      [name]: value
-    })
+  const { id: toko_Id } = useParams()
+  const [deleteId, setDeleteId] = useState(null)
+  const [filterText, setFilterText] = useState('')
+  const fetchUsers = async () => {
+    try {
+      const result = await window.api.getKaryawan(Number(toko_Id))
+      const users = Array.isArray(result) ? result : result?.data || []
+      setEmployees(users)
+    } catch (error) {
+      console.error('❌ Gagal ambil data Users:', error)
+    }
   }
 
-  const openAddModal = () => {
-    setIsEditMode(false)
-    setEditEmployeeId(null)
-    setFormData({ name: '', address: '', phone: '', role: 'Kasir' })
-    setIsModalOpen(true)
+  useEffect(() => {
+    if (!isNaN(Number(toko_Id))) {
+      fetchUsers()
+    }
+  }, [toko_Id])
+
+  const handleDelete = (id) => {
+    setDeleteId(id)
+    setShowConfirmDialog(true)
   }
 
-  const openEditModal = (employee) => {
-    setIsEditMode(true)
-    setEditEmployeeId(employee.id)
-    setFormData({
-      name: employee.name,
-      address: employee.address,
-      phone: employee.phone,
-      role: employee.role
-    })
-    setIsModalOpen(true)
+  const confirmDelete = async () => {
+    try {
+      await window.api.deleteKaryawan(deleteId)
+      fetchUsers()
+    } catch (error) {
+      console.error('Gagal hapus Users:', error)
+    } finally {
+      setShowConfirmDialog(false)
+      setDeleteId(null)
+    }
   }
 
-  const handleSaveEmployee = () => {
-    if (!formData.name || !formData.address || !formData.phone || !formData.role) {
-      // Add validation feedback if needed
+  const handleFormSubmit = async (formData) => {
+    const parsedToko_Id = Number(toko_Id)
+    if (isNaN(parsedToko_Id)) {
+      console.error('❌ toko_Id tidak valid:', toko_Id)
       return
     }
 
-    if (isEditMode) {
-      // Update existing employee
-      setEmployees(
-        employees.map((employee) =>
-          employee.id === editEmployeeId
-            ? {
-                ...employee,
-                name: formData.name,
-                address: formData.address,
-                phone: formData.phone,
-                role: formData.role
-              }
-            : employee
-        )
-      )
-    } else {
-      // Add new employee
-      const newId = Math.max(...employees.map((employee) => employee.id), 0) + 1
-      setEmployees([
-        ...employees,
-        {
-          id: newId,
-          name: formData.name,
-          address: formData.address,
-          phone: formData.phone,
-          role: formData.role
-        }
-      ])
+    const newData = {
+      nama: formData.name,
+      username: formData.username,
+      password: formData.password,
+      no_telepon: formData.phone,
+      role: formData.role,
+      toko_id: parsedToko_Id
     }
 
-    // Reset form and close modal
-    setFormData({ name: '', address: '', phone: '', role: 'Kasir' })
-    setIsModalOpen(false)
+    try {
+      await window.api.createKaryawan(newData)
+      fetchUsers()
+    } catch (error) {
+      console.error('❌ Gagal tambah data pegawai:', error)
+    }
   }
 
-  const handleDeleteEmployee = (id) => {
-    setEmployees(employees.filter(employee => employee.id !== id))
+  const handleEdit = (id) => {
+    const employee = employees.find((emp) => emp.id === id)
+    if (employee) {
+      setFormData({
+        id: employee.id,
+        name: employee.nama,
+        username: employee.username,
+        password: employee.password, // biasanya tidak ditampilkan (opsional)
+        phone: employee.no_telepon,
+        role: employee.role
+      })
+      setIsModalOpen(true)
+    }
   }
+
+  const handleEditSubmit = async (updatedData) => {
+    const updateEntry = {
+      user_id: updatedData.id,
+      nama: updatedData.name,
+      username: updatedData.username,
+      password: updatedData.password,
+      no_telepon: updatedData.phone,
+      role: updatedData.role
+    }
+
+    try {
+      await window.api.updateKaryawan(updateEntry)
+      await fetchUsers()
+    } catch (error) {
+      console.error('❌ Gagal update data pegawai:', error)
+    }
+  }
+
+  const filteredData = employees.filter((emp) =>
+    Object.values(emp).some((value) =>
+      String(value).toLowerCase().includes(filterText.toLowerCase())
+    )
+  )
   const employeeColumns = [
-    { key: 'name',label: 'Nama Pegawai'},
-    { key: 'address',label: 'Alamat'},
-    { key: 'phone',label: 'Nomor Telepon'},
-    { key: 'role',label: 'Jabatan'},
+    { key: 'nama', label: 'Nama Pegawai' },
+    { key: 'username', label: 'Username' },
+    { key: 'password', label: 'Password' },
+    { key: 'no_telepon', label: 'Nomor Telepon' },
+    { key: 'role', label: 'Role' }
   ]
+
+  const [tokoInfo, setTokoInfo] = useState(null)
+
+  const fetchTokoInfo = async () => {
+    try {
+      const data = await window.api.getTokoById(Number(toko_Id))
+      setTokoInfo(data)
+    } catch (err) {
+      console.error('❌ Gagal ambil data toko:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (!isNaN(Number(toko_Id))) {
+      fetchTokoInfo()
+    }
+  }, [toko_Id])
+
   return (
     <div className="container mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Detil Toko</h1>
-        <button 
-          onClick={openAddModal}
-          className="mt-3 md:mt-0 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition-colors"
-        >
-          <HiPlus size={18} />
-          <span>Tambah Pegawai</span>
-        </button>
-      </div>
-
-      {/* Modal for adding/editing employee */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <div className="fixed inset-0 bg-black opacity-50"></div>
-            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6 z-10">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">
-                  {isEditMode ? 'Edit Data Pegawai' : 'Tambah Pegawai Baru'}
-                </h3>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <HiXMark size={24} />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Nama Lengkap
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Nama Lengkap"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
-                    Alamat
-                  </label>
-                  <textarea
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Alamat Lengkap"
-                    required
-                  ></textarea>
-                </div>
-
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Nomor HP
-                  </label>
-                  <input
-                    type="text"
-                    id="phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="08xxxxxxxxxx"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-                    Role
-                  </label>
-                  <select
-                    id="role"
-                    name="role"
-                    value={formData.role}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  >
-                    <option value="Kasir">Kasir</option>
-                    <option value="Admin">Admin</option>
-                    <option value="Manager">Manager</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-                >
-                  Batal
-                </button>
-                <button
-                  onClick={handleSaveEmployee}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  Simpan
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <h2 className="text-lg font-medium text-gray-700">Informasi Toko</h2>
@@ -251,15 +156,15 @@ const HalamanDetilToko = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-gray-500">Nama Toko</p>
-              <p className="text-base font-medium">Cabang Malang</p>
+              <p className="text-base font-medium">{tokoInfo?.nama_toko}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Alamat</p>
-              <p className="text-base">Jl. Soekarno Hatta No. 45, Malang</p>
+              <p className="text-base">{tokoInfo?.alamat}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Nomor Telepon</p>
-              <p className="text-base">081234567891</p>
+              <p className="text-base">{tokoInfo?.no_telepon}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Total Pegawai</p>
@@ -270,20 +175,78 @@ const HalamanDetilToko = () => {
       </div>
 
       <TableContent
-      data={employees}
-      onEdit={openEditModal}
-      onDelete={handleDeleteEmployee}
-      btnSize={'xs'}
-      title={'Daftar Pegawai'}
-      columns={employeeColumns}
-      onAdd={
-      <FormLayout onSubmit={(data) => handleSaveEmployee()}></FormLayout>
+        data={filteredData}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onSearchChange={setFilterText}
+        searchValue={filterText}
+        btnSize={'xs'}
+        title={'Daftar Pegawai'}
+        columns={employeeColumns}
+        onAdd={
+          <FormLayout
+            onSubmit={(data) => {
+              handleFormSubmit(data)
+              setIsModalOpen(false)
+            }}
+          ></FormLayout>
+        }
+      ></TableContent>
 
-      }>
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        onConfirm={confirmDelete}
+      ></ConfirmDialog>
 
-      </TableContent>
+      <ModalEdit
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={() => {
+          handleEditSubmit(formData)
+          setIsModalOpen(false)
+        }}
+      >
+        <InputField
+          name="name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+        >
+          Nama Pegawai
+        </InputField>
+
+        <InputField
+          name="username"
+          value={formData.username}
+          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+        >
+          Username
+        </InputField>
+
+        <InputField
+          name="password"
+          type="password"
+          value={formData.password}
+          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+        >
+          Password
+        </InputField>
+        <InputField
+          name="phone"
+          value={formData.phone}
+          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+        >
+          Nomor Telepon
+        </InputField>
+        <InputField
+          name="role"
+          value={formData.role}
+          onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+        >
+          Jabatan
+        </InputField>
+      </ModalEdit>
     </div>
-    
   )
 }
 

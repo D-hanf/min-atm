@@ -85,7 +85,7 @@ const Sidebar = () => {
     <div
       onMouseEnter={() => setHoveringSidebar(true)}
       onMouseLeave={() => setHoveringSidebar(false)}
-      className={`flex flex-col h-screen bg-white border-r border-zinc-200 overflow-y-auto
+      className={`flex flex-col h-screen bg-white border-r border-zinc-200 
         transition-all duration-300 ease-in-out
         ${isOpen ? 'w-64 opacity-100' : 'w-20 opacity-80'}
         relative`}
