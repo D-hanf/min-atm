@@ -227,7 +227,6 @@ const HalamanPindahSaldo = () => {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={(updatedData) => {
-          console.log(updatedData)
           const cleanedAmount = parseInt(String(updatedData.amount).replace(/[^0-9]/g, ''), 10)
 
           const cleanedOperational = parseInt(
