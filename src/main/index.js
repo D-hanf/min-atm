@@ -138,13 +138,17 @@ app.whenReady().then(() => {
     `)
     db.run(`
       CREATE TABLE IF NOT EXISTS ambil_saldo (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sumber_dana_id INTEGER NOT NULL,
-        nominal REAL NOT NULL,
-        biaya_admin REAL DEFAULT 0,
-        keterangan TEXT,
-        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id)
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      petugas_pengambil_id INTEGER NOT NULL,
+      platform TEXT NOT NULL,
+      saldo_platform REAL NOT NULL,
+      nominal_pengambilan REAL NOT NULL,
+      biaya_admin REAL DEFAULT 0,
+      metode_pengambilan TEXT,
+      tujuan_pengambilan TEXT,
+      tanggal_pengambilan DATETIME DEFAULT CURRENT_TIMESTAMP,
+      keterangan TEXT,
+      FOREIGN KEY (petugas_pengambil_id) REFERENCES users(id)
       )
     `)
     // db.run(`ALTER TABLE users ADD COLUMN toko_id INTEGER`) =>  untuk menambahkan kolom toko_id&no_telepon di table users
@@ -272,6 +276,137 @@ app.whenReady().then(() => {
     })
 
     // ============================= end saldo awal handler =============================
+
+    // ============================= ambil saldo handler =============================
+
+    ipcMain.handle('get-ambil-saldo', () => {
+      return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM ambil_saldo', [], (err, rows) => {
+          if (err) reject(err)
+          else resolve(rows)
+        })
+      })
+    })
+
+    ipcMain.handle('create-ambil-saldo', (event, data) => {
+      const {
+        petugas_pengambil_id,
+        platform,
+        saldo_platform,
+        nominal_pengambilan,
+        biaya_admin,
+        metode_pengambilan,
+        tujuan_pengambilan,
+        tanggal_pengambilan, // Include this parameter
+        keterangan
+      } = data
+
+      const query = `
+        INSERT INTO ambil_saldo (
+          petugas_pengambil_id, 
+          platform, 
+          saldo_platform, 
+          nominal_pengambilan, 
+          biaya_admin, 
+          metode_pengambilan, 
+          tujuan_pengambilan, 
+          tanggal_pengambilan, 
+          keterangan
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `
+
+      return new Promise((resolve, reject) => {
+        db.run(
+          query,
+          [
+            petugas_pengambil_id,
+            platform,
+            saldo_platform,
+            nominal_pengambilan,
+            biaya_admin,
+            metode_pengambilan,
+            tujuan_pengambilan,
+            tanggal_pengambilan || new Date().toISOString().split('T')[0], // Default value if missing
+            keterangan
+          ],
+          function (err) {
+            if (err) reject(err)
+            else resolve({ id: this.lastID })
+          }
+        )
+      })
+    })
+
+    ipcMain.handle('update-ambil-saldo', (event, data) => {
+      const {
+        id,
+        petugas_pengambil_id,
+        platform,
+        saldo_platform,
+        nominal_pengambilan,
+        biaya_admin,
+        metode_pengambilan,
+        tujuan_pengambilan,
+        tanggal_pengambilan,
+        keterangan
+      } = data
+
+      console.log('🔄 Updating ambil_saldo:', { id, platform, tanggal_pengambilan })
+
+      const query = `
+        UPDATE ambil_saldo
+        SET 
+          petugas_pengambil_id = ?, 
+          platform = ?, 
+          saldo_platform = ?, 
+          nominal_pengambilan = ?, 
+          biaya_admin = ?, 
+          metode_pengambilan = ?, 
+          tujuan_pengambilan = ?, 
+          tanggal_pengambilan = ?, 
+          keterangan = ?
+        WHERE id = ?
+      `
+
+      return new Promise((resolve, reject) => {
+        db.run(
+          query,
+          [
+            petugas_pengambil_id,
+            platform,
+            saldo_platform,
+            nominal_pengambilan,
+            biaya_admin,
+            metode_pengambilan,
+            tujuan_pengambilan,
+            tanggal_pengambilan || new Date().toISOString().split('T')[0], // Default value if missing
+            keterangan,
+            id
+          ],
+          function (err) {
+            if (err) {
+              console.error('❌ Error updating ambil_saldo:', err)
+              reject(err)
+            } else {
+              console.log('✅ ambil_saldo updated successfully. Changes:', this.changes)
+              resolve({ changes: this.changes })
+            }
+          }
+        )
+      })
+    })
+
+    ipcMain.handle('delete-ambil-saldo', (event, id) => {
+      return new Promise((resolve, reject) => {
+        db.run('DELETE FROM ambil_saldo WHERE id = ?', [id], function (err) {
+          if (err) reject(err)
+          else resolve({ changes: this.changes })
+        })
+      })
+    })
+
+    // ============================= end ambil saldo handler =============================
 
     // ============================== kelola toko handler ===============================
     ipcMain.handle('create-toko', (event, data) => {

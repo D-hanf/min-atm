@@ -9,26 +9,20 @@ import { useState } from 'react'
 
 const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) => {
   const [modalOpen, setModalOpen] = useState(false)
-  const [formData, setFormData] = useState(initialData)
-
-  // Sample current user (would come from auth context in real app)
-  const currentUser = {
-    name: 'Ahmad Sulaiman',
-    role: 'Admin'
-  }
-
-  // Platform options
-  const platformOptions = [
-    'BRI',
-    'BNI',
-    'Mandiri',
-    'BTN',
-    'DANA',
-    'OVO',
-    'GoPay',
-    'ShopeePay',
-    'LinkAja'
-  ]
+  const [formData, setFormData] = useState({
+    user_id: 1, // Default to first user for demonstration
+    platform: '',
+    currentBalance: '',
+    amount: '',
+    fee: '',
+    withdrawalMethod: '',
+    withdrawalAccount: '',
+    withdrawalDate: new Date().toISOString().split('T')[0],
+    description: ''
+  })
+  const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [selectedPlatform, setSelectedPlatform] = useState(null)
 
   // Format currency
   const formatRupiah = (value) => {
@@ -51,21 +45,50 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     return formattedValue.toString().replace(/[^0-9]/g, '')
   }
 
+  // Fetch saldo_awal data from database
+  const fetchSaldoAwal = async () => {
+    try {
+      setIsLoading(true)
+      const result = await window.api.getSaldoAwal()
+      setSaldoAwalOptions(result)
+      console.log('✅ Data saldo awal berhasil diambil:', result)
+    } catch (error) {
+      console.error('❌ Gagal ambil data saldo awal:', error)
+      setSaldoAwalOptions([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
-    // Auto-fill user when modal opens
+    // Fetch saldo_awal data when component mounts
+    fetchSaldoAwal()
+  }, [])
+
+  useEffect(() => {
+    // Reset form when modal opens and fetch fresh data
     if (modalOpen) {
-      setFormData((prevData) => ({
-        ...prevData,
-        user: currentUser.name
-      }))
+      fetchSaldoAwal()
+      setFormData({
+        user_id: 1, // Default to first user
+        platform: '',
+        currentBalance: '',
+        amount: '',
+        fee: '',
+        withdrawalMethod: '',
+        withdrawalAccount: '',
+        withdrawalDate: new Date().toISOString().split('T')[0],
+        description: ''
+      })
+      setSelectedPlatform(null)
     }
   }, [modalOpen])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
 
-    // Special handling for amount and fee fields
-    if (name === 'amount' || name === 'fee' || name === 'currentBalance') {
+    // Special handling for currency fields
+    if (name === 'amount' || name === 'fee') {
       const numericValue = extractNumeric(value)
       setFormData({
         ...formData,
@@ -77,38 +100,57 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     }
   }
 
-  const handlePlatformChange = (selectedPlatform) => {
-    setFormData({
-      ...formData,
-      platform: selectedPlatform
-    })
+  const handlePlatformChange = (selectedPlatformName) => {
+    // Find the selected saldo_awal item
+    const selectedItem = saldoAwalOptions.find(
+      (item) => item.nama_sumber_dana === selectedPlatformName
+    )
+
+    if (selectedItem) {
+      setSelectedPlatform(selectedItem)
+
+      // Update form data with selected platform, its current saldo, and biaya_admin
+      setFormData({
+        ...formData,
+        platform: selectedItem.nama_sumber_dana,
+        platformId: selectedItem.id,
+        currentBalance: formatRupiah(selectedItem.saldo),
+        currentBalanceRaw: selectedItem.saldo.toString(),
+        fee: formatRupiah(selectedItem.biaya_admin), // Auto-populate fee field
+        feeRaw: selectedItem.biaya_admin.toString() // Store raw value for submission
+      })
+    } else {
+      setSelectedPlatform(null)
+      setFormData({
+        ...formData,
+        platform: '',
+        platformId: null,
+        currentBalance: '',
+        currentBalanceRaw: '',
+        fee: '',
+        feeRaw: ''
+      })
+    }
   }
 
   const handleSubmit = () => {
-    // Prepare data for submission - extract raw values from formatted currency
+    // Prepare data for submission
     const submissionData = {
       ...formData,
-      amount: formData.amountRaw || extractNumeric(formData.amount),
-      fee: formData.feeRaw || extractNumeric(formData.fee),
-      currentBalance: formData.currentBalanceRaw || extractNumeric(formData.currentBalance),
-      withdrawalDate: formData.withdrawalDate || new Date().toISOString().split('T')[0]
+      // Map form fields to database fields
+      petugas_pengambil_id: parseInt(formData.user_id, 10) || 1,
+      platform: formData.platform,
+      saldo_platform: parseFloat(formData.currentBalanceRaw || 0),
+      nominal_pengambilan: parseFloat(formData.amountRaw || extractNumeric(formData.amount) || 0),
+      biaya_admin: parseFloat(formData.feeRaw || extractNumeric(formData.fee) || 0),
+      metode_pengambilan: formData.withdrawalMethod,
+      tujuan_pengambilan: formData.withdrawalAccount,
+      tanggal_pengambilan: formData.withdrawalDate,
+      keterangan: formData.description
     }
 
     onSubmit(submissionData)
     setModalOpen(false)
-
-    // Reset form data after submission
-    setFormData({
-      user: '',
-      platform: '',
-      currentBalance: '',
-      amount: '',
-      fee: '',
-      withdrawalMethod: '',
-      withdrawalAccount: '',
-      withdrawalDate: new Date().toISOString().split('T')[0],
-      description: ''
-    })
   }
 
   return (
@@ -121,36 +163,51 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       </div>
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}>
         <InputField
-          name="user"
-          type="text"
-          value={formData.user || currentUser.name}
+          name="user_id"
+          type="number"
+          value={formData.user_id}
           onChange={handleInputChange}
-          disabled={true}
-          className="bg-gray-100" // Visual indication that it's read-only
+          disabled={false}
         >
-          Petugas Pengambil
+          ID Petugas Pengambil
         </InputField>
 
+        {/* Platform dropdown */}
         <div className="col-span-2 mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Platform</label>
-          <Dropdown
-            className="w-full"
-            label="Pilih Platform"
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Platform/Sumber Dana
+          </label>
+          <select
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.platform}
-            items={platformOptions}
-            onChange={handlePlatformChange}
-          />
+            onChange={(e) => handlePlatformChange(e.target.value)}
+            disabled={isLoading || saldoAwalOptions.length === 0}
+          >
+            <option value="">-- Pilih Sumber Dana --</option>
+            {saldoAwalOptions.map((item) => (
+              <option key={item.id} value={item.nama_sumber_dana}>
+                {item.nama_sumber_dana}
+              </option>
+            ))}
+          </select>
+          {saldoAwalOptions.length === 0 && !isLoading && (
+            <p className="text-red-500 text-xs mt-1">
+              Tidak ada sumber dana tersedia. Silakan tambahkan sumber dana terlebih dahulu.
+            </p>
+          )}
         </div>
 
-        <InputField
-          name="currentBalance"
-          type="text"
-          value={formData.currentBalance || ''}
-          onChange={handleInputChange}
-          placeholder="Rp 0"
-        >
-          Saldo Platform Saat Ini
-        </InputField>
+        {/* Show current balance only when platform is selected */}
+        {selectedPlatform && (
+          <div className="col-span-2 mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Saldo Platform Saat Ini
+            </label>
+            <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
+              {formatRupiah(selectedPlatform.saldo)}
+            </div>
+          </div>
+        )}
 
         <InputField
           name="amount"
@@ -168,8 +225,12 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
           value={formData.fee || ''}
           onChange={handleInputChange}
           placeholder="Rp 0"
+          className={selectedPlatform ? 'border-yellow-500' : ''}
         >
-          Biaya Admin
+          Biaya Admin{' '}
+          {selectedPlatform && (
+            <span className="text-xs text-yellow-600">(dari platform, dapat diedit)</span>
+          )}
         </InputField>
 
         <InputField

@@ -18,6 +18,12 @@ const api = {
   updateSaldoAwal: (data) => ipcRenderer.invoke('update-saldo-awal', data),
   deleteSaldoAwal: (id) => ipcRenderer.invoke('delete-saldo-awal', id),
 
+  // ambil saldo
+  getAmbilSaldo: () => ipcRenderer.invoke('get-ambil-saldo'),
+  createAmbilSaldo: (data) => ipcRenderer.invoke('create-ambil-saldo', data),
+  updateAmbilSaldo: (data) => ipcRenderer.invoke('update-ambil-saldo', data),
+  deleteAmbilSaldo: (id) => ipcRenderer.invoke('delete-ambil-saldo', id),
+
   // kelola toko
   getToko: () => ipcRenderer.invoke('get-toko'),
   createToko: (data) => ipcRenderer.invoke('create-toko', data),
@@ -33,7 +39,6 @@ const api = {
   deleteKaryawan: (id) => ipcRenderer.invoke('delete-karyawan', id),
   
 }
-
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
