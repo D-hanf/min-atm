@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 import { electronAPI } from '@electron-toolkit/preload'
 
-console.log('✅ Preload file executed awaok') 
+console.log('✅ Preload file executed awaok')
 
 // Custom APIs for renderer
 const api = {
@@ -18,6 +18,12 @@ const api = {
   updateSaldoAwal: (data) => ipcRenderer.invoke('update-saldo-awal', data),
   deleteSaldoAwal: (id) => ipcRenderer.invoke('delete-saldo-awal', id),
 
+  // ambil saldo - make sure these are correctly defined
+  getAmbilSaldo: () => ipcRenderer.invoke('get-ambil-saldo'),
+  createAmbilSaldo: (data) => ipcRenderer.invoke('create-ambil-saldo', data),
+  updateAmbilSaldo: (data) => ipcRenderer.invoke('update-ambil-saldo', data),
+  deleteAmbilSaldo: (id) => ipcRenderer.invoke('delete-ambil-saldo', id),
+
   // kelola toko
   getToko: () => ipcRenderer.invoke('get-toko'),
   createToko: (data) => ipcRenderer.invoke('create-toko', data),
@@ -25,9 +31,9 @@ const api = {
   deleteToko: (id) => ipcRenderer.invoke('delete-toko', id),
   getTokoById: (id) => ipcRenderer.invoke('get-toko-by-id', id),
   getTokoWithEmployeeCount: () => ipcRenderer.invoke('get-toko-with-employee-count'),
-  
+
   // kelola karyawan
-  getKaryawan: (toko_id) => ipcRenderer.invoke('get-karyawan',toko_id),
+  getKaryawan: (toko_id) => ipcRenderer.invoke('get-karyawan', toko_id),
   createKaryawan: (data) => ipcRenderer.invoke('create-karyawan', data),
   updateKaryawan: (data) => ipcRenderer.invoke('update-karyawan', data),
   deleteKaryawan: (id) => ipcRenderer.invoke('delete-karyawan', id),
@@ -35,9 +41,7 @@ const api = {
   
   // login
   loginUser: (credentials) => ipcRenderer.invoke('login-user', credentials),
-
 }
-
 
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
@@ -47,7 +51,6 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
     console.log('✅ Preload is loaded')
-
   } catch (error) {
     console.error(error)
   }
