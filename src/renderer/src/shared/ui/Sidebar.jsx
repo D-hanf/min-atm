@@ -24,6 +24,10 @@ const Sidebar = () => {
     if (!hoveringSidebar) setOpenSubmenu(null)
   }, [hoveringSidebar])
 
+  // Ambil data user
+  const user = JSON.parse(localStorage.getItem('user'))
+  const isAdmin = user?.role === 'admin' // ⬅️ Cek role user
+
   // Toggle submenu saat sidebar terbuka klik menu
   const toggleSubmenu = (index) => {
     if (isOpen) {
@@ -42,16 +46,21 @@ const Sidebar = () => {
     {
       title: 'Menu',
       items: [
-        {
-          label: 'Dashboard',
-          icon: <HiOutlineHome size={18} />,
-          to: '/dashboard'
-        },
+        ...(isAdmin
+          ? [
+              {
+                label: 'Dashboard',
+                icon: <HiOutlineHome size={18} />,
+                to: '/dashboard'
+              }
+            ]
+          : []),
         {
           label: 'Transaksi',
           icon: <HiOutlineShoppingBag size={18} />,
           to: '/dashboard/transaksi'
         },
+
         {
           label: 'Kelola Data',
           icon: <HiOutlineCube size={18} />,
@@ -59,7 +68,7 @@ const Sidebar = () => {
           submenu: [
             { label: 'Pindah Saldo', to: '/dashboard/pindah-saldo' },
             { label: 'Ambil Saldo', to: '/dashboard/ambil-saldo' },
-            { label: 'Saldo Awal', to: '/dashboard/saldo-awal' }
+            ...(isAdmin ? [{ label: 'Saldo Awal', to: '/dashboard/saldo-awal' }] : [])
           ]
         }
       ]
@@ -67,11 +76,15 @@ const Sidebar = () => {
     {
       title: 'Pengaturan',
       items: [
-        {
-          label: 'Kelola Toko',
-          icon: <AiOutlineShop size={18} />,
-          to: '/dashboard/kelola-toko'
-        },
+        ...(isAdmin
+          ? [
+              {
+                label: 'Kelola Toko',
+                icon: <AiOutlineShop size={18} />,
+                to: '/dashboard/kelola-toko'
+              }
+            ]
+          : []),
         {
           label: 'Logout',
           icon: <HiOutlineArrowLeftEndOnRectangle size={18} />,
@@ -90,12 +103,12 @@ const Sidebar = () => {
         ${isOpen ? 'w-64 opacity-100' : 'w-20 opacity-80'}
         relative`}
       style={{
-        transform: isOpen ? 'translateX(0)' : 'translateX(-10px)',
+        transform: isOpen ? 'translateX(0)' : 'translateX(-10px)'
       }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-6">
-        {isOpen && <h1 className="text-xl font-bold text-zinc-800 select-none">Cashier App</h1>}
+        {isOpen && <h1 className="text-xl font-bold text-zinc-800 select-none">mini ATM</h1>}
       </div>
 
       {/* Profile section: selalu tampil */}
@@ -103,8 +116,10 @@ const Sidebar = () => {
         className={`flex items-center gap-3 px-4 py-4 border-t border-b border-zinc-200 cursor-default transition-all duration-300
           ${isOpen ? 'w-full' : 'w-12 mx-auto justify-center'}`}
       >
-        <div className={`rounded-full overflow-hidden bg-zinc-200 flex-shrink-0 transition-all duration-300
-          ${isOpen ? 'w-10 h-10' : 'w-8 h-8'}`}>
+        <div
+          className={`rounded-full overflow-hidden bg-zinc-200 flex-shrink-0 transition-all duration-300
+          ${isOpen ? 'w-10 h-10' : 'w-8 h-8'}`}
+        >
           <img
             src="/placeholder-profile.jpg"
             alt="Profile"
@@ -118,8 +133,8 @@ const Sidebar = () => {
         </div>
         {isOpen && (
           <div className="select-none">
-            <p className="font-medium text-sm">John Doe</p>
-            <p className="text-xs text-zinc-500">Admin Toko</p>
+            <p className="font-medium text-sm">{user.nama}</p>
+            <p className="text-xs text-zinc-500">{user.role}</p>
           </div>
         )}
       </div>
@@ -167,9 +182,11 @@ const Sidebar = () => {
                               key={subIdx}
                               to={sub.to}
                               className={`block px-2 py-1 rounded text-sm transition-colors
-                              ${currentLocation === sub.to
-                                ? 'bg-zinc-100 font-medium text-zinc-800'
-                                : 'text-zinc-600 hover:bg-zinc-50'}`}
+                              ${
+                                currentLocation === sub.to
+                                  ? 'bg-zinc-100 font-medium text-zinc-800'
+                                  : 'text-zinc-600 hover:bg-zinc-50'
+                              }`}
                             >
                               {sub.label}
                             </Link>
