@@ -1,5 +1,5 @@
 import { HiCurrencyDollar, HiShoppingBag, HiUserGroup, HiWallet } from 'react-icons/hi2'
-import React, { useEffect, useState } from 'react'
+import React, { use, useEffect, useState } from 'react'
 
 import DashboardCard from '../../../features/dashboard/ui/DashboardCard'
 import { Link } from 'react-router-dom'
@@ -85,7 +85,7 @@ const DashboardPage = () => {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-800 mb-6">Dashboard</h1>
-
+      
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statistic.map((stat, index) => (
           <Link to={stat.linkTo} key={index} className="block hover:no-underline">
