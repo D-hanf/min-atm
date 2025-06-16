@@ -1,12 +1,13 @@
-import { useState } from 'react'
 import {
-  FaUniversity,
-  FaWallet,
-  FaMobileAlt,
-  FaCreditCard,
   FaChevronDown,
-  FaChevronUp
+  FaChevronUp,
+  FaCreditCard,
+  FaMobileAlt,
+  FaUniversity,
+  FaWallet
 } from 'react-icons/fa'
+
+import { useState } from 'react'
 
 const FundSourcesCard = ({ totalAssets, fundSources, formatRupiah }) => {
   const [isExpanded, setIsExpanded] = useState(false)
@@ -92,14 +93,14 @@ const FundSourcesCard = ({ totalAssets, fundSources, formatRupiah }) => {
                 animationDelay: `${index * 50}ms`
               }}
             >
-              <div className="flex items-center">
-                <div className={`${getBgColorBySource(source.name)} p-2 rounded-full mr-3`}>
-                  {getIconBySource(source.name)}
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">{source.name}</p>
-                  <p className="font-bold">{formatRupiah(source.balance)}</p>
-                </div>
+              <div
+                className={`${getBgColorBySource(source.nama_sumber_dana)} p-2 rounded-full mr-3`}
+              >
+                {getIconBySource(source.nama_sumber_dana)}
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">{source.nama_sumber_dana}</p>
+                <p className="font-bold">{formatRupiah(Number(source.saldo || 0))}</p>
               </div>
             </div>
           ))}

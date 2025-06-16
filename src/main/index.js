@@ -2,6 +2,7 @@ import { BrowserWindow, app, shell } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 
 import icon from '../../resources/icon.png?asset'
+import { ipcMain } from 'electron'
 import { join } from 'path'
 
 const path = require('path')

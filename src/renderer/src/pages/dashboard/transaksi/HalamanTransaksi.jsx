@@ -1,11 +1,11 @@
 import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus } from 'react-icons/hi'
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import ConfirmDialog from '../../../components/ConfirmDialog'
 import Dropdown from '../../../components/Dropdown'
 import FinancialSummaryCards from '../../../components/FinancialSummaryCards'
-import FundSourcesCard from '../../../components/FundSourcesCard' // Import komponen baru
 import FormLayout from './FormLayout'
+import FundSourcesCard from '../../../components/FundSourcesCard' // Import komponen baru
 import ModalEdit from '../../../shared/ui/Modal'
 import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
@@ -41,32 +41,7 @@ const HalamanTransaksi = () => {
       phone: '081234567893'
     }
   ])
-  const [saldo, setSaldo] = useState([
-    {
-      id: 1,
-      source: 'DANA',
-      saldo: 1000000,
-      dateCreated: '2023-10-01',
-      dateUpdated: '2023-10-01',
-      description: 'Saldo di Dana'
-    },
-    {
-      id: 2,
-      source: 'CASH',
-      saldo: 5000000,
-      dateCreated: '2023-10-02',
-      dateUpdated: '2023-10-02',
-      description: 'Saldo awal yang tersedia di kasir'
-    },
-    {
-      id: 3,
-      source: 'BTN',
-      saldo: 7500000,
-      dateCreated: '2023-10-03',
-      dateUpdated: '2023-10-03',
-      description: 'Saldo awal di Bank BTN'
-    }
-  ])
+  const [saldo, setSaldo] = useState([])
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -120,23 +95,40 @@ const HalamanTransaksi = () => {
   })
 
   // Financial summary data
-  const financialSummary = {
-    cashWithdrawal: 0,
-    transfer: 0,
-    bankAdmin: 0,
-    profit: 0,
-    totalAssets: 25500000
+  const [financialSummary, setFinancialSummary] = useState({
+  cashWithdrawal: 0,
+  transfer: 0,
+  bankAdmin: 0,
+  profit: 0,
+  totalAssets: 0
+})
+
+
+  const [fundSources, setFundSources] = useState([])
+
+  const fetchFundSources = async () => {
+    try {
+      const result = await window.api.getSaldoAwal()
+      console.log('🔥 Saldo Awal:', result)
+
+      setFundSources(result)
+
+      // Hitung total aset dari semua saldo
+      const total = result.reduce((sum, item) => sum + Number(item.saldo || 0), 0)
+
+      setFinancialSummary((prev) => ({
+        ...prev,
+        totalAssets: total
+      }))
+    } catch (error) {
+      console.error('❌ Gagal ambil data saldo:', error)
+    }
   }
 
+  useEffect(() => {
+    fetchFundSources()
+  }, [])
   // Fund sources with detailed balances
-  const fundSources = [
-    { name: 'DANA', balance: 5000000 },
-    { name: 'BRI', balance: 10000000 },
-    { name: 'LACI', balance: 5000000 },
-    { name: 'SEABANK', balance: 3000000 },
-    { name: 'MANDIRI', balance: 2000000 },
-    { name: 'EKGIPOS', balance: 500000 }
-  ]
 
   // Transaction table columns
   const transactionColumns = [
