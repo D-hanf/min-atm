@@ -134,6 +134,15 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
   }
 
   const handleSubmit = () => {
+    // Validate withdrawal amount doesn't exceed current balance
+    const currentBalance = parseFloat(formData.currentBalanceRaw || 0)
+    const withdrawalAmount = parseFloat(formData.amountRaw || extractNumeric(formData.amount) || 0)
+
+    if (withdrawalAmount > currentBalance) {
+      alert('Nominal pengambilan tidak boleh melebihi saldo yang tersedia!')
+      return
+    }
+
     // Prepare data for submission
     const submissionData = {
       ...formData,

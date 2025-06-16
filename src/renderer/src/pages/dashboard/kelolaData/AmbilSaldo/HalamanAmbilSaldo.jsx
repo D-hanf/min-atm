@@ -162,7 +162,10 @@ const HalamanAmbilSaldo = () => {
       }
 
       await window.api.createAmbilSaldo(newAmbilSaldo)
-      await fetchAmbilSaldo()
+
+      // Refresh both ambil saldo and saldo awal data
+      await Promise.all([fetchAmbilSaldo(), fetchSaldoAwal()])
+
       console.log('✅ Data ambil saldo berhasil ditambahkan')
     } catch (error) {
       console.error('❌ Gagal menambahkan data ambil saldo:', error)
@@ -277,7 +280,10 @@ const HalamanAmbilSaldo = () => {
       console.log('📝 Submitting updated data:', updatedEntry)
 
       await window.api.updateAmbilSaldo(updatedEntry)
-      await fetchAmbilSaldo()
+
+      // Refresh both ambil saldo and saldo awal data
+      await Promise.all([fetchAmbilSaldo(), fetchSaldoAwal()])
+
       setModalOpen(false)
       console.log('✅ Data ambil saldo berhasil diupdate')
     } catch (error) {

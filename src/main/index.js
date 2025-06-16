@@ -279,14 +279,66 @@ app.whenReady().then(() => {
 
     // ============================= ambil saldo handler =============================
 
+    // Make sure this handler exists and is properly registered
     ipcMain.handle('get-ambil-saldo', () => {
       return new Promise((resolve, reject) => {
         db.all('SELECT * FROM ambil_saldo', [], (err, rows) => {
-          if (err) reject(err)
-          else resolve(rows)
+          if (err) {
+            console.error('❌ Error getting ambil_saldo data:', err)
+            reject(err)
+          } else {
+            console.log('✅ Successfully retrieved ambil_saldo data, count:', rows.length)
+            resolve(rows)
+          }
         })
       })
     })
+
+    // Helper function to update saldo_awal after withdrawal
+    const updateSaldoAfterWithdrawal = async (platform, withdrawalAmount, adminFee = 0) => {
+      return new Promise((resolve, reject) => {
+        // First, get the current saldo_awal record for this platform
+        db.get(
+          'SELECT id, saldo FROM saldo_awal WHERE nama_sumber_dana = ?',
+          [platform],
+          (err, row) => {
+            if (err) {
+              console.error('❌ Error getting saldo_awal for update:', err)
+              return reject(err)
+            }
+
+            if (!row) {
+              console.error('❌ Platform not found in saldo_awal:', platform)
+              return reject(new Error('Platform not found'))
+            }
+
+            // Calculate total deduction (withdrawal amount + admin fee)
+            const totalDeduction = withdrawalAmount + adminFee
+
+            // Calculate new balance
+            const newBalance = Math.max(0, row.saldo - totalDeduction) // Prevent negative balance
+            console.log(
+              `💰 Updating saldo for ${platform}: ${row.saldo} - ${withdrawalAmount} - ${adminFee} (admin) = ${newBalance}`
+            )
+
+            // Update the saldo_awal with new balance
+            db.run(
+              'UPDATE saldo_awal SET saldo = ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+              [newBalance, row.id],
+              function (err) {
+                if (err) {
+                  console.error('❌ Error updating saldo_awal balance:', err)
+                  return reject(err)
+                }
+
+                console.log(`✅ Successfully updated saldo for ${platform} to ${newBalance}`)
+                resolve({ success: true, changes: this.changes })
+              }
+            )
+          }
+        )
+      })
+    }
 
     ipcMain.handle('create-ambil-saldo', (event, data) => {
       const {
@@ -297,9 +349,12 @@ app.whenReady().then(() => {
         biaya_admin,
         metode_pengambilan,
         tujuan_pengambilan,
-        tanggal_pengambilan, // Include this parameter
+        tanggal_pengambilan,
         keterangan
       } = data
+
+      // Log the date being received to debug
+      console.log('📅 Create date received:', tanggal_pengambilan)
 
       const query = `
         INSERT INTO ambil_saldo (
@@ -327,12 +382,29 @@ app.whenReady().then(() => {
             biaya_admin,
             metode_pengambilan,
             tujuan_pengambilan,
-            tanggal_pengambilan || new Date().toISOString().split('T')[0], // Default value if missing
+            tanggal_pengambilan || new Date().toISOString().split('T')[0],
             keterangan
           ],
-          function (err) {
-            if (err) reject(err)
-            else resolve({ id: this.lastID })
+          async function (err) {
+            if (err) {
+              console.error('❌ Error creating ambil_saldo:', err)
+              return reject(err)
+            }
+
+            console.log('✅ ambil_saldo created successfully with ID:', this.lastID)
+
+            try {
+              // Update saldo_awal after successful withdrawal, including admin fee
+              await updateSaldoAfterWithdrawal(platform, nominal_pengambilan, biaya_admin)
+              resolve({ id: this.lastID })
+            } catch (updateErr) {
+              console.error('❌ Error updating saldo after withdrawal:', updateErr)
+              // Still return success for the ambil_saldo creation
+              resolve({
+                id: this.lastID,
+                warningMessage: 'Withdrawal created but saldo not updated'
+              })
+            }
           }
         )
       })
@@ -370,43 +442,124 @@ app.whenReady().then(() => {
       `
 
       return new Promise((resolve, reject) => {
-        db.run(
-          query,
-          [
-            petugas_pengambil_id,
-            platform,
-            saldo_platform,
-            nominal_pengambilan,
-            biaya_admin,
-            metode_pengambilan,
-            tujuan_pengambilan,
-            tanggal_pengambilan || new Date().toISOString().split('T')[0], // Default value if missing
-            keterangan,
-            id
-          ],
-          function (err) {
+        // First get the original record to calculate the difference
+        db.get(
+          'SELECT platform, nominal_pengambilan, biaya_admin FROM ambil_saldo WHERE id = ?',
+          [id],
+          (err, originalRecord) => {
             if (err) {
-              console.error('❌ Error updating ambil_saldo:', err)
-              reject(err)
-            } else {
-              console.log('✅ ambil_saldo updated successfully. Changes:', this.changes)
-              resolve({ changes: this.changes })
+              console.error('❌ Error getting original ambil_saldo record:', err)
+              return reject(err)
             }
+
+            db.run(
+              query,
+              [
+                petugas_pengambil_id,
+                platform,
+                saldo_platform,
+                nominal_pengambilan,
+                biaya_admin,
+                metode_pengambilan,
+                tujuan_pengambilan,
+                tanggal_pengambilan || new Date().toISOString().split('T')[0],
+                keterangan,
+                id
+              ],
+              async function (err) {
+                if (err) {
+                  console.error('❌ Error updating ambil_saldo:', err)
+                  return reject(err)
+                }
+
+                console.log('✅ ambil_saldo updated successfully. Changes:', this.changes)
+
+                // Only update saldo if platform, amount, or admin fee changed
+                if (
+                  originalRecord &&
+                  (originalRecord.platform !== platform ||
+                    originalRecord.nominal_pengambilan !== nominal_pengambilan ||
+                    originalRecord.biaya_admin !== biaya_admin)
+                ) {
+                  try {
+                    // If platform changed, we need to adjust both platforms
+                    if (originalRecord.platform !== platform) {
+                      // Return the money to the original platform (including admin fee)
+                      await updateSaldoAfterWithdrawal(
+                        originalRecord.platform,
+                        -originalRecord.nominal_pengambilan, // Negative to add it back
+                        -originalRecord.biaya_admin // Negative to add it back
+                      )
+
+                      // Take from the new platform (including admin fee)
+                      await updateSaldoAfterWithdrawal(platform, nominal_pengambilan, biaya_admin)
+                    } else {
+                      // Just adjust the amount and admin fee differences
+                      const amountDifference =
+                        nominal_pengambilan - originalRecord.nominal_pengambilan
+                      const feeDifference = biaya_admin - originalRecord.biaya_admin
+
+                      // Use the combined differences to adjust the saldo
+                      await updateSaldoAfterWithdrawal(platform, amountDifference, feeDifference)
+                    }
+                  } catch (updateErr) {
+                    console.error('❌ Error adjusting saldo after update:', updateErr)
+                    // Still return success for the update
+                  }
+                }
+
+                resolve({ changes: this.changes })
+              }
+            )
           }
         )
       })
     })
 
+    // Also update the delete handler to refund the saldo
     ipcMain.handle('delete-ambil-saldo', (event, id) => {
       return new Promise((resolve, reject) => {
-        db.run('DELETE FROM ambil_saldo WHERE id = ?', [id], function (err) {
-          if (err) reject(err)
-          else resolve({ changes: this.changes })
-        })
+        // First get the record to be deleted so we can refund the balance
+        db.get(
+          'SELECT platform, nominal_pengambilan, biaya_admin FROM ambil_saldo WHERE id = ?',
+          [id],
+          async (err, record) => {
+            if (err) {
+              console.error('❌ Error getting ambil_saldo record for deletion:', err)
+              return reject(err)
+            }
+
+            // Now delete the record
+            db.run('DELETE FROM ambil_saldo WHERE id = ?', [id], async function (err) {
+              if (err) {
+                console.error('❌ Error deleting ambil_saldo:', err)
+                return reject(err)
+              }
+
+              // Record successfully deleted
+              console.log('✅ ambil_saldo deleted successfully. Changes:', this.changes)
+
+              if (record) {
+                try {
+                  // Refund the platform (use negative amounts to add the money back)
+                  await updateSaldoAfterWithdrawal(
+                    record.platform,
+                    -record.nominal_pengambilan, // Negative to add it back
+                    -record.biaya_admin // Negative to add it back
+                  )
+                  console.log('✅ Balance refunded after deletion')
+                } catch (updateErr) {
+                  console.error('❌ Error refunding balance after deletion:', updateErr)
+                  // Still return success for the deletion
+                }
+              }
+
+              resolve({ changes: this.changes })
+            })
+          }
+        )
       })
     })
-
-    // ============================= end ambil saldo handler =============================
 
     // ============================== kelola toko handler ===============================
     ipcMain.handle('create-toko', (event, data) => {
