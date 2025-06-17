@@ -1,153 +1,161 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
+
 import InputField from '../../../../components/InputField'
-import SelectItems from '../../../../components/SelectItems'
 import RupiahInput from '../../../../components/RupiahInput'
+import SelectItems from '../../../../components/SelectItems'
 
 const TarikTunaiForm = ({ formData, onChange }) => {
   const [nominalError, setNominalError] = useState('')
   const [feeType, setFeeType] = useState('Digital')
+  const [sumberDanaList, setSumberDanaList] = useState([])
+  const [sameSourceError, setSameSourceError] = useState('')
+  const [manualFee, setManualFee] = useState(false)
 
-  // Handle fee type change
+  const fetchSaldo = async () => {
+    try {
+      const result = await window.api.getSaldoAwal()
+      setSumberDanaList(result)
+    } catch (error) {
+      console.error('❌ Gagal ambil data saldo:', error)
+    }
+  }
+
+  useEffect(() => {
+    fetchSaldo()
+  }, [])
+
   const handleFeeTypeChange = (e) => {
     setFeeType(e.target.value)
   }
 
-  // Update fee based on nominal amount
+  // Validasi dan perhitungan fee
   useEffect(() => {
-    // Set default fee if not already set
-    if (!formData.amount) {
-      onChange({
-        target: { name: 'amount', value: '2500' }
-      })
+    const nominal = parseInt(formData.nominal_transaksi || '0', 10)
+
+    if (!formData.nominal_transaksi) {
+      setManualFee(false)
     }
 
-    if (formData.initialBalance) {
-      const numValue = parseInt(formData.initialBalance, 10)
-      if (!isNaN(numValue)) {
-        // Set fee based on nominal
-        const newFee = numValue > 5000000 ? '5000' : '2500'
+    if (!isNaN(nominal) && !manualFee) {
+      let fee = 5000
+      if (nominal > 3000000 && nominal <= 5000000) {
+        fee = 10000
+      } else if (nominal >= 5000000) {
+        fee = Math.round((nominal / 1000000) * 2000)
+      }
 
-        // Only update if different
-        if (formData.amount !== newFee) {
-          onChange({
-            target: { name: 'amount', value: newFee }
-          })
-        }
-
-        // Set error if exceeds maximum
-        if (numValue > 10000000) {
-          setNominalError('Tidak boleh melebihi Rp 10.000.000')
-          onChange({
-            target: { name: 'initialBalance', value: '10000000' }
-          })
-        } else {
-          setNominalError('')
-        }
+      if (formData.fee !== fee) {
+        onChange({
+          target: { name: 'fee', value: fee }
+        })
       }
     }
-  }, [formData.initialBalance, formData.amount])
+  }, [formData.nominal_transaksi, manualFee])
+
+
+
+  // Validasi saldo cukup
+  useEffect(() => {
+    const nominal = parseFloat(formData.nominal_transaksi || 0)
+    const sumberDana = sumberDanaList.find((item) => item.id === parseInt(formData.sumber_dana_id))
+
+    if (sumberDana && nominal > sumberDana.saldo) {
+      setNominalError(`Saldo tidak cukup. Saldo tersedia: Rp ${sumberDana.saldo.toLocaleString('id-ID')}`)
+    } else {
+      setNominalError('')
+    }
+  }, [formData.sumber_dana_id, formData.nominal_transaksi, sumberDanaList])
 
   return (
     <>
-      {/* Transaction Number Header */}
+      {/* Header Nomor Transaksi */}
       <div className="bg-gray-50 p-4 rounded-lg mb-4 border-l-4 border-blue-500">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-600">Nomor Transaksi:</span>
           <span className="bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
-            {formData.transactionNumber || 'Generating...'}
+            {formData.no_transaksi || 'Generating...'}
           </span>
         </div>
       </div>
 
       <InputField
-        name="date"
+        name="tanggal"
         type="date"
-        value={formData.date || new Date().toISOString().split('T')[0]}
+        value={formData.tanggal || new Date().toISOString().split('T')[0]}
         onChange={onChange}
       >
         Tanggal
       </InputField>
-
       <SelectItems
-        options={[
-          { label: 'Laci', value: 'Laci' },
-          { label: 'Dana', value: 'Dana' },
-          { label: 'BRI', value: 'BRI' },
-          { label: 'BNI', value: 'BNI' },
-          { label: 'BCA', value: 'BCA' },
-          { label: 'Mandiri', value: 'Mandiri' }
-        ]}
+        options={sumberDanaList
+          .filter((item) => item.nama_sumber_dana === 'Laci' || item.nama_sumber_dana === 'Cash')
+          .map((item) => ({
+            label: item.nama_sumber_dana,
+            value: item.id
+          }))}
         label="Sumber Dana"
-        name="fundSource"
-        value={formData.fundSource || ''}
+        name="sumber_dana_id"
+        value={formData.sumber_dana_id || ''}
         onChange={onChange}
+        required
       />
-
       <SelectItems
-        options={[
-          { label: 'Dana', value: 'Dana' },
-          { label: 'BRI', value: 'BRI' },
-          { label: 'BNI', value: 'BNI' },
-          { label: 'BCA', value: 'BCA' },
-          { label: 'Mandiri', value: 'Mandiri' }
-        ]}
+        options={sumberDanaList.map((item) => ({
+          label: item.nama_sumber_dana,
+          value: item.id
+        }))}
         label="Terima Dana"
-        name="receiveFund"
-        value={formData.receiveFund || ''}
+        name="terima_dana_id"
+        value={formData.terima_dana_id || ''}
         onChange={onChange}
+        required
       />
 
-      {/* New RupiahInput component */}
+      {sameSourceError && <p className="text-sm text-red-500 mb-2">{sameSourceError}</p>}
+
       <RupiahInput
-        name="initialBalance"
-        value={formData.initialBalance}
+        name="nominal_transaksi"
+        value={formData.nominal_transaksi}
         onChange={onChange}
-        label="Nominal"
+        label="Nominal Transaksi"
         error={nominalError}
+        required
       />
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Fee</label>
-        <div className="relative">
-          <input
-            name="fee"
-            type="text"
-            value={
-              formData.amount
-                ? new Intl.NumberFormat('id-ID', {
-                    style: 'currency',
-                    currency: 'IDR',
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
-                  }).format(formData.amount)
-                : ''
-            }
-            readOnly
-            className="w-full pl-3 pr-24 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <select
-            value={feeType}
-            onChange={handleFeeTypeChange}
-            className="absolute right-0 top-0 h-full px-3 py-2 border-l border-gray-300 bg-gray-50 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="Digital">Digital</option>
-            <option value="Cash">Cash</option>
-          </select>
-        </div>
-      </div>
+      <InputField
+        name="fee"
+        type="text"
+        value={
+          formData.fee
+            ? new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+              }).format(formData.fee)
+            : ''
+        }
+        onChange={(e) => {
+          setManualFee(true)
+          const numericFee = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
+          onChange({
+            target: { name: 'fee', value: numericFee }
+          })
+        }}
+      >
+        Fee
+      </InputField>
+      
 
-      {/* Large textarea for description */}
-      <div className="col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Keterangan</label>
-        <textarea
-          name="description"
-          rows={4}
-          value={formData.description || ''}
-          onChange={onChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical"
-          placeholder="Masukkan keterangan transaksi..."
-        />
-      </div>
+        
+      <InputField
+        name="keterangan"
+        type="text"
+        value={formData.keterangan || ''}
+        onChange={onChange}
+      >
+        Keterangan
+      </InputField>
     </>
   )
 }

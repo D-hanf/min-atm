@@ -15,7 +15,7 @@ const InputHere = ({
   name,
   value,
   placeholder,
-  onChange,
+  onChange={onChange},
   showToggle,
   showPassword,
   togglePassword,

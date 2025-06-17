@@ -1,29 +1,17 @@
-import { BrowserWindow, app, ipcMain, shell } from 'electron'
+import { BrowserWindow, app, shell } from 'electron'
+import { createTransaksi, deleteTransaksi, getTransaksi } from './transactionHandler.js'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 
+import db from './db.js'
 import icon from '../../resources/icon.png?asset'
+import { ipcMain } from 'electron'
 import { join } from 'path'
 
-const path = require('path')
-const sqlite3 = require('sqlite3').verbose()
-
-const dbPath = path.join(app.getPath('userData'), 'miniAtm.db')
-console.log('📁 Lokasi fix database:', dbPath)
-
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database:', err.message)
-  } else {
-    console.log('✅ Connected to the SQLite database.')
-  }
-})
-
 function createWindow() {
-  // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
-    title: 'Cashier App',
+    title: 'Mini ATM',
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -34,29 +22,17 @@ function createWindow() {
       sandbox: false
     }
   })
-  console.log('✅ Loading preload from', join(__dirname, '../preload/index.js'))
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
   })
 
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
-
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
-
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 
 app.whenReady().then(() => {
   db.serialize(() => {
@@ -107,17 +83,17 @@ app.whenReady().then(() => {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
           no_transaksi TEXT UNIQUE NOT NULL,
-          sumber_dana_id INTEGER NOT NULL,
+          sumber_dana_id INTEGER ,
           jenis_transaksi TEXT NOT NULL,
           tipe_transaksi TEXT, 
-          nominal_transaksi REAL NOT NULL,
-          tujuan_dana_id INTEGER,
+          nominal_transaksi REAL,
+          terima_dana_id INTEGER,
           biaya_admin_bank REAL DEFAULT 0, 
           fee REAL DEFAULT 0,
           metode_pembayaran TEXT, 
           keterangan TEXT,
           FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
-          FOREIGN KEY (tujuan_dana_id) REFERENCES saldo_awal(id)
+          FOREIGN KEY (terima_dana_id) REFERENCES saldo_awal(id)
       )
     `)
     db.run(`
@@ -151,6 +127,18 @@ app.whenReady().then(() => {
       FOREIGN KEY (petugas_pengambil_id) REFERENCES users(id)
       )
     `)
+    db.run(`CREATE TABLE IF NOT EXISTS history_transaksi (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaksi_id INTEGER NOT NULL,
+      sumber_dana_id INTEGER NOT NULL,
+      sumber_dana_saldo_sebelum REAL NOT NULL,
+      terima_dana_id INTEGER,
+      terima_dana_saldo_sebelum REAL,
+      FOREIGN KEY (transaksi_id) REFERENCES transaksi(id),
+      FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
+      FOREIGN KEY (terima_dana_id) REFERENCES saldo_awal(id)
+    )
+  `)
     // db.run(`ALTER TABLE users ADD COLUMN toko_id INTEGER`) =>  untuk menambahkan kolom toko_id&no_telepon di table users
 
     // INSERT DUMMY USERS
@@ -770,18 +758,42 @@ app.whenReady().then(() => {
         )
       })
     })
+
+    // ============================== transaksi handler ======================================
+    ipcMain.handle('get-transaksi', async () => {
+      return await getTransaksi()
+    })
+
+    // CREATE TRANSAKSI
+    ipcMain.handle('create-transaksi', async (_event, data) => {
+      return await createTransaksi(_event, data)
+    })
+
+    // DELETE TRANSAKSI + ROLLBACK SALDO
+    ipcMain.handle('delete-transaksi', async (_event, id) => {
+      return await deleteTransaksi(_event, id)
+    })
+
+    // EDIT TRANSAKSI (Rollback + Update baru)
+    // EDIT TRANSAKSI (Rollback + Update baru)
+    ipcMain.handle('edit-transaksi', async (_event, { id, data }) => {
+      try {
+        // Hapus transaksi lama + rollback saldo
+        await deleteTransaksi(_event, id)
+
+        // Tambahkan transaksi baru (dengan ID berbeda dan saldo baru)
+        const result = await createTransaksi(_event, data)
+
+        return result // Berisi id & no_transaksi baru
+      } catch (error) {
+        console.error('❌ Gagal edit transaksi:', error)
+        throw error
+      }
+    })
   })
   createWindow()
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin') app.quit()
 })
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.

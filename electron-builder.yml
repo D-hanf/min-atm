@@ -4,10 +4,14 @@ directories:
   buildResources: build
 files:
   - '!**/.vscode/*'
+  - main/**
+  - transactionHandler
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - from: resources/database
+    to: resources/database
 asarUnpack:
   - resources/**
 win:
