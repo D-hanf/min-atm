@@ -1,5 +1,5 @@
 import { BrowserWindow, app, shell } from 'electron'
-import { createTransaksi, deleteTransaksi } from './transactionHandler.js'
+import { createTransaksi, deleteTransaksi, getTransaksi } from './transactionHandler.js'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 
 import db from './db.js'
@@ -761,23 +761,7 @@ app.whenReady().then(() => {
 
     // ============================== transaksi handler ======================================
     ipcMain.handle('get-transaksi', async () => {
-      return new Promise((resolve, reject) => {
-        const query = `
-      SELECT 
-        t.*,
-        s1.nama_sumber_dana AS sumber_dana_nama,
-        s1.saldo AS saldo_awal, -- Tambahkan ini
-        s2.nama_sumber_dana AS terima_dana_nama
-      FROM transaksi t
-      LEFT JOIN saldo_awal s1 ON t.sumber_dana_id = s1.id
-      LEFT JOIN saldo_awal s2 ON t.terima_dana_id = s2.id
-      ORDER BY t.tanggal DESC
-      `
-        db.all(query, [], (err, rows) => {
-          if (err) return reject(err)
-          resolve(rows)
-        })
-      })
+      return await getTransaksi()
     })
 
     // CREATE TRANSAKSI

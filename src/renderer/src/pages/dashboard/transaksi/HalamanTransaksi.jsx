@@ -61,10 +61,10 @@ const HalamanTransaksi = () => {
   const [transactionFormData, setTransactionFormData] = useState({
     tanggal: new Date().toISOString().split('T')[0],
     no_transaksi: '',
-    sumber_dana_id: '',
+    sumber_dana: '',
     terima_dana_id: '', // tambahkan jika diperlukan
     jenis_transaksi: '',
-    metode_pembayaran: '',
+    tipe_transaksi: '',
     saldo_awal: 0,
     nominal_transaksi: 0,
     fee: 0,
@@ -118,7 +118,7 @@ const HalamanTransaksi = () => {
         const adminBank = Number(item.biaya_admin_bank || 0)
         const saldoAwal = Number(item.saldo_awal || 0)
         const jenis = item.jenis_transaksi?.toLowerCase() || ''
-        const metode = item.metode_pembayaran?.toLowerCase() || ''
+        const metode = item.tipe_transaksi?.toLowerCase() || ''
         let final = saldoAwal
 
         switch (jenis) {
@@ -153,9 +153,9 @@ const HalamanTransaksi = () => {
           id: item.id,
           tanggal: item.tanggal,
           no_transaksi: item.no_transaksi,
-          sumber_dana_id: item.sumber_dana_id,
+          sumber_dana: item.sumber_dana,
           jenis_transaksi: item.jenis_transaksi || '-',
-          metode_pembayaran: item.metode_pembayaran,
+          tipe_transaksi: item.tipe_transaksi,
           saldo_awal: formatRupiah(saldoAwal),
           nominal_transaksi: formatRupiah(nominal),
           fee: formatRupiah(fee),
@@ -179,9 +179,9 @@ const HalamanTransaksi = () => {
   const transactionColumns = [
     { key: 'tanggal', label: 'Tanggal' },
     { key: 'no_transaksi', label: 'No Transaksi' },
-    { key: 'sumber_dana_id', label: 'Sumber Dana' },
+    { key: 'sumber_dana', label: 'Sumber Dana' },
     { key: 'jenis_transaksi', label: 'Jenis' },
-    { key: 'metode_pembayaran', label: 'Tipe Transaksi' },
+    { key: 'tipe_transaksi', label: 'Tipe Transaksi' },
     { key: 'saldo_awal', label: 'Saldo Awal' },
     { key: 'nominal_transaksi', label: 'Nominal' },
     { key: 'fee', label: 'Fee' },
@@ -202,6 +202,8 @@ const HalamanTransaksi = () => {
         setSaldo((prev) => prev.filter((item) => item.id !== deleteId))
         setShowConfirmDialog(false)
         setDeleteId(null)
+        fetchTransaksi()
+        fetchFundSources()
       } else {
         console.error('Gagal menghapus transaksi')
       }
@@ -231,6 +233,7 @@ const HalamanTransaksi = () => {
 
       // Fetch ulang data setelah insert
       fetchTransaksi()
+      fetchFundSources()
     } catch (err) {
       console.error('❌ Gagal menambahkan transaksi:', err)
     }
@@ -281,6 +284,8 @@ const HalamanTransaksi = () => {
 
       setShowEditModal(false)
       setEditingTransaction(null)
+      fetchTransaksi()
+      fetchFundSources()
     } catch (error) {
       console.error('❌ Gagal mengedit transaksi:', error)
     }

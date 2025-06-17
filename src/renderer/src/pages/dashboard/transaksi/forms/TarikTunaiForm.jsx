@@ -32,19 +32,17 @@ const TarikTunaiForm = ({ formData, onChange }) => {
   useEffect(() => {
     const nominal = parseInt(formData.nominal_transaksi || '0', 10)
 
-    // Reset manualFee jika nominal dikosongkan
     if (!formData.nominal_transaksi) {
       setManualFee(false)
     }
 
     if (!isNaN(nominal) && !manualFee) {
       let fee = 5000
-      if(nominal > 3000000 && nominal <= 5000000) {
+      if (nominal > 3000000 && nominal <= 5000000) {
         fee = 10000
-      }
-      else if (nominal >= 5000000) {
+      } else if (nominal >= 5000000) {
         fee = Math.round((nominal / 1000000) * 2000)
-      } 
+      }
 
       if (formData.fee !== fee) {
         onChange({
@@ -54,6 +52,7 @@ const TarikTunaiForm = ({ formData, onChange }) => {
     }
   }, [formData.nominal_transaksi, manualFee])
 
+  // Validasi sumber dan terima tidak boleh sama
   useEffect(() => {
     if (
       formData.sumber_dana_id &&
@@ -65,6 +64,18 @@ const TarikTunaiForm = ({ formData, onChange }) => {
       setSameSourceError('')
     }
   }, [formData.sumber_dana_id, formData.terima_dana_id])
+
+  // Validasi saldo cukup
+  useEffect(() => {
+    const nominal = parseFloat(formData.nominal_transaksi || 0)
+    const sumberDana = sumberDanaList.find((item) => item.id === parseInt(formData.sumber_dana_id))
+
+    if (sumberDana && nominal > sumberDana.saldo) {
+      setNominalError(`Saldo tidak cukup. Saldo tersedia: Rp ${sumberDana.saldo.toLocaleString('id-ID')}`)
+    } else {
+      setNominalError('')
+    }
+  }, [formData.sumber_dana_id, formData.nominal_transaksi, sumberDanaList])
 
   return (
     <>

@@ -17,11 +17,17 @@ const TableContent = ({
   info,
   btnSize,
   searchValue = '',
-  userRole = 'admin' // tambah prop userRole
+  userRole = 'admin'
 }) => {
   const [showPermissionModal, setShowPermissionModal] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
 
-  // Handle edit with role check
+  const totalPages = Math.ceil(data.length / itemsPerPage)
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentData = data.slice(indexOfFirstItem, indexOfLastItem)
+
   const handleEdit = (id) => {
     if (userRole === 'kasir') {
       setShowPermissionModal(true)
@@ -30,7 +36,6 @@ const TableContent = ({
     onEdit(id)
   }
 
-  // Handle delete with role check
   const handleDelete = (id) => {
     if (userRole === 'kasir') {
       setShowPermissionModal(true)
@@ -39,10 +44,53 @@ const TableContent = ({
     onDelete(id)
   }
 
+  const renderPagination = () => {
+    const pageNumbers = []
+    for (let i = 1; i <= totalPages; i++) {
+      pageNumbers.push(i)
+    }
+
+    return (
+      <div className="flex justify-between items-center px-6 py-3 bg-gray-50 border-t">
+        <p className="text-sm text-gray-600">
+          Halaman {currentPage} dari {totalPages}
+        </p>
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1 rounded bg-gray-200 text-sm text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+          >
+            Sebelumnya
+          </button>
+          {pageNumbers.map((num) => (
+            <button
+              key={num}
+              onClick={() => setCurrentPage(num)}
+              className={`px-3 py-1 rounded text-sm ${
+                num === currentPage
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {num}
+            </button>
+          ))}
+          <button
+            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1 rounded bg-gray-200 text-sm text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+          >
+            Selanjutnya
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-md overflow-hidden w-full">
-        {/* Card Header */}
         <div className="p-4 border-b flex items-center justify-between border-gray-200 bg-gray-50">
           <div className="flex flex-col w-full">
             <h2 className="text-lg font-medium text-gray-700">{title}</h2>
@@ -61,7 +109,6 @@ const TableContent = ({
           </div>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -69,7 +116,6 @@ const TableContent = ({
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                   No
                 </th>
-                {/* dynamic column headers */}
                 {columns.map((col) => (
                   <th
                     key={col.key}
@@ -84,19 +130,16 @@ const TableContent = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {data.map((item, index) => (
+              {currentData.map((item, index) => (
                 <tr key={item.id ?? index} className="hover:bg-gray-50">
-                  {/* row index */}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
-
-                  {/* dynamic cells */}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {(currentPage - 1) * itemsPerPage + index + 1}
+                  </td>
                   {columns.map((col) => (
                     <td key={col.key} className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{item[col.key]}</div>
                     </td>
                   ))}
-
-                  {/* action buttons */}
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end gap-2">
                       {showView && (
@@ -105,7 +148,6 @@ const TableContent = ({
                           Kelola
                         </ButtonInput>
                       )}
-
                       <ButtonInput
                         color={userRole === 'kasir' ? 'gray' : 'yellow'}
                         size={btnSize}
@@ -115,7 +157,6 @@ const TableContent = ({
                         <HiPencilSquare className="mr-1" size={16} />
                         Edit
                       </ButtonInput>
-
                       <ButtonInput
                         color={userRole === 'kasir' ? 'gray' : 'red'}
                         size={btnSize}
@@ -133,18 +174,17 @@ const TableContent = ({
           </table>
         </div>
 
-        {/* empty‑state indicator */}
         {data.length === 0 && (
           <div className="py-8 text-center text-gray-500">Belum ada data untuk ditampilkan.</div>
         )}
+
+        {data.length > itemsPerPage && renderPagination()}
       </div>
 
-      {/* Permission Modal */}
       {showPermissionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-600/25">
           <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-6 relative">
             <div className="text-center">
-              {/* Warning Icon */}
               <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
                 <svg
                   className="w-8 h-8 text-red-500"
@@ -160,17 +200,11 @@ const TableContent = ({
                   />
                 </svg>
               </div>
-
-              {/* Title */}
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Akses Terbatas</h3>
-
-              {/* Message */}
               <p className="text-gray-600 mb-6">
                 Anda memerlukan izin admin untuk melakukan aksi ini. Silakan hubungi administrator
                 untuk mendapatkan akses.
               </p>
-
-              {/* Close Button */}
               <ButtonInput
                 onClick={() => setShowPermissionModal(false)}
                 color="blue"
