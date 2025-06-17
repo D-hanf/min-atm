@@ -52,18 +52,7 @@ const TarikTunaiForm = ({ formData, onChange }) => {
     }
   }, [formData.nominal_transaksi, manualFee])
 
-  // Validasi sumber dan terima tidak boleh sama
-  useEffect(() => {
-    if (
-      formData.sumber_dana_id &&
-      formData.terima_dana_id &&
-      formData.sumber_dana_id === formData.terima_dana_id
-    ) {
-      setSameSourceError('Sumber dan Terima Dana tidak boleh sama')
-    } else {
-      setSameSourceError('')
-    }
-  }, [formData.sumber_dana_id, formData.terima_dana_id])
+
 
   // Validasi saldo cukup
   useEffect(() => {
@@ -155,7 +144,9 @@ const TarikTunaiForm = ({ formData, onChange }) => {
       >
         Fee
       </InputField>
+      
 
+        
       <InputField
         name="keterangan"
         type="text"

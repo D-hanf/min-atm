@@ -22,6 +22,7 @@ export function getTransaksi() {
   })
 }
 
+
 export function createTransaksi(_event, data) {
   return new Promise((resolve, reject) => {
     const {
@@ -31,130 +32,128 @@ export function createTransaksi(_event, data) {
       tipe_transaksi,
       nominal_transaksi,
       terima_dana_id,
-      biaya_admin_bank = 0,
       fee = 0,
       metode_pembayaran = '',
-      keterangan = ''
-    } = data
+      keterangan = '',
+      biaya_admin
+    } = data;
 
-    // Konversi ke number (pastikan semua angka valid)
-    const nominal = parseFloat(nominal_transaksi) || 0
-    const biayaAdmin = parseFloat(biaya_admin_bank) || 0
-    const feeTransaksi = parseFloat(fee) || 0
+    const nominal = parseFloat(nominal_transaksi) || 0;
+    const feeTransaksi = parseFloat(fee) || 0;
+    const biayaAdminFinal = parseFloat(biaya_admin) || 0;
 
-    const randomSuffix = Math.floor(10000 + Math.random() * 9000)
-    const datetimePart = new Date()
-      .toISOString()
-      .replace(/[-:.TZ]/g, '')
-      .slice(0, 14)
+    console.log('📥 Incoming Data:', data);
+    console.log('📦 Parsed => Nominal:', nominal, '| Fee:', feeTransaksi, '| Biaya Admin (final):', biayaAdminFinal);
 
-    const no_transaksi = `TRX-${datetimePart}${randomSuffix}`
+    const randomSuffix = Math.floor(10000 + Math.random() * 9000);
+    const datetimePart = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
+    const no_transaksi = `TRX-${datetimePart}${randomSuffix}`;
 
-    const stmt = `
-      INSERT INTO transaksi (
-        tanggal, no_transaksi, sumber_dana_id, jenis_transaksi, tipe_transaksi, 
-        nominal_transaksi, terima_dana_id, biaya_admin_bank, fee, metode_pembayaran, keterangan
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `
+    db.get(`SELECT saldo FROM saldo_awal WHERE id = ?`, [sumber_dana_id], (err1, sumberRow) => {
+      if (err1 || !sumberRow) {
+        return reject(err1 || new Error('Sumber dana tidak ditemukan'));
+      }
 
-    db.run(
-      stmt,
-      [
-        tanggal,
-        no_transaksi,
-        sumber_dana_id,
-        jenis_transaksi,
-        tipe_transaksi,
-        nominal,
-        terima_dana_id,
-        biayaAdmin,
-        feeTransaksi,
-        metode_pembayaran,
-        keterangan
-      ],
-      function (err) {
-        if (err) {
-          console.error('❌ Gagal insert transaksi:', err)
-          return reject(err)
-        }
+      const sumber_saldo = parseFloat(sumberRow.saldo) || 0;
+      console.log('💰 Saldo awal sumber:', sumber_saldo);
 
-        const transaksi_id = this.lastID
-        console.log('✅ Transaksi berhasil, ID:', transaksi_id)
+      const stmt = `
+        INSERT INTO transaksi (
+          tanggal, no_transaksi, sumber_dana_id, jenis_transaksi, tipe_transaksi, 
+          nominal_transaksi, terima_dana_id, biaya_admin_bank, fee, metode_pembayaran, keterangan
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
 
-        db.get(`SELECT saldo FROM saldo_awal WHERE id = ?`, [sumber_dana_id], (err1, sumberRow) => {
-          if (err1 || !sumberRow) {
-            return reject(err1 || new Error('Sumber dana tidak ditemukan'))
+      db.run(
+        stmt,
+        [
+          tanggal,
+          no_transaksi,
+          sumber_dana_id,
+          jenis_transaksi,
+          tipe_transaksi,
+          nominal,
+          terima_dana_id,
+          biayaAdminFinal,
+          feeTransaksi,
+          metode_pembayaran,
+          keterangan
+        ],
+        function (err2) {
+          if (err2) {
+            console.error('❌ Gagal insert transaksi:', err2);
+            return reject(err2);
           }
 
-          const sumber_saldo = parseFloat(sumberRow.saldo) || 0
+          const transaksi_id = this.lastID;
+          console.log('✅ Transaksi berhasil di-insert, ID:', transaksi_id);
+
+          const simpanHistory = (terima_saldo = 0) => {
+            db.run(
+              `INSERT INTO history_transaksi (
+                transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum, terima_dana_id, terima_dana_saldo_sebelum
+              ) VALUES (?, ?, ?, ?, ?)`,
+              [transaksi_id, sumber_dana_id, sumber_saldo, terima_dana_id, terima_saldo],
+              (err4) => {
+                if (err4) return reject(err4);
+                updateSaldo(biayaAdminFinal);
+              }
+            );
+          };
 
           if (terima_dana_id) {
-            db.get(
-              `SELECT saldo FROM saldo_awal WHERE id = ?`,
-              [terima_dana_id],
-              (err2, terimaRow) => {
-                if (err2) return reject(err2)
-
-                const terima_saldo = parseFloat(terimaRow?.saldo) || 0
-
-                db.run(
-                  `INSERT INTO history_transaksi (
-                      transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum, terima_dana_id, terima_dana_saldo_sebelum
-                    ) VALUES (?, ?, ?, ?, ?)`,
-                  [transaksi_id, sumber_dana_id, sumber_saldo, terima_dana_id, terima_saldo],
-                  (err3) => {
-                    if (err3) return reject(err3)
-                    updateSaldo()
-                  }
-                )
-              }
-            )
+            db.get(`SELECT saldo FROM saldo_awal WHERE id = ?`, [terima_dana_id], (err3, terimaRow) => {
+              if (err3) return reject(err3);
+              const terima_saldo = parseFloat(terimaRow?.saldo) || 0;
+              console.log('💰 Saldo awal terima:', terima_saldo);
+              simpanHistory(terima_saldo);
+            });
           } else {
             db.run(
               `INSERT INTO history_transaksi (
-                  transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum
-                ) VALUES (?, ?, ?)`,
+                transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum
+              ) VALUES (?, ?, ?)`,
               [transaksi_id, sumber_dana_id, sumber_saldo],
-              (err4) => {
-                if (err4) return reject(err4)
-                updateSaldo()
+              (err5) => {
+                if (err5) return reject(err5);
+                updateSaldo(biayaAdminFinal);
               }
-            )
+            );
           }
 
-          function updateSaldo() {
-            let perubahan_sumber = 0
-            let perubahan_terima = 0
+          function updateSaldo(biaya_admin_fix) {
+            let perubahan_sumber = 0;
+            let perubahan_terima = 0;
 
             switch (jenis_transaksi) {
               case 'Tarik Tunai':
-                perubahan_sumber = -1 * nominal
+                perubahan_sumber = -1 * nominal;
                 if (metode_pembayaran === 'cash') {
-                  perubahan_sumber += feeTransaksi
+                  perubahan_sumber += feeTransaksi;
                 } else {
-                  perubahan_terima = nominal + feeTransaksi
+                  perubahan_terima = nominal + feeTransaksi;
                 }
-                break
+                break;
 
               case 'Transfer':
-                perubahan_sumber = -1 * (nominal + biayaAdmin)
-                perubahan_terima = nominal + feeTransaksi
-                break
+                perubahan_sumber = -1 * (nominal + biaya_admin_fix);
+                perubahan_terima = nominal + feeTransaksi;
+                break;
 
               case 'Jasa Transfer':
-                perubahan_terima = feeTransaksi
-                break
+                perubahan_terima = feeTransaksi;
+                break;
 
               case 'Mode Pulsa':
-                perubahan_sumber = -1 * (nominal + biayaAdmin)
-                perubahan_terima = nominal + feeTransaksi
-                break
+                perubahan_sumber = -1 * (nominal + biaya_admin_fix);
+                perubahan_terima = nominal + feeTransaksi;
+                break;
             }
 
-            console.log('🧮 Perubahan Sumber:', perubahan_sumber)
-            console.log('🧮 Perubahan Terima:', perubahan_terima)
+            console.log('🧮 perubahan_sumber:', perubahan_sumber);
+            console.log('🧮 perubahan_terima:', perubahan_terima);
 
-            const updateQueries = []
+            const updateQueries = [];
 
             if (sumber_dana_id && perubahan_sumber !== 0) {
               updateQueries.push(
@@ -163,12 +162,13 @@ export function createTransaksi(_event, data) {
                     `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
                     [perubahan_sumber, sumber_dana_id],
                     function (err) {
-                      if (err) return rej(err)
-                      res()
+                      if (err) return rej(err);
+                      console.log(`🔄 Update saldo sumber_dana_id ${sumber_dana_id} = ${perubahan_sumber}`);
+                      res();
                     }
-                  )
+                  );
                 })
-              )
+              );
             }
 
             if (terima_dana_id && perubahan_terima !== 0) {
@@ -178,28 +178,33 @@ export function createTransaksi(_event, data) {
                     `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
                     [perubahan_terima, terima_dana_id],
                     function (err) {
-                      if (err) return rej(err)
-                      res()
+                      if (err) return rej(err);
+                      console.log(`🔄 Update saldo terima_dana_id ${terima_dana_id} = ${perubahan_terima}`);
+                      res();
                     }
-                  )
+                  );
                 })
-              )
+              );
             }
 
             Promise.all(updateQueries)
               .then(() => {
                 db.all(`SELECT * FROM saldo_awal`, (err, rows) => {
-                  if (!err) console.log('📊 Saldo akhir:', rows)
-                  resolve({ id: transaksi_id, no_transaksi })
-                })
+                  if (!err) {
+                    console.log('📊 Saldo akhir:', rows);
+                  }
+                  resolve({ id: transaksi_id, no_transaksi });
+                });
               })
-              .catch(reject)
+              .catch(reject);
           }
-        })
-      }
-    )
-  })
+        }
+      );
+    });
+  });
 }
+
+
 
 export function deleteTransaksi(_event, id) {
   return new Promise((resolve, reject) => {

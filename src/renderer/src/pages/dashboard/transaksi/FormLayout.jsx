@@ -58,7 +58,7 @@ const FormLayout = ({
       const today = new Date()
       const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
       const randomStr = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-      const transactionNumber = `TRX-${dateStr}-${randomStr}`
+      const transactionNumber = `TRX-${dateStr}${randomStr}`
 
       setFormData((prev) => ({
         ...prev,

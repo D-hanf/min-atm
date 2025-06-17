@@ -68,8 +68,6 @@ const HalamanTransaksi = () => {
     saldo_awal: 0,
     nominal_transaksi: 0,
     fee: 0,
-    biaya_admin_internal: 0,
-    biaya_admin_eksternal: 0,
     biaya_admin_bank: 0,
     saldo_akhir: 0,
     keterangan: ''
