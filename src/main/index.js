@@ -813,7 +813,7 @@ app.whenReady().then(() => {
           .toISOString()
           .replace(/[-:.TZ]/g, '')
           .slice(0, 14) // yyyymmddhhmmss
-        const no_transaksi = `TRX-${datetimePart}-${randomSuffix}`
+        const no_transaksi = `TRX-${datetimePart}${randomSuffix}`
 
         const stmt = `
       INSERT INTO transaksi (
@@ -848,6 +848,8 @@ app.whenReady().then(() => {
               (err1, sumberRow) => {
                 if (err1) return reject(err1)
 
+                const sumber_saldo = sumberRow?.saldo || 0
+
                 if (terima_dana_id) {
                   db.get(
                     `SELECT saldo FROM saldo_awal WHERE id = ?`,
@@ -855,20 +857,16 @@ app.whenReady().then(() => {
                     (err2, terimaRow) => {
                       if (err2) return reject(err2)
 
+                      const terima_saldo = terimaRow?.saldo || 0
+
                       db.run(
                         `INSERT INTO history_transaksi (
-              transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum, terima_dana_id, terima_dana_saldo_sebelum
-            ) VALUES (?, ?, ?, ?, ?)`,
-                        [
-                          transaksi_id,
-                          sumber_dana_id,
-                          sumberRow?.saldo || 0,
-                          terima_dana_id,
-                          terimaRow?.saldo || 0
-                        ],
+                      transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum, terima_dana_id, terima_dana_saldo_sebelum
+                    ) VALUES (?, ?, ?, ?, ?)`,
+                        [transaksi_id, sumber_dana_id, sumber_saldo, terima_dana_id, terima_saldo],
                         (err3) => {
                           if (err3) return reject(err3)
-                          resolve({ id: transaksi_id, no_transaksi })
+                          updateSaldo()
                         }
                       )
                     }
@@ -876,14 +874,73 @@ app.whenReady().then(() => {
                 } else {
                   db.run(
                     `INSERT INTO history_transaksi (
-            transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum
-          ) VALUES (?, ?, ?)`,
-                    [transaksi_id, sumber_dana_id, sumberRow?.saldo || 0],
+                  transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum
+                ) VALUES (?, ?, ?)`,
+                    [transaksi_id, sumber_dana_id, sumber_saldo],
                     (err4) => {
                       if (err4) return reject(err4)
-                      resolve({ id: transaksi_id, no_transaksi })
+                      updateSaldo()
                     }
                   )
+                }
+
+                // 🔁 Logika Perubahan Saldo
+                function updateSaldo() {
+                  let perubahan_sumber = 0
+                  let perubahan_terima = 0
+
+                  switch (tipe_transaksi) {
+                    case 'Tarik Tunai':
+                      perubahan_sumber = -nominal_transaksi
+                      if (metode_pembayaran === 'cash') {
+                        perubahan_sumber += fee // fee masuk ke sumber
+                      } else {
+                        perubahan_terima = nominal_transaksi + fee
+                      }
+                      break
+
+                    case 'Transfer':
+                      perubahan_sumber = -(nominal_transaksi + biaya_admin_bank)
+                      perubahan_terima = nominal_transaksi + fee
+                      break
+
+                    case 'Jasa Transfer':
+                      perubahan_terima = fee
+                      break
+
+                    case 'Mode Pulsa':
+                      perubahan_sumber = -(nominal_transaksi + biaya_admin_bank)
+                      perubahan_terima = nominal_transaksi + fee
+                      break
+
+                    default:
+                      break
+                  }
+
+                  // Update sumber dana
+                  if (sumber_dana_id && perubahan_sumber !== 0) {
+                    db.run(
+                      `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
+                      [perubahan_sumber, sumber_dana_id],
+                      (err) => {
+                        if (err) return reject(err)
+                      }
+                    )
+                  }
+
+                  // Update terima dana
+                  if (terima_dana_id && perubahan_terima !== 0) {
+                    db.run(
+                      `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
+                      [perubahan_terima, terima_dana_id],
+                      (err) => {
+                        if (err) return reject(err)
+                      }
+                    )
+                  }
+
+                  // ✅ Selesai
+                  resolve({ id: transaksi_id, no_transaksi })
                 }
               }
             )

@@ -116,33 +116,36 @@ const HalamanTransaksi = () => {
         const nominal = Number(item.nominal_transaksi || 0)
         const fee = Number(item.fee || 0)
         const adminBank = Number(item.biaya_admin_bank || 0)
+        const saldoAwal = Number(item.saldo_awal || 0)
         const jenis = item.jenis_transaksi?.toLowerCase() || ''
-        let final = 0
+        const metode = item.metode_pembayaran?.toLowerCase() || ''
+        let final = saldoAwal
 
         switch (jenis) {
           case 'tarik tunai':
-            final = -nominal
-            if (item.metode_pembayaran === 'digital') {
+            final -= nominal
+            if (metode === 'digital') {
               final += nominal + fee
-            } else if (item.metode_pembayaran === 'cash') {
+            } else if (metode === 'cash') {
               final += fee
             }
             break
 
           case 'transfer':
-            final = -(nominal + adminBank) + (nominal + fee)
+            final -= nominal + adminBank
+            final += nominal + fee
             break
 
           case 'jasa transfer':
-            final = fee
+            final += fee
             break
 
           case 'mode pulsa':
-            final = -(nominal + adminBank) + (nominal + fee)
+            final -= nominal + adminBank
+            final += nominal + fee
             break
 
           default:
-            final = nominal - fee - adminBank
             break
         }
 
@@ -151,12 +154,12 @@ const HalamanTransaksi = () => {
           tanggal: item.tanggal,
           no_transaksi: item.no_transaksi,
           sumber_dana_id: item.sumber_dana_id,
-          jenis_transaksi: item.jenis_transaksi || "-",
+          jenis_transaksi: item.jenis_transaksi || '-',
           metode_pembayaran: item.metode_pembayaran,
-          saldo_awal: formatRupiah(item.saldo_awal || 0),
+          saldo_awal: formatRupiah(saldoAwal),
           nominal_transaksi: formatRupiah(nominal),
           fee: formatRupiah(fee),
-          biaya_admin_bank: formatRupiah(adminBank || 0) ,
+          biaya_admin_bank: formatRupiah(adminBank),
           saldo_akhir: formatRupiah(final),
           keterangan: item.keterangan || '-'
         }

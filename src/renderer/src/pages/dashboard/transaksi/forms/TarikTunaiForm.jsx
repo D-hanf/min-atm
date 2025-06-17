@@ -9,6 +9,7 @@ const TarikTunaiForm = ({ formData, onChange }) => {
   const [feeType, setFeeType] = useState('Digital')
   const [sumberDanaList, setSumberDanaList] = useState([])
   const [sameSourceError, setSameSourceError] = useState('')
+  const [manualFee, setManualFee] = useState(false)
 
   const fetchSaldo = async () => {
     try {
@@ -30,19 +31,21 @@ const TarikTunaiForm = ({ formData, onChange }) => {
   // Validasi dan perhitungan fee
   useEffect(() => {
     const nominal = parseInt(formData.nominal_transaksi || '0', 10)
-    if (!isNaN(nominal)) {
+
+    // Reset manualFee jika nominal dikosongkan
+    if (!formData.nominal_transaksi) {
+      setManualFee(false)
+    }
+
+    if (!isNaN(nominal) && !manualFee) {
       let fee = 2500
-      if (nominal > 10000000) {
-        setNominalError('Tidak boleh melebihi Rp 10.000.000')
-        onChange({
-          target: { name: 'nominal_transaksi', value: 10000000 }
-        })
-        fee = (10000000 / 1000000) * 2000
+      if(nominal == 10000000){
+        fee = 10000
+      }
+      else if (nominal >= 10000000) {
+        fee = Math.round((nominal / 1000000) * 2000)
       } else if (nominal > 5000000) {
         fee = 5000
-        setNominalError('')
-      } else {
-        setNominalError('')
       }
 
       if (formData.fee !== fee) {
@@ -51,7 +54,7 @@ const TarikTunaiForm = ({ formData, onChange }) => {
         })
       }
     }
-  }, [formData.nominal_transaksi])
+  }, [formData.nominal_transaksi, manualFee])
 
   useEffect(() => {
     if (
@@ -123,7 +126,6 @@ const TarikTunaiForm = ({ formData, onChange }) => {
       <InputField
         name="fee"
         type="text"
-        label="Fee"
         value={
           formData.fee
             ? new Intl.NumberFormat('id-ID', {
@@ -134,7 +136,13 @@ const TarikTunaiForm = ({ formData, onChange }) => {
               }).format(formData.fee)
             : ''
         }
-        readOnly
+        onChange={(e) => {
+          setManualFee(true)
+          const numericFee = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
+          onChange({
+            target: { name: 'fee', value: numericFee }
+          })
+        }}
       >
         Fee
       </InputField>
