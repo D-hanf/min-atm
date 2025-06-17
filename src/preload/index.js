@@ -46,7 +46,7 @@ const api = {
   getTransaksi: () => ipcRenderer.invoke('get-transaksi'),
   createTransaksi: (data) => ipcRenderer.invoke('create-transaksi', data),
   editTransaksi: (data) => ipcRenderer.invoke('edit-transaksi', data),
-  deleteTransaksi: ({id,data}) => ipcRenderer.invoke('delete-transaksi', {id,data}),
+  deleteTransaksi: (id) => ipcRenderer.invoke('delete-transaksi', id),
  
 }
 

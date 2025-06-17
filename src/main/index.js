@@ -968,7 +968,7 @@ app.whenReady().then(() => {
                       })
                     })
                     .catch(reject)
-                  }
+                }
               }
             )
           }
@@ -979,32 +979,71 @@ app.whenReady().then(() => {
     // DELETE TRANSAKSI + ROLLBACK SALDO
     ipcMain.handle('delete-transaksi', async (_event, id) => {
       return new Promise((resolve, reject) => {
-        db.get(`SELECT * FROM transaksi WHERE id = ?`, [id], (err, trx) => {
-          if (err || !trx) return reject(err || new Error('Transaksi tidak ditemukan'))
+        db.serialize(() => {
+          db.get(`SELECT * FROM transaksi WHERE id = ?`, [id], (err, trx) => {
+            if (err || !trx) return reject(err || new Error('Transaksi tidak ditemukan'))
 
-          db.get(
-            `SELECT * FROM history_transaksi WHERE transaksi_id = ?`,
-            [id],
-            (err2, history) => {
-              if (err2 || !history) return reject(err2 || new Error('History tidak ditemukan'))
+            db.get(
+              `SELECT * FROM history_transaksi WHERE transaksi_id = ?`,
+              [id],
+              (err2, history) => {
+                if (err2 || !history) return reject(err2 || new Error('History tidak ditemukan'))
 
-              const updateSumber = db.prepare(`UPDATE saldo_awal SET saldo = ? WHERE id = ?`)
-              updateSumber.run(history.sumber_dana_saldo_sebelum, history.sumber_dana_id)
+                // MULAI TRANSAKSI
+                db.run('BEGIN TRANSACTION', (beginErr) => {
+                  if (beginErr) return reject(beginErr)
 
-              if (history.terima_dana_id) {
-                const updateTerima = db.prepare(`UPDATE saldo_awal SET saldo = ? WHERE id = ?`)
-                updateTerima.run(history.terima_dana_saldo_sebelum, history.terima_dana_id)
-              }
+                  // UPDATE saldo sumber
+                  db.run(
+                    `UPDATE saldo_awal SET saldo = ? WHERE id = ?`,
+                    [history.sumber_dana_saldo_sebelum, history.sumber_dana_id],
+                    (err3) => {
+                      if (err3) return rollback(err3)
 
-              db.run(`DELETE FROM transaksi WHERE id = ?`, [id], (err3) => {
-                if (err3) return reject(err3)
-                db.run(`DELETE FROM history_transaksi WHERE transaksi_id = ?`, [id], (err4) => {
-                  if (err4) return reject(err4)
-                  resolve({ success: true })
+                      // Kalau ada saldo terima, update juga
+                      if (history.terima_dana_id) {
+                        db.run(
+                          `UPDATE saldo_awal SET saldo = ? WHERE id = ?`,
+                          [history.terima_dana_saldo_sebelum, history.terima_dana_id],
+                          (err4) => {
+                            if (err4) return rollback(err4)
+                            deleteTransaksi()
+                          }
+                        )
+                      } else {
+                        deleteTransaksi()
+                      }
+                    }
+                  )
+
+                  function deleteTransaksi() {
+                    db.run(`DELETE FROM transaksi WHERE id = ?`, [id], (err5) => {
+                      if (err5) return rollback(err5)
+
+                      db.run(
+                        `DELETE FROM history_transaksi WHERE transaksi_id = ?`,
+                        [id],
+                        (err6) => {
+                          if (err6) return rollback(err6)
+
+                          db.run('COMMIT', (commitErr) => {
+                            if (commitErr) return rollback(commitErr)
+                            resolve({ success: true })
+                          })
+                        }
+                      )
+                    })
+                  }
+
+                  function rollback(error) {
+                    db.run('ROLLBACK', () => {
+                      reject(error)
+                    })
+                  }
                 })
-              })
-            }
-          )
+              }
+            )
+          })
         })
       })
     })

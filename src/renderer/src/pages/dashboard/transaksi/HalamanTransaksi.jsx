@@ -195,11 +195,21 @@ const HalamanTransaksi = () => {
     setShowConfirmDialog(true)
   }
 
-  const confirmDelete = () => {
-    setSaldo((prev) => prev.filter((item) => item.id !== deleteId))
-    setShowConfirmDialog(false)
-    setDeleteId(null)
+  const confirmDelete = async () => {
+  try {
+    const res = await window.api.deleteTransaksi(deleteId)
+    if (res.success) {
+      setSaldo((prev) => prev.filter((item) => item.id !== deleteId))
+      setShowConfirmDialog(false)
+      setDeleteId(null)
+    } else {
+      console.error('Gagal menghapus transaksi')
+    }
+  } catch (err) {
+    console.error('❌ Error saat menghapus transaksi:', err)
   }
+}
+
 
   const handleEdit = (id) => {
     const itemToEdit = saldo.find((item) => item.id === id)
@@ -296,6 +306,7 @@ const HalamanTransaksi = () => {
         info={`Total Transaksi: ${transactions.length}`}
         btnSize={'xs'}
         userRole={userRole}
+        onDelete={handleDelete}
         onEdit={handleTransactionEdit}
         onAdd={
           <FormLayout
