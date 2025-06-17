@@ -813,7 +813,7 @@ app.whenReady().then(() => {
           .toISOString()
           .replace(/[-:.TZ]/g, '')
           .slice(0, 14) // yyyymmddhhmmss
-        const no_transaksi = `TRX-${datetimePart}${randomSuffix}`
+        const no_transaksi = `TRX-${datetimePart}-${randomSuffix}`
 
         const stmt = `
       INSERT INTO transaksi (

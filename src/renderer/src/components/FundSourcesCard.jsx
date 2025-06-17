@@ -120,7 +120,7 @@ const getBgColorBySource = (sourceName) => {
           {fundSources.map((source, index) => (
             <div
               key={index}
-              className={`bg-white shadow rounded-lg p-4 flex items-center justify-between transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
+              className={`bg-white shadow rounded-lg p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
                 shouldShowBanks ? 'animate-slideDown' : ''
               }`}
               style={{
