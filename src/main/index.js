@@ -99,13 +99,13 @@ app.whenReady().then(() => {
           jenis_transaksi TEXT NOT NULL,
           tipe_transaksi TEXT, 
           nominal_transaksi REAL NOT NULL,
-          tujuan_dana_id INTEGER,
+          terima_dana_id INTEGER,
           biaya_admin_bank REAL DEFAULT 0, 
           fee REAL DEFAULT 0,
           metode_pembayaran TEXT, 
           keterangan TEXT,
           FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
-          FOREIGN KEY (tujuan_dana_id) REFERENCES saldo_awal(id)
+          FOREIGN KEY (terima_dana_id) REFERENCES saldo_awal(id)
       )
     `)
     db.run(`
@@ -139,6 +139,18 @@ app.whenReady().then(() => {
       FOREIGN KEY (petugas_pengambil_id) REFERENCES users(id)
       )
     `)
+    db.run(`CREATE TABLE IF NOT EXISTS history_transaksi (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaksi_id INTEGER NOT NULL,
+      sumber_dana_id INTEGER NOT NULL,
+      sumber_dana_saldo_sebelum REAL NOT NULL,
+      terima_dana_id INTEGER,
+      terima_dana_saldo_sebelum REAL,
+      FOREIGN KEY (transaksi_id) REFERENCES transaksi(id),
+      FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
+      FOREIGN KEY (terima_dana_id) REFERENCES saldo_awal(id)
+    )
+  `)
     // db.run(`ALTER TABLE users ADD COLUMN toko_id INTEGER`) =>  untuk menambahkan kolom toko_id&no_telepon di table users
 
     // INSERT DUMMY USERS
@@ -757,6 +769,171 @@ app.whenReady().then(() => {
           }
         )
       })
+    })
+
+    // ============================== transaksi handler ======================================
+    ipcMain.handle('get-transaksi', async () => {
+      return new Promise((resolve, reject) => {
+        const query = `
+      SELECT 
+        t.*,
+        s1.nama_sumber_dana AS sumber_dana_nama,
+        s1.saldo AS saldo_awal, -- Tambahkan ini
+        s2.nama_sumber_dana AS terima_dana_nama
+      FROM transaksi t
+      LEFT JOIN saldo_awal s1 ON t.sumber_dana_id = s1.id
+      LEFT JOIN saldo_awal s2 ON t.terima_dana_id = s2.id
+      ORDER BY t.tanggal DESC
+      `
+        db.all(query, [], (err, rows) => {
+          if (err) return reject(err)
+          resolve(rows)
+        })
+      })
+    })
+
+    // CREATE TRANSAKSI
+    ipcMain.handle('create-transaksi', async (_event, data) => {
+      return new Promise((resolve, reject) => {
+        const {
+          tanggal,
+          sumber_dana_id,
+          jenis_transaksi,
+          tipe_transaksi,
+          nominal_transaksi,
+          terima_dana_id,
+          biaya_admin_bank = 0,
+          fee = 0,
+          metode_pembayaran = '',
+          keterangan = ''
+        } = data
+
+        const randomSuffix = Math.floor(10000 + Math.random() * 9000) // 4-digit random number
+        const datetimePart = new Date()
+          .toISOString()
+          .replace(/[-:.TZ]/g, '')
+          .slice(0, 14) // yyyymmddhhmmss
+        const no_transaksi = `TRX-${datetimePart}${randomSuffix}`
+
+        const stmt = `
+      INSERT INTO transaksi (
+        tanggal, no_transaksi, sumber_dana_id, jenis_transaksi, tipe_transaksi, 
+        nominal_transaksi, terima_dana_id, biaya_admin_bank, fee, metode_pembayaran, keterangan
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+
+        db.run(
+          stmt,
+          [
+            tanggal,
+            no_transaksi,
+            sumber_dana_id,
+            jenis_transaksi,
+            tipe_transaksi,
+            nominal_transaksi,
+            terima_dana_id,
+            biaya_admin_bank,
+            fee,
+            metode_pembayaran,
+            keterangan
+          ],
+          function (err) {
+            if (err) return reject(err)
+            const transaksi_id = this.lastID
+
+            // Simpan snapshot history
+            db.get(
+              `SELECT saldo FROM saldo_awal WHERE id = ?`,
+              [sumber_dana_id],
+              (err1, sumberRow) => {
+                if (err1) return reject(err1)
+
+                if (terima_dana_id) {
+                  db.get(
+                    `SELECT saldo FROM saldo_awal WHERE id = ?`,
+                    [terima_dana_id],
+                    (err2, terimaRow) => {
+                      if (err2) return reject(err2)
+
+                      db.run(
+                        `INSERT INTO history_transaksi (
+              transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum, terima_dana_id, terima_dana_saldo_sebelum
+            ) VALUES (?, ?, ?, ?, ?)`,
+                        [
+                          transaksi_id,
+                          sumber_dana_id,
+                          sumberRow?.saldo || 0,
+                          terima_dana_id,
+                          terimaRow?.saldo || 0
+                        ],
+                        (err3) => {
+                          if (err3) return reject(err3)
+                          resolve({ id: transaksi_id, no_transaksi })
+                        }
+                      )
+                    }
+                  )
+                } else {
+                  db.run(
+                    `INSERT INTO history_transaksi (
+            transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum
+          ) VALUES (?, ?, ?)`,
+                    [transaksi_id, sumber_dana_id, sumberRow?.saldo || 0],
+                    (err4) => {
+                      if (err4) return reject(err4)
+                      resolve({ id: transaksi_id, no_transaksi })
+                    }
+                  )
+                }
+              }
+            )
+          }
+        )
+      })
+    })
+
+    // DELETE TRANSAKSI + ROLLBACK SALDO
+    ipcMain.handle('delete-transaksi', async (_event, id) => {
+      return new Promise((resolve, reject) => {
+        db.get(`SELECT * FROM transaksi WHERE id = ?`, [id], (err, trx) => {
+          if (err || !trx) return reject(err || new Error('Transaksi tidak ditemukan'))
+
+          db.get(
+            `SELECT * FROM history_transaksi WHERE transaksi_id = ?`,
+            [id],
+            (err2, history) => {
+              if (err2 || !history) return reject(err2 || new Error('History tidak ditemukan'))
+
+              const updateSumber = db.prepare(`UPDATE saldo_awal SET saldo = ? WHERE id = ?`)
+              updateSumber.run(history.sumber_dana_saldo_sebelum, history.sumber_dana_id)
+
+              if (history.terima_dana_id) {
+                const updateTerima = db.prepare(`UPDATE saldo_awal SET saldo = ? WHERE id = ?`)
+                updateTerima.run(history.terima_dana_saldo_sebelum, history.terima_dana_id)
+              }
+
+              db.run(`DELETE FROM transaksi WHERE id = ?`, [id], (err3) => {
+                if (err3) return reject(err3)
+                db.run(`DELETE FROM history_transaksi WHERE transaksi_id = ?`, [id], (err4) => {
+                  if (err4) return reject(err4)
+                  resolve({ success: true })
+                })
+              })
+            }
+          )
+        })
+      })
+    })
+
+    // EDIT TRANSAKSI (Rollback + Update baru)
+    ipcMain.handle('edit-transaksi', async (_event, { id, data }) => {
+      try {
+        await ipcMain.handle('delete-transaksi', _event, id)
+        const result = await ipcMain.handle('create-transaksi', _event, data)
+        return result
+      } catch (error) {
+        throw error
+      }
     })
   })
   createWindow()

@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react'
+
 import ButtonInput from '../../../components/ButtonInput'
 import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../components/InputField'
-import Modal from '../../../shared/ui/Modal'
-import TransactionMenu from './TransactionMenu'
-import TarikTunaiForm from './forms/TarikTunaiForm'
-import TransferForm from './forms/TransferForm'
 import JasaTransferForm from './forms/JasaTransferForm'
+import Modal from '../../../shared/ui/Modal'
 import ModePulsaForm from './forms/ModePulsaForm'
+import TarikTunaiForm from './forms/TarikTunaiForm'
+import TransactionMenu from './TransactionMenu'
+import TransferForm from './forms/TransferForm'
 
 const FormLayout = ({
   onSubmit,
@@ -18,13 +19,12 @@ const FormLayout = ({
   editData = null,
   onClose = null
 }) => {
-  const [modalOpen, setModalOpen] = useState(isEdit) // Initialize based on isEdit
+  const [modalOpen, setModalOpen] = useState(isEdit)
   const [formData, setFormData] = useState(initialData)
   const [showMenu, setShowMenu] = useState(true)
   const [selectedTransactionType, setSelectedTransactionType] = useState('')
   const [selectedTransactionId, setSelectedTransactionId] = useState('')
 
-  // Map transaction types to form IDs
   const getTransactionId = (transactionType) => {
     const typeMap = {
       'Cash Withdrawal': 'tarik-tunai',
@@ -40,35 +40,30 @@ const FormLayout = ({
     return typeMap[transactionType] || ''
   }
 
-  // Auto-open modal for edit mode and initialize form
   useEffect(() => {
     if (isEdit && editData) {
       setModalOpen(true)
       setFormData(editData)
-      const transactionId = getTransactionId(editData.transactionType)
+      const transactionId = getTransactionId(editData.jenis_transaksi)
       if (transactionId) {
         setSelectedTransactionId(transactionId)
-        setSelectedTransactionType(editData.transactionType)
+        setSelectedTransactionType(editData.jenis_transaksi)
         setShowMenu(false)
       }
     }
   }, [isEdit, editData])
 
-  // Generate transaction number when modal is opened for transaction form
   useEffect(() => {
-    if (modalOpen && formType === 'transaction' && !isEdit && !formData.transactionNumber) {
+    if (modalOpen && formType === 'transaction' && !isEdit && !formData.no_transaksi) {
       const today = new Date()
       const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
-      const randomStr = Math.floor(Math.random() * 10000)
-        .toString()
-        .padStart(4, '0')
-
+      const randomStr = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
       const transactionNumber = `TRX-${dateStr}-${randomStr}`
 
       setFormData((prev) => ({
         ...prev,
-        transactionNumber,
-        date: prev.date || today.toISOString().split('T')[0]
+        no_transaksi: transactionNumber,
+        tanggal: prev.tanggal || today.toISOString().split('T')[0]
       }))
     }
   }, [modalOpen, formType, isEdit])
@@ -84,7 +79,7 @@ const FormLayout = ({
     setShowMenu(false)
     setFormData((prev) => ({
       ...prev,
-      transactionType: name
+      jenis_transaksi: name
     }))
   }
 
@@ -92,21 +87,19 @@ const FormLayout = ({
     onSubmit(formData)
     setModalOpen(false)
 
-    // Reset form data after submission for add mode only
     if (formType === 'transaction' && !isEdit) {
       setFormData({
-        date: new Date().toISOString().split('T')[0],
-        transactionNumber: '',
-        fundSource: '',
-        type: '',
-        transactionType: '',
-        initialBalance: 0,
-        amount: 0,
-        internalAdmin: 0,
-        externalAdmin: 0,
-        bankAdmin: 0,
-        finalBalance: 0,
-        description: ''
+        tanggal: new Date().toISOString().split('T')[0],
+        no_transaksi: '',
+        sumber_dana_id: '',
+        metode_pembayaran: '',
+        jenis_transaksi: '',
+        saldo_awal: 0,
+        nominal_transaksi: 0,
+        fee: 0,
+        biaya_admin_bank: 0,
+        saldo_akhir: 0,
+        keterangan: ''
       })
     }
   }
@@ -193,9 +186,9 @@ const FormLayout = ({
               Jumlah Saldo
             </InputField>
             <InputField
-              name="description"
+              name="keterangan"
               className="col-span-2"
-              value={formData.description || ''}
+              value={formData.keterangan || ''}
               onChange={handleInputChange}
               required={false}
             >
