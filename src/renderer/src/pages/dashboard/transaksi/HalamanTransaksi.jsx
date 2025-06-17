@@ -196,20 +196,19 @@ const HalamanTransaksi = () => {
   }
 
   const confirmDelete = async () => {
-  try {
-    const res = await window.api.deleteTransaksi(deleteId)
-    if (res.success) {
-      setSaldo((prev) => prev.filter((item) => item.id !== deleteId))
-      setShowConfirmDialog(false)
-      setDeleteId(null)
-    } else {
-      console.error('Gagal menghapus transaksi')
+    try {
+      const res = await window.api.deleteTransaksi(deleteId)
+      if (res.success) {
+        setSaldo((prev) => prev.filter((item) => item.id !== deleteId))
+        setShowConfirmDialog(false)
+        setDeleteId(null)
+      } else {
+        console.error('Gagal menghapus transaksi')
+      }
+    } catch (err) {
+      console.error('❌ Error saat menghapus transaksi:', err)
     }
-  } catch (err) {
-    console.error('❌ Error saat menghapus transaksi:', err)
   }
-}
-
 
   const handleEdit = (id) => {
     const itemToEdit = saldo.find((item) => item.id === id)
@@ -242,22 +241,49 @@ const HalamanTransaksi = () => {
   const [editingTransaction, setEditingTransaction] = useState(null)
   const [showEditModal, setShowEditModal] = useState(false)
 
+  const parseRupiah = (value) => {
+    return Number(value.replace(/[^0-9,-]+/g, '').replace(',', '.')) || 0
+  }
+
   const handleTransactionEdit = (id) => {
     const transactionToEdit = transactions.find((transaction) => transaction.id === id)
+
     if (transactionToEdit) {
-      setEditingTransaction(transactionToEdit)
+      // Ubah string format rupiah jadi number
+      const cleanedData = {
+        ...transactionToEdit,
+        saldo_awal: parseRupiah(transactionToEdit.saldo_awal),
+        nominal_transaksi: parseRupiah(transactionToEdit.nominal_transaksi),
+        fee: parseRupiah(transactionToEdit.fee),
+        biaya_admin_bank: parseRupiah(transactionToEdit.biaya_admin_bank),
+        saldo_akhir: parseRupiah(transactionToEdit.saldo_akhir)
+      }
+
+      setEditingTransaction(cleanedData)
       setShowEditModal(true)
     }
   }
 
-  const handleEditSubmit = (updatedData) => {
-    setTransactions((prevTransactions) =>
-      prevTransactions.map((transaction) =>
-        transaction.id === editingTransaction.id ? { ...transaction, ...updatedData } : transaction
-      )
-    )
-    setShowEditModal(false)
-    setEditingTransaction(null)
+  const handleEditSubmit = async (updatedData) => {
+    try {
+      const payload = {
+        id: editingTransaction.id,
+        data: updatedData
+      }
+
+      const result = await window.api.editTransaksi(payload)
+
+      console.log('✅ Transaksi berhasil diedit:', result)
+
+      // Ambil ulang data transaksi setelah edit
+      const updatedTransactions = await window.api.getTransaksi()
+      setTransactions(updatedTransactions)
+
+      setShowEditModal(false)
+      setEditingTransaction(null)
+    } catch (error) {
+      console.error('❌ Gagal mengedit transaksi:', error)
+    }
   }
 
   const handleEditClose = () => {

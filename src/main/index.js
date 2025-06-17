@@ -1,24 +1,11 @@
 import { BrowserWindow, app, shell } from 'electron'
+import { createTransaksi, deleteTransaksi } from './transactionHandler.js'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 
+import db from './db.js'
 import icon from '../../resources/icon.png?asset'
 import { ipcMain } from 'electron'
 import { join } from 'path'
-
-const { deleteTransaksi, createTransaksi } = require('./transactionHandler')
-const path = require('path')
-const sqlite3 = require('sqlite3').verbose()
-
-const dbPath = path.join(app.getPath('userData'), 'miniAtm.db')
-console.log('📁 Lokasi fix database:', dbPath)
-
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database:', err.message)
-  } else {
-    console.log('✅ Connected to the SQLite database.')
-  }
-})
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -804,11 +791,16 @@ app.whenReady().then(() => {
     })
 
     // EDIT TRANSAKSI (Rollback + Update baru)
+    // EDIT TRANSAKSI (Rollback + Update baru)
     ipcMain.handle('edit-transaksi', async (_event, { id, data }) => {
       try {
-        await deleteTransaksi(id) // panggil langsung fungsi, bukan handler
-        const result = await createTransaksi(_event, data) // ini juga harus fungsi biasa
-        return result
+        // Hapus transaksi lama + rollback saldo
+        await deleteTransaksi(_event, id)
+
+        // Tambahkan transaksi baru (dengan ID berbeda dan saldo baru)
+        const result = await createTransaksi(_event, data)
+
+        return result // Berisi id & no_transaksi baru
       } catch (error) {
         console.error('❌ Gagal edit transaksi:', error)
         throw error

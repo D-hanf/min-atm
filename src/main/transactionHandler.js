@@ -1,4 +1,6 @@
-function createTransaksi(_event, data) {
+import db from './db'
+
+export function createTransaksi(_event, data) {
   return new Promise((resolve, reject) => {
     const {
       tanggal,
@@ -177,7 +179,7 @@ function createTransaksi(_event, data) {
   })
 }
 
-function deleteTransaksi(_event,id){
+export function deleteTransaksi(_event,id){
     return new Promise((resolve, reject) => {
         db.serialize(() => {
           db.get(`SELECT * FROM transaksi WHERE id = ?`, [id], (err, trx) => {
