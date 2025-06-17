@@ -135,6 +135,7 @@ const TransferForm = ({ formData, onChange }) => {
         onChange={onChange}
         label="Nominal"
         error={nominalError}
+        required
       />
 
       <InputField

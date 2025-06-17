@@ -119,6 +119,7 @@ const TarikTunaiForm = ({ formData, onChange }) => {
         onChange={onChange}
         label="Nominal Transaksi"
         error={nominalError}
+        required
       />
 
       <InputField

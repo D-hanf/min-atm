@@ -1,175 +1,171 @@
-import React from 'react'
-import { useState } from 'react'
+import React, { useEffect, useState } from 'react'
+
 import InputField from '../../../../components/InputField'
+import RupiahInput from '../../../../components/RupiahInput'
 import SelectItems from '../../../../components/SelectItems'
 
 const ModePulsaForm = ({ formData, onChange }) => {
-  const [feeType, setFeeType] = useState('Digital')
-  // Format number to Rupiah
-  const formatRupiah = (value) => {
-    if (!value) return ''
+  const [sumberDanaList, setSumberDanaList] = useState([])
+  const [manualFee, setManualFee] = useState(false)
+  const [manualAdmin, setManualAdmin] = useState(false)
 
-    // Remove non-numeric characters
-    const numericValue = value.toString().replace(/[^0-9]/g, '')
-
-    // Format to Indonesian Rupiah
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(numericValue)
-  }
-
-  // Handle currency input change
-  const handleCurrencyChange = (e) => {
-    const { name, value } = e.target
-
-    // Remove currency formatting to get numeric value
-    const numericValue = value.replace(/[^0-9]/g, '')
-
-    // Validate nominal (initialBalance) - max 10,000,000
-    if (name === 'initialBalance') {
-      const numValue = parseInt(numericValue) || 0
-      if (numValue > 10000000) {
-        return // Don't update if exceeds limit
-      }
-
-      // Update nominal
-      onChange({
-        target: { name: 'initialBalance', value: numericValue }
-      })
-
-      return
-    }
-
-    // Create synthetic event with numeric value for the parent handler
-    const syntheticEvent = {
-      target: {
-        name,
-        value: numericValue
+  useEffect(() => {
+    const fetchSaldo = async () => {
+      try {
+        const result = await window.api.getSaldoAwal()
+        setSumberDanaList(result)
+      } catch (error) {
+        console.error('❌ Gagal ambil data saldo:', error)
       }
     }
 
-    onChange(syntheticEvent)
-  }
+    fetchSaldo()
+  }, [])
 
-  // Handle nominal change and auto-update fee
-  const handleNominalChange = (e) => {
-    const { value } = e.target
-    const numericValue = value.replace(/[^0-9]/g, '')
-    let numValue = parseInt(numericValue) || 0
+  useEffect(() => {
+    setManualAdmin(false)
+  }, [formData.sumber_dana_id])
 
-    // Update both values
-    onChange({
-      target: { name: 'initialBalance', value: numValue.toString() }
-    })
-  }
+  useEffect(() => {
+    const sumberDana = sumberDanaList.find(
+      (item) => item.id === parseInt(formData.sumber_dana_id)
+    )
+    if (sumberDana && !manualAdmin) {
+      onChange({ target: { name: 'biaya_admin', value: sumberDana.biaya_admin || 0 } })
+    }
+  }, [formData.sumber_dana_id, sumberDanaList, manualAdmin])
 
-  // Handle fee type change
-  const handleFeeTypeChange = (e) => {
-    setFeeType(e.target.value)
-  }
+  useEffect(() => {
+    const nominal = parseInt(formData.nominal_transaksi || '0', 10)
 
+    if (!formData.nominal_transaksi) {
+      setManualFee(false)
+    }
+
+    if (!isNaN(nominal) && !manualFee) {
+      let fee = 5000
+      if (nominal > 3000000 && nominal <= 5000000) {
+        fee = 10000
+      } else if (nominal >= 5000000) {
+        fee = Math.round((nominal / 1000000) * 2000)
+      }
+
+      if (formData.fee !== fee) {
+        onChange({
+          target: { name: 'fee', value: fee }
+        })
+      }
+    }
+  }, [formData.nominal_transaksi, manualFee])
 
   return (
     <>
-      {/* Transaction Number Header */}
       <div className="bg-gray-50 p-4 rounded-lg mb-4 border-l-4 border-blue-500">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-gray-600">Nomor Transaksi:</span>
           <span className="bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
-            {formData.transactionNumber || 'Generating...'}
+            {formData.no_transaksi || 'Generating...'}
           </span>
         </div>
       </div>
 
-      <SelectItems
-        options={[
-          { label: 'Laci', value: 'Laci' },
-          { label: 'Dana', value: 'Dana' },
-          { label: 'BRI', value: 'BRI' },
-          { label: 'BNI', value: 'BNI' },
-          { label: 'BCA', value: 'BCA' },
-          { label: 'Mandiri', value: 'Mandiri' }
-        ]}
-        label="Sumber Dana"
-        name="fundSource"
-        value={formData.fundSource || ''}
+      <InputField
+        name="tanggal"
+        type="date"
+        value={formData.tanggal || new Date().toISOString().split('T')[0]}
         onChange={onChange}
-      />
-
-      <SelectItems
-        options={[
-          { label: 'Dana', value: 'Dana' },
-          { label: 'BRI', value: 'BRI' },
-          { label: 'BNI', value: 'BNI' },
-          { label: 'BCA', value: 'BCA' },
-          { label: 'Mandiri', value: 'Mandiri' }
-        ]}
-        label="Terima Dana"
-        name="receiveFund"
-        value={formData.receiveFund || ''}
-        onChange={onChange}
-      />
-
-      <div>
-        <InputField
-          name="initialBalance"
-          type="text"
-          value={formatRupiah(formData.initialBalance)}
-          onChange={handleNominalChange}
-          placeholder="Rp 0"
-        >
-          Nominal
-        </InputField>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Fee</label>
-        <div className="relative">
-          <input
-            name="fee"
-            type="text"
-            value={formatRupiah(formData.amount || '2500')}
-            onChange={handleCurrencyChange}
-            placeholder="Rp 2.500"
-            className="w-full pl-3 pr-24 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <select
-            value={feeType}
-            onChange={handleFeeTypeChange}
-            className="absolute right-0 top-0 h-full px-3 py-2 border-l border-gray-300 bg-gray-50 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="Digital">Digital</option>
-            <option value="Cash">Cash</option>
-          </select>
-        </div>
-      </div>
-
-
-      {/* <InputField
-        name="adminBank"
-        type="text"
-        value={formatRupiah(formData.adminBank)}
-        onChange={handleCurrencyChange}
-        placeholder="Rp 0"
       >
-        Admin Bank
-      </InputField> */}
+        Tanggal
+      </InputField>
 
-      {/* Large textarea for description */}
-      <div className="col-span-2">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Keterangan</label>
-        <textarea
-          name="description"
-          rows={4}
-          value={formData.description || ''}
-          onChange={onChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical"
-          placeholder="Masukkan keterangan transaksi..."
-        />
-      </div>
+      <SelectItems
+        options={sumberDanaList.map((item) => ({
+          label: item.nama_sumber_dana,
+          value: item.id
+        }))}
+        label="Sumber Dana"
+        name="sumber_dana_id"
+        value={formData.sumber_dana_id || ''}
+        onChange={onChange}
+        required
+      />
+
+      <SelectItems
+        options={sumberDanaList.map((item) => ({
+          label: item.nama_sumber_dana,
+          value: item.id
+        }))}
+        label="Terima Dana"
+        name="terima_dana_id"
+        value={formData.terima_dana_id || ''}
+        onChange={onChange}
+        required
+      />
+
+      <RupiahInput
+        name="nominal_transaksi"
+        value={formData.nominal_transaksi}
+        onChange={onChange}
+        label="Nominal"
+        required
+      />
+
+      <InputField
+        name="fee"
+        type="text"
+        value={
+          formData.fee
+            ? new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+              }).format(formData.fee)
+            : ''
+        }
+        onChange={(e) => {
+          setManualFee(true)
+          const numericFee = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
+          onChange({
+            target: { name: 'fee', value: numericFee }
+          })
+        }}
+      >
+        Fee
+      </InputField>
+
+      <InputField
+        name="biaya_admin"
+        type="text"
+        value={
+          formData.biaya_admin
+            ? new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+              }).format(formData.biaya_admin)
+            : ''
+        }
+        onChange={(e) => {
+          setManualAdmin(true)
+          const numericAdmin = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
+          onChange({
+            target: { name: 'biaya_admin', value: numericAdmin }
+          })
+        }}
+      >
+        Biaya Admin
+      </InputField>
+
+      <InputField
+        name="keterangan"
+        type="text"
+        value={formData.keterangan || ''}
+        onChange={onChange}
+      >
+        Keterangan
+      </InputField>
     </>
   )
 }

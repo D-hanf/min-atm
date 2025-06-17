@@ -22,7 +22,6 @@ export function getTransaksi() {
   })
 }
 
-
 export function createTransaksi(_event, data) {
   return new Promise((resolve, reject) => {
     const {
@@ -203,9 +202,6 @@ export function createTransaksi(_event, data) {
     });
   });
 }
-
-
-
 export function deleteTransaksi(_event, id) {
   return new Promise((resolve, reject) => {
     db.serialize(() => {
