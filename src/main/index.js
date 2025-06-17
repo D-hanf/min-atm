@@ -808,11 +808,17 @@ app.whenReady().then(() => {
           keterangan = ''
         } = data
 
-        const randomSuffix = Math.floor(10000 + Math.random() * 9000) // 4-digit random number
+        // Konversi ke number (pastikan semua angka valid)
+        const nominal = parseFloat(nominal_transaksi) || 0
+        const biayaAdmin = parseFloat(biaya_admin_bank) || 0
+        const feeTransaksi = parseFloat(fee) || 0
+
+        const randomSuffix = Math.floor(10000 + Math.random() * 9000)
         const datetimePart = new Date()
           .toISOString()
           .replace(/[-:.TZ]/g, '')
-          .slice(0, 14) // yyyymmddhhmmss
+          .slice(0, 14)
+
         const no_transaksi = `TRX-${datetimePart}${randomSuffix}`
 
         const stmt = `
@@ -830,25 +836,31 @@ app.whenReady().then(() => {
             sumber_dana_id,
             jenis_transaksi,
             tipe_transaksi,
-            nominal_transaksi,
+            nominal,
             terima_dana_id,
-            biaya_admin_bank,
-            fee,
+            biayaAdmin,
+            feeTransaksi,
             metode_pembayaran,
             keterangan
           ],
           function (err) {
-            if (err) return reject(err)
-            const transaksi_id = this.lastID
+            if (err) {
+              console.error('❌ Gagal insert transaksi:', err)
+              return reject(err)
+            }
 
-            // Simpan snapshot history
+            const transaksi_id = this.lastID
+            console.log('✅ Transaksi berhasil, ID:', transaksi_id)
+
             db.get(
               `SELECT saldo FROM saldo_awal WHERE id = ?`,
               [sumber_dana_id],
               (err1, sumberRow) => {
-                if (err1) return reject(err1)
+                if (err1 || !sumberRow) {
+                  return reject(err1 || new Error('Sumber dana tidak ditemukan'))
+                }
 
-                const sumber_saldo = sumberRow?.saldo || 0
+                const sumber_saldo = parseFloat(sumberRow.saldo) || 0
 
                 if (terima_dana_id) {
                   db.get(
@@ -857,7 +869,7 @@ app.whenReady().then(() => {
                     (err2, terimaRow) => {
                       if (err2) return reject(err2)
 
-                      const terima_saldo = terimaRow?.saldo || 0
+                      const terima_saldo = parseFloat(terimaRow?.saldo) || 0
 
                       db.run(
                         `INSERT INTO history_transaksi (
@@ -884,64 +896,79 @@ app.whenReady().then(() => {
                   )
                 }
 
-                // 🔁 Logika Perubahan Saldo
                 function updateSaldo() {
                   let perubahan_sumber = 0
                   let perubahan_terima = 0
 
-                  switch (tipe_transaksi) {
+                  switch (jenis_transaksi) {
                     case 'Tarik Tunai':
-                      perubahan_sumber = -nominal_transaksi
+                      perubahan_sumber = -1 * nominal
                       if (metode_pembayaran === 'cash') {
-                        perubahan_sumber += fee // fee masuk ke sumber
+                        perubahan_sumber += feeTransaksi
                       } else {
-                        perubahan_terima = nominal_transaksi + fee
+                        perubahan_terima = nominal + feeTransaksi
                       }
                       break
 
                     case 'Transfer':
-                      perubahan_sumber = -(nominal_transaksi + biaya_admin_bank)
-                      perubahan_terima = nominal_transaksi + fee
+                      perubahan_sumber = -1 * (nominal + biayaAdmin)
+                      perubahan_terima = nominal + feeTransaksi
                       break
 
                     case 'Jasa Transfer':
-                      perubahan_terima = fee
+                      perubahan_terima = feeTransaksi
                       break
 
                     case 'Mode Pulsa':
-                      perubahan_sumber = -(nominal_transaksi + biaya_admin_bank)
-                      perubahan_terima = nominal_transaksi + fee
-                      break
-
-                    default:
+                      perubahan_sumber = -1 * (nominal + biayaAdmin)
+                      perubahan_terima = nominal + feeTransaksi
                       break
                   }
 
-                  // Update sumber dana
+                  console.log('🧮 Perubahan Sumber:', perubahan_sumber)
+                  console.log('🧮 Perubahan Terima:', perubahan_terima)
+
+                  const updateQueries = []
+
                   if (sumber_dana_id && perubahan_sumber !== 0) {
-                    db.run(
-                      `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
-                      [perubahan_sumber, sumber_dana_id],
-                      (err) => {
-                        if (err) return reject(err)
-                      }
+                    updateQueries.push(
+                      new Promise((res, rej) => {
+                        db.run(
+                          `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
+                          [perubahan_sumber, sumber_dana_id],
+                          function (err) {
+                            if (err) return rej(err)
+                            res()
+                          }
+                        )
+                      })
                     )
                   }
 
-                  // Update terima dana
                   if (terima_dana_id && perubahan_terima !== 0) {
-                    db.run(
-                      `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
-                      [perubahan_terima, terima_dana_id],
-                      (err) => {
-                        if (err) return reject(err)
-                      }
+                    updateQueries.push(
+                      new Promise((res, rej) => {
+                        db.run(
+                          `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
+                          [perubahan_terima, terima_dana_id],
+                          function (err) {
+                            if (err) return rej(err)
+                            res()
+                          }
+                        )
+                      })
                     )
                   }
 
-                  // ✅ Selesai
-                  resolve({ id: transaksi_id, no_transaksi })
-                }
+                  Promise.all(updateQueries)
+                    .then(() => {
+                      db.all(`SELECT * FROM saldo_awal`, (err, rows) => {
+                        if (!err) console.log('📊 Saldo akhir:', rows)
+                        resolve({ id: transaksi_id, no_transaksi })
+                      })
+                    })
+                    .catch(reject)
+                  }
               }
             )
           }

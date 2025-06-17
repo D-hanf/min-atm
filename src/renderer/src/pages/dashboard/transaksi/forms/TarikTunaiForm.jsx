@@ -38,15 +38,13 @@ const TarikTunaiForm = ({ formData, onChange }) => {
     }
 
     if (!isNaN(nominal) && !manualFee) {
-      let fee = 2500
-      if(nominal == 10000000){
+      let fee = 5000
+      if(nominal > 3000000 && nominal <= 5000000) {
         fee = 10000
       }
-      else if (nominal >= 10000000) {
+      else if (nominal >= 5000000) {
         fee = Math.round((nominal / 1000000) * 2000)
-      } else if (nominal > 5000000) {
-        fee = 5000
-      }
+      } 
 
       if (formData.fee !== fee) {
         onChange({
