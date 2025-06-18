@@ -8,7 +8,7 @@ const DropdownHover = ({ label, items = [], color }) => {
   const dropdownRef = useRef(null)
 
   const handleSelect = (item) => {
-    setSelectedItem(item)
+    setSelectedItem(item.name) // update ke name
     setIsOpen(false)
   }
 
@@ -28,23 +28,31 @@ const DropdownHover = ({ label, items = [], color }) => {
       className="relative inline-block text-left"
       ref={dropdownRef}
       onMouseEnter={() => setIsOpen(true)}
-      
     >
-      <ButtonInput type="button" color={color} size="sm" className="w-full border-gray-300 border-1">
+      <ButtonInput
+        type="button"
+        color={color}
+        size="sm"
+        className="w-full border-gray-300 border-1"
+      >
         {selectedItem}
       </ButtonInput>
 
       {isOpen && (
-        <div className="absolute z-10 mt-2 bg-white divide-y divide-gray-100 rounded-lg shadow-sm w-44 dark:bg-gray-700"
-        onMouseLeave={() => setIsOpen(false)}>
+        <div
+          className="absolute z-10 mt-2 bg-white divide-y divide-gray-100 rounded-lg shadow-sm w-44 dark:bg-gray-700"
+          onMouseLeave={() => setIsOpen(false)}
+        >
           <ul className="py-2 text-sm text-gray-700 dark:text-gray-200">
             {items.map((item) => (
-              <li key={item}>
+              <li key={item.id}>
+                {' '}
+                {/* ✅ pakai id */}
                 <button
                   onClick={() => handleSelect(item)}
                   className="w-full text-left block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
                 >
-                  {item}
+                  {item.name}
                 </button>
               </li>
             ))}

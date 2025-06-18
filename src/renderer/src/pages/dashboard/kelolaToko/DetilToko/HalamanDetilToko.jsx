@@ -116,11 +116,14 @@ const HalamanDetilToko = () => {
     }
   }
 
-  const filteredData = employees.filter((emp) =>
-    Object.values(emp).some((value) =>
-      String(value).toLowerCase().includes(filterText.toLowerCase())
+  const filteredData = employees
+    .filter((emp) => emp.role !== 'admin') // sembunyikan role admin
+    .filter((emp) =>
+      Object.values(emp).some((value) =>
+        String(value).toLowerCase().includes(filterText.toLowerCase())
+      )
     )
-  )
+
   const employeeColumns = [
     { key: 'nama', label: 'Nama Pegawai' },
     { key: 'username', label: 'Username' },
@@ -168,7 +171,9 @@ const HalamanDetilToko = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Total Pegawai</p>
-              <p className="text-base">{employees.length} orang</p>
+              <p className="text-base">
+                {employees.filter((emp) => emp.role !== 'admin').length} orang
+              </p>
             </div>
           </div>
         </div>

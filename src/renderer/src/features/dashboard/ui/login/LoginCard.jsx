@@ -17,9 +17,15 @@ const LoginCard = () => {
       const result = await window.api.loginUser({ username, password })
 
       if (result.success) {
-        localStorage.setItem('user', JSON.stringify(result.user))
+        const user = result.user
+        localStorage.setItem('user', JSON.stringify(user))
         setError('')
-        navigate('/dashboard')
+
+        if (user.role === 'admin') {
+          navigate('/dashboard')
+        } else {
+          navigate('/dashboard/transaksi')
+        }
       } else {
         setError(result.message || 'Username atau password salah')
         setTimeout(() => setError(''), 3000)
