@@ -10,8 +10,8 @@ const api = {
   createUser: (user) => ipcRenderer.invoke('create-user', user),
   updateUser: (user) => ipcRenderer.invoke('update-user', user),
   deleteUser: (userId) => ipcRenderer.invoke('delete-user', userId),
-  getUserRole: (username) => ipcRenderer.invoke('get-user-role', email),
-
+  getUserRole: (username) => ipcRenderer.invoke('get-user-role', username),
+  
   // saldo awal
   getSaldoAwal: () => ipcRenderer.invoke('get-saldo-awal'),
   createSaldoAwal: (data) => ipcRenderer.invoke('create-saldo-awal', data),
@@ -42,7 +42,11 @@ const api = {
   getKaryawan: (toko_id) => ipcRenderer.invoke('get-karyawan', toko_id),
   createKaryawan: (data) => ipcRenderer.invoke('create-karyawan', data),
   updateKaryawan: (data) => ipcRenderer.invoke('update-karyawan', data),
-  deleteKaryawan: (id) => ipcRenderer.invoke('delete-karyawan', id)
+  deleteKaryawan: (id) => ipcRenderer.invoke('delete-karyawan', id),
+  countKaryawan: () => ipcRenderer.invoke('count-karyawan'),
+  
+  // login
+  loginUser: (credentials) => ipcRenderer.invoke('login-user', credentials),
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

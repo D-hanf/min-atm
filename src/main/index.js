@@ -116,7 +116,7 @@ app.whenReady().then(() => {
           fee REAL DEFAULT 0,
           metode_pembayaran TEXT, 
           keterangan TEXT,
-          FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id)
+          FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
           FOREIGN KEY (tujuan_dana_id) REFERENCES saldo_awal(id)
       )
     `)
@@ -1232,6 +1232,44 @@ app.whenReady().then(() => {
     ipcMain.handle('delete-karyawan', (event, user_id) => {
       const stmt = db.prepare(`DELETE FROM users WHERE id = ?`)
       return stmt.run(user_id)
+    })
+
+    ipcMain.handle('count-karyawan', () => {
+      return new Promise((resolve, reject) => {
+        db.get(`SELECT COUNT(*) AS count FROM users WHERE role != 'admin'`, [], (err, row) => {
+          if (err) {
+            console.error('Error count-karyawan:', err)
+            reject(err)
+          } else {
+            resolve(row.count)
+          }
+        })
+      })
+    })
+
+    // ============================== end karyawan handler ===============================
+
+    // ============================== login handler ===============================
+    ipcMain.handle('login-user', async (event, { username, password }) => {
+      return new Promise((resolve, reject) => {
+        db.get(
+          'SELECT * FROM users WHERE username = ? AND password = ?',
+          [username, password],
+          (err, row) => {
+            if (!username || !password) {
+              return { success: false, message: 'Username dan password wajib diisi.' }
+            }
+            if (err) {
+              console.error('Database error:', err)
+              resolve({ success: false, message: 'Terjadi kesalahan' })
+            } else if (row) {
+              resolve({ success: true, user: row })
+            } else {
+              resolve({ success: false, message: 'Username atau password salah' })
+            }
+          }
+        )
+      })
     })
   })
   createWindow()
