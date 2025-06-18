@@ -18,6 +18,12 @@ const api = {
   updateSaldoAwal: (data) => ipcRenderer.invoke('update-saldo-awal', data),
   deleteSaldoAwal: (id) => ipcRenderer.invoke('delete-saldo-awal', id),
 
+  // pindah saldo
+  getPindahSaldo: () => ipcRenderer.invoke('get-pindah-saldo'),
+  createPindahSaldo: (data) => ipcRenderer.invoke('create-pindah-saldo', data),
+  updatePindahSaldo: (data) => ipcRenderer.invoke('update-pindah-saldo', data),
+  deletePindahSaldo: (id) => ipcRenderer.invoke('delete-pindah-saldo', id),
+
   // ambil saldo - make sure these are correctly defined
   getAmbilSaldo: () => ipcRenderer.invoke('get-ambil-saldo'),
   createAmbilSaldo: (data) => ipcRenderer.invoke('create-ambil-saldo', data),
