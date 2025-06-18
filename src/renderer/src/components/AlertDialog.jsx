@@ -2,7 +2,7 @@ import ButtonInput from './ButtonInput'
 import { HiOutlineExclamationTriangle } from 'react-icons/hi2'
 import React from 'react'
 
-const WarningPopup = ({
+const AlertDialog = ({
   isOpen,
   onClose,
   title = 'Peringatan',
@@ -28,4 +28,4 @@ const WarningPopup = ({
   )
 }
 
-export default WarningPopup
+export default AlertDialog
