@@ -26,7 +26,8 @@ const TableContent = ({
   const totalPages = Math.ceil(data.length / itemsPerPage)
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentData = data.slice(indexOfFirstItem, indexOfLastItem)
+  const reversedData = [...data].reverse() // data terbaru di atas
+  const currentData = reversedData.slice(indexOfFirstItem, indexOfLastItem)
 
   const handleEdit = (id) => {
     if (userRole === 'kasir') {

@@ -21,6 +21,15 @@ const JasaTransferForm = ({ formData, onChange }) => {
     fetchSaldo()
   }, [])
 
+  // Set default sumber_dana_id ke 1
+  useEffect(() => {
+    if (!formData.sumber_dana_id) {
+      onChange({
+        target: { name: 'sumber_dana_id', value: 1 }
+      })
+    }
+  }, [])
+
   // Set default fee sekali saat load
   useEffect(() => {
     if (!formData.fee) {
@@ -50,7 +59,16 @@ const JasaTransferForm = ({ formData, onChange }) => {
       >
         Tanggal
       </InputField>
-
+      <SelectItems
+        options={sumberDanaList.map((item) => ({
+          label: item.nama_sumber_dana,
+          value: item.id
+        }))}
+        label="Sumber Dana"
+        name="sumber_dana_id"
+        value={formData.sumber_dana_id || ''}
+        onChange={onChange}
+      />
       <SelectItems
         options={sumberDanaList.map((item) => ({
           label: item.nama_sumber_dana,

@@ -295,7 +295,7 @@ const HalamanTransaksi = () => {
   }
 
   const filteredData = transactions.filter((item) =>
-    item.nama?.toLowerCase().includes(filterText.toLowerCase())
+    Object.values(item).some((val) => String(val).toLowerCase().includes(filterText.toLowerCase()))
   )
 
   return (
@@ -329,7 +329,7 @@ const HalamanTransaksi = () => {
       />
 
       <TableContent
-        data={transactions}
+        data={filteredData}
         columns={transactionColumns}
         title={'Data Transaksi'}
         info={`Total Transaksi: ${transactions.length}`}
