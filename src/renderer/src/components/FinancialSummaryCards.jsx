@@ -1,9 +1,11 @@
 import { FaExchangeAlt, FaStar, FaUniversity, FaWallet } from 'react-icons/fa'
+
+import { FaMobile } from "react-icons/fa6";
 import React from 'react'
 
 const FinancialSummaryCards = ({ financialSummary, formatRupiah, userRole }) => {
   return (
-    <div className={`grid gap-4 mb-6 ${userRole === 'admin' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+    <div className={`grid gap-4 mb-6 grid-cols-5`}>
       <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between transition-transform hover:shadow-lg hover:-translate-y-1">
         <div className="flex items-center">
           <div className="bg-blue-100 p-2 rounded-full mr-3">
@@ -40,20 +42,29 @@ const FinancialSummaryCards = ({ financialSummary, formatRupiah, userRole }) => 
         </div>
       </div>
 
-      {/* Profit Card - Only visible for Admin */}
-      {userRole === 'admin' && (
-        <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between transition-transform hover:shadow-lg hover:-translate-y-1">
-          <div className="flex items-center">
-            <div className="bg-yellow-100 p-2 rounded-full mr-3">
-              <FaStar className="text-yellow-500" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Jumlah Admin</p>
-              <p className="font-bold">{formatRupiah(financialSummary.profit)}</p>
-            </div>
+      <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between transition-transform hover:shadow-lg hover:-translate-y-1">
+        <div className="flex items-center">
+          <div className="bg-yellow-100 p-2 rounded-full mr-3">
+            <FaStar className="text-yellow-500" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Jumlah Admin</p>
+            <p className="font-bold">{formatRupiah(financialSummary.profit)}</p>
           </div>
         </div>
-      )}
+      </div>
+      
+      <div className="bg-white shadow rounded-lg p-4 flex items-center justify-between transition-transform hover:shadow-lg hover:-translate-y-1">
+        <div className="flex items-center">
+          <div className="bg-red-100 p-2 rounded-full mr-3">
+            <FaMobile className="text-red-500" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Mode Pulsa</p>
+            <p className="font-bold">{formatRupiah(financialSummary.modePulsa)}</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

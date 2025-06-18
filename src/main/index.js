@@ -37,36 +37,46 @@ function createWindow() {
 app.whenReady().then(() => {
   db.serialize(() => {
     // CREATE TABLES
+    // Aktifkan foreign key enforcement (WAJIB)
+    db.run(`PRAGMA foreign_keys = ON`)
+
+    // Tabel toko
     db.run(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nama TEXT NOT NULL,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        no_telepon TEXT,
-        role TEXT NOT NULL,
-        toko_id INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
+  CREATE TABLE IF NOT EXISTS toko (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nama_toko TEXT NOT NULL,
+    no_telepon TEXT,
+    alamat TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`)
+
+    // Tabel users
     db.run(`
-      CREATE TABLE IF NOT EXISTS toko (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nama_toko TEXT NOT NULL,
-        no_telepon TEXT,
-        alamat TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nama TEXT NOT NULL,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    no_telepon TEXT,
+    role TEXT NOT NULL,
+    toko_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (toko_id) REFERENCES toko(id) ON DELETE CASCADE
+  )
+`)
+
+    // Tabel karyawan
     db.run(`
-      CREATE TABLE IF NOT EXISTS karyawan (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        toko_id INTEGER,
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (toko_id) REFERENCES toko(id)
-      )
-    `)
+  CREATE TABLE IF NOT EXISTS karyawan (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    toko_id INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (toko_id) REFERENCES toko(id) ON DELETE CASCADE
+  )
+`)
+
     db.run(`
       CREATE TABLE IF NOT EXISTS saldo_awal (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -142,18 +152,74 @@ app.whenReady().then(() => {
     )
   `)
     // db.run(`ALTER TABLE users ADD COLUMN toko_id INTEGER`) =>  untuk menambahkan kolom toko_id&no_telepon di table users
+    // Insert toko
+    // Cek dulu apakah toko "Toko Alpha" sudah ada
+    db.get(`SELECT id FROM toko WHERE nama_toko = ?`, ['Toko Alpha'], (err, tokoRow) => {
+      if (err) {
+        console.error('❌ Gagal cek toko:', err)
+        return
+      }
 
-    // INSERT DUMMY USERS
-    const users = [
-      ['Admin', 'iniadminsaya', 'adminsayaajaya', 'admin'],
-      ['Budi', 'budi123', 'kasirpass', 'kasir'],
-      ['Siti', 'siti321', 'supervisorpass', 'supervisor']
-    ]
-    const insertUser = db.prepare(
-      `INSERT OR IGNORE INTO users (nama, username, password, role) VALUES (?, ?, ?, ?)`
-    )
-    users.forEach((user) => insertUser.run(user))
-    insertUser.finalize()
+      if (tokoRow) {
+        console.log('ℹ️ Toko Alpha sudah ada. Tidak perlu insert ulang.')
+        return
+      }
+
+      // Insert Toko Alpha
+      db.run(
+        `INSERT INTO toko (nama_toko, no_telepon, alamat) VALUES (?, ?, ?)`,
+        ['Toko Alpha', '081234567890', 'Jl. Contoh No.1'],
+        function (err) {
+          if (err) {
+            console.error('❌ Gagal insert toko:', err)
+            return
+          }
+
+          const tokoId = this.lastID
+
+          // Insert user admin hanya jika username belum ada
+          db.get(`SELECT id FROM users WHERE username = ?`, ['admin'], (err, userRow) => {
+            if (err) {
+              console.error('❌ Gagal cek user admin:', err)
+              return
+            }
+
+            if (userRow) {
+              console.log('ℹ️ User admin sudah ada. Tidak perlu insert ulang.')
+              return
+            }
+
+            db.run(
+              `INSERT INTO users (nama, username, password, no_telepon, role, toko_id)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+              ['Admin Satu', 'admin', 'admin123', '081234567890', 'admin', tokoId],
+              function (err) {
+                if (err) {
+                  console.error('❌ Gagal insert user admin:', err)
+                  return
+                }
+
+                const userId = this.lastID
+
+                // Insert ke tabel karyawan (jika perlu)
+                db.run(
+                  `INSERT INTO karyawan (user_id, toko_id) VALUES (?, ?)`,
+                  [userId, tokoId],
+                  function (err) {
+                    if (err) {
+                      console.error('❌ Gagal insert ke tabel karyawan:', err)
+                    } else {
+                      console.log('✅ Dummy data berhasil dimasukkan.')
+                    }
+                  }
+                )
+              }
+            )
+          })
+        }
+      )
+    })
+
     // REGISTER IPC HANDLERS
     ipcMain.handle('get-users', () => {
       return new Promise((resolve, reject) => {
@@ -1121,12 +1187,14 @@ app.whenReady().then(() => {
 
     ipcMain.handle('get-toko-with-employee-count', () => {
       const query = `
-    SELECT t.*, COUNT(u.id) as totalEmployees
-    FROM toko t
-    LEFT JOIN users u ON t.id = u.toko_id
-    GROUP BY t.id
-    ORDER BY t.id DESC
-  `
+          SELECT t.*, 
+        SUM(CASE WHEN u.role != 'admin' THEN 1 ELSE 0 END) as totalEmployees
+        FROM toko t
+        LEFT JOIN users u ON t.id = u.toko_id
+        GROUP BY t.id
+        ORDER BY t.id DESC
+
+      `
       return new Promise((resolve, reject) => {
         db.all(query, [], (err, rows) => {
           if (err) reject(err)

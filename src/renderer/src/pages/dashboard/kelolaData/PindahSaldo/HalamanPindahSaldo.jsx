@@ -9,6 +9,7 @@ import ModalEdit from '../../../../shared/ui/Modal'
 import SearchField from '../../../../components/SearchField'
 import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
+import AlertDialog from '../../../../components/AlertDialog'
 
 const HalamanPindahSaldo = () => {
   const [stores, setStores] = useState([])
@@ -35,11 +36,22 @@ const HalamanPindahSaldo = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [confirmMessage, setConfirmMessage] = useState('')
 
+  // Add new states for logged in user and alert dialog
+  const [loggedInUser, setLoggedInUser] = useState(null)
+  const [showAlertDialog, setShowAlertDialog] = useState(false)
+  const [alertMessage, setAlertMessage] = useState('')
+
   // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true)
+
+        // Get user data from localStorage
+        const userString = localStorage.getItem('user')
+        if (userString) {
+          setLoggedInUser(JSON.parse(userString))
+        }
 
         // Fetch stores data
         const storesData = await window.api.getTokoWithEmployeeCount()
@@ -192,7 +204,14 @@ const HalamanPindahSaldo = () => {
   }
 
   const handleDelete = (id) => {
-    // Find the transfer to delete for showing details in confirmation message
+    // Check if user is admin first
+    if (!loggedInUser || loggedInUser.role !== 'admin') {
+      setAlertMessage('Maaf, hanya admin yang dapat menghapus data pemindahan saldo.')
+      setShowAlertDialog(true)
+      return
+    }
+
+    // If admin, proceed with delete confirmation
     const transferToDelete = transfers.find((item) => item.id === id)
     setDeleteId(id)
 
@@ -263,6 +282,14 @@ const HalamanPindahSaldo = () => {
   }
 
   const handleEdit = (id) => {
+    // Check if user is admin first
+    if (!loggedInUser || loggedInUser.role !== 'admin') {
+      setAlertMessage('Maaf, hanya admin yang dapat mengedit data pemindahan saldo.')
+      setShowAlertDialog(true)
+      return
+    }
+
+    // If admin, proceed with edit
     const itemToEdit = transfers.find((item) => item.id === id)
     if (itemToEdit) {
       // Set form data with item values
@@ -660,6 +687,14 @@ const HalamanPindahSaldo = () => {
           Keterangan
         </InputField>
       </ModalEdit>
+
+      {/* Add AlertDialog for non-admin users */}
+      <AlertDialog
+        isOpen={showAlertDialog}
+        onClose={() => setShowAlertDialog(false)}
+        title="Akses Terbatas"
+        message={alertMessage}
+      />
     </>
   )
 }

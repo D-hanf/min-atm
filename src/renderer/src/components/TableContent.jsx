@@ -1,8 +1,9 @@
 import { HiPencilSquare, HiPlus, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import ButtonInput from './ButtonInput'
 import SearchField from './SearchField'
+import AlertDialog from '../components/AlertDialog'
 
 const TableContent = ({
   data = [],
@@ -19,26 +20,40 @@ const TableContent = ({
   searchValue = '',
   userRole = 'admin'
 }) => {
-  const [showPermissionModal, setShowPermissionModal] = useState(false)
+  // Add new states for logged in user and alert dialog
+  const [loggedInUser, setLoggedInUser] = useState(null)
+  const [showAlertDialog, setShowAlertDialog] = useState(false)
+  const [alertMessage, setAlertMessage] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
   const totalPages = Math.ceil(data.length / itemsPerPage)
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentData = data.slice(indexOfFirstItem, indexOfLastItem)
+  const reversedData = [...data].reverse() // data terbaru di atas
+  const currentData = reversedData.slice(indexOfFirstItem, indexOfLastItem)
+
+  useEffect(() => {
+    // Get user data from localStorage
+    const userString = localStorage.getItem('user')
+    if (userString) {
+      setLoggedInUser(JSON.parse(userString))
+    }
+  }, [])
 
   const handleEdit = (id) => {
-    if (userRole === 'kasir') {
-      setShowPermissionModal(true)
+    if (!loggedInUser || loggedInUser.role !== 'admin') {
+      setAlertMessage('Maaf, hanya admin yang dapat menghapus data pengambilan saldo.')
+      setShowAlertDialog(true)
       return
     }
     onEdit(id)
   }
 
   const handleDelete = (id) => {
-    if (userRole === 'kasir') {
-      setShowPermissionModal(true)
+    if (!loggedInUser || loggedInUser.role !== 'admin') {
+      setAlertMessage('Maaf, hanya admin yang dapat menghapus data pengambilan saldo.')
+      setShowAlertDialog(true)
       return
     }
     onDelete(id)
@@ -149,20 +164,14 @@ const TableContent = ({
                         </ButtonInput>
                       )}
                       <ButtonInput
-                        color={userRole === 'kasir' ? 'gray' : 'yellow'}
+                        color="yellow"
                         size={btnSize}
                         onClick={() => handleEdit(item.id)}
-                        className={userRole === 'kasir' ? 'opacity-60 cursor-not-allowed' : ''}
                       >
                         <HiPencilSquare className="mr-1" size={16} />
                         Edit
                       </ButtonInput>
-                      <ButtonInput
-                        color={userRole === 'kasir' ? 'gray' : 'red'}
-                        size={btnSize}
-                        onClick={() => handleDelete(item.id)}
-                        className={userRole === 'kasir' ? 'opacity-60 cursor-not-allowed' : ''}
-                      >
+                      <ButtonInput color="red" size={btnSize} onClick={() => handleDelete(item.id)}>
                         <HiXMark className="mr-1" size={16} />
                         Hapus
                       </ButtonInput>
@@ -179,43 +188,15 @@ const TableContent = ({
         )}
 
         {data.length > itemsPerPage && renderPagination()}
-      </div>
 
-      {showPermissionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-600/25">
-          <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-6 relative">
-            <div className="text-center">
-              <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <svg
-                  className="w-8 h-8 text-red-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L3.732 19c-.77.833.192 2.5 1.732 2.5z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Akses Terbatas</h3>
-              <p className="text-gray-600 mb-6">
-                Anda memerlukan izin admin untuk melakukan aksi ini. Silakan hubungi administrator
-                untuk mendapatkan akses.
-              </p>
-              <ButtonInput
-                onClick={() => setShowPermissionModal(false)}
-                color="blue"
-                className="w-full"
-              >
-                Mengerti
-              </ButtonInput>
-            </div>
-          </div>
-        </div>
-      )}
+        {/* Add AlertDialog for non-admin users */}
+        <AlertDialog
+          isOpen={showAlertDialog}
+          onClose={() => setShowAlertDialog(false)}
+          title="Akses Terbatas"
+          message={alertMessage}
+        />
+      </div>
     </>
   )
 }

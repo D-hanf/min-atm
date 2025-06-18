@@ -1,46 +1,20 @@
 import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus } from 'react-icons/hi'
-import React, { useEffect, useState } from 'react'
+import React, { us, useCallback, useEffect, useRef, useState } from 'react'
 
+import ButtonInput from '../../../components/ButtonInput'
 import ConfirmDialog from '../../../components/ConfirmDialog'
 import Dropdown from '../../../components/Dropdown'
 import FinancialSummaryCards from '../../../components/FinancialSummaryCards'
 import FormLayout from './FormLayout'
 import FundSourcesCard from '../../../components/FundSourcesCard'
+import { IoMdPrint } from "react-icons/io";
 import ModalEdit from '../../../shared/ui/Modal'
+import ReceiptView from './ReceiptView'
 import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
 
 const HalamanTransaksi = () => {
-  const [stores] = useState([
-    {
-      id: 1,
-      name: 'Toko Pusat',
-      totalEmployees: 8,
-      address: 'Jl. Raya Pusat No. 123',
-      phone: '081234567890'
-    },
-    {
-      id: 2,
-      name: 'Cabang Malang',
-      totalEmployees: 5,
-      address: 'Jl. Soekarno Hatta No. 45, Malang',
-      phone: '081234567891'
-    },
-    {
-      id: 3,
-      name: 'Cabang Surabaya',
-      totalEmployees: 6,
-      address: 'Jl. Pemuda No. 56, Surabaya',
-      phone: '081234567892'
-    },
-    {
-      id: 4,
-      name: 'Cabang Jakarta',
-      totalEmployees: 10,
-      address: 'Jl. Sudirman No. 78, Jakarta',
-      phone: '081234567893'
-    }
-  ])
+  const [stores, setStore] = useState([])
 
   const [saldo, setSaldo] = useState([])
   const [transactions, setTransactions] = useState([]) // Awalnya kosong, akan diisi dari DB
@@ -81,6 +55,20 @@ const HalamanTransaksi = () => {
     totalAssets: 0
   })
 
+  const fetchToko = async () => {
+    try {
+      const result = await window.api.getToko()
+      setStore(result)
+      console.log('🔥 Toko:', result)
+    } catch (error) {
+      console.error('❌ Gagal ambil data toko:', error)
+    }
+  }
+
+  useEffect(() => {
+    fetchToko()
+  }, [])
+
   const [fundSources, setFundSources] = useState([])
 
   const fetchFundSources = async () => {
@@ -105,6 +93,42 @@ const HalamanTransaksi = () => {
       minimumFractionDigits: 0
     }).format(value)
   }
+
+  const calculateFinancialSummary = (data) => {
+    let tarikTunai = 0
+    let transfer = 0
+    let modePulsa = 0
+    let bankAdmin = 0
+    let profit = 0
+
+    data.forEach((item) => {
+      const jenis = item.jenis_transaksi?.toLowerCase()
+      const nominal = Number(item.nominal_transaksi || 0)
+      const fee = Number(item.fee || 0)
+      const admin = Number(item.biaya_admin_bank || 0)
+
+      if (jenis === 'tarik tunai') {
+        tarikTunai += nominal
+      } else if (jenis === 'transfer') {
+        transfer += nominal
+      } else if (jenis === 'mode pulsa') {
+        modePulsa += nominal
+      }
+
+      bankAdmin += admin
+      profit += fee
+    })
+
+    setFinancialSummary((prev) => ({
+      ...prev,
+      cashWithdrawal: tarikTunai,
+      transfer: transfer,
+      modePulsa: modePulsa,
+      bankAdmin: bankAdmin,
+      profit: profit
+    }))
+  }
+
   // ✅ Tambahan ambil data transaksi dari DB
   const fetchTransaksi = async () => {
     try {
@@ -153,7 +177,7 @@ const HalamanTransaksi = () => {
           no_transaksi: item.no_transaksi,
           sumber_dana: item.sumber_dana,
           jenis_transaksi: item.jenis_transaksi || '-',
-          tipe_transaksi: item.tipe_transaksi,
+          tipe_transaksi: item.tipe_transaksi || '-',
           saldo_awal: formatRupiah(saldoAwal),
           nominal_transaksi: formatRupiah(nominal),
           fee: formatRupiah(fee),
@@ -165,6 +189,7 @@ const HalamanTransaksi = () => {
 
       console.log('📥 Formatted Transaksi:', formatted)
       setTransactions(formatted)
+      calculateFinancialSummary(data)
     } catch (error) {
       console.error('❌ Gagal ambil data transaksi:', error)
     }
@@ -295,8 +320,41 @@ const HalamanTransaksi = () => {
   }
 
   const filteredData = transactions.filter((item) =>
-    item.nama?.toLowerCase().includes(filterText.toLowerCase())
+    Object.values(item).some((val) => String(val).toLowerCase().includes(filterText.toLowerCase()))
   )
+  const printRef = useRef(null)
+
+  const printSummaryOnly = () => {
+    const content = document.getElementById('print-summary').innerHTML
+    const printWindow = window.open('', '', 'width=800,height=600')
+
+    printWindow.document.write(`
+    <html>
+      <head>
+        <title>Ringkasan Keuangan</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+          }
+          .card {
+            border: 1px solid #ccc;
+            padding: 16px;
+            margin-bottom: 16px;
+            border-radius: 8px;
+          }
+        </style>
+      </head>
+      <body>
+        ${content}
+      </body>
+    </html>
+  `)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
+    printWindow.close()
+  }
 
   return (
     <div className="flex flex-col justify-end h-full">
@@ -305,15 +363,27 @@ const HalamanTransaksi = () => {
           <div className="flex items-center">
             <h1 className="text-2xl font-bold text-gray-800 ">Transaksi</h1>
           </div>
-          <div className="flex-1 max-w-xs">
-            <Dropdown
+          <div className="flex gap-6 max-w-xs">
+            {/* <Dropdown
               className="w-full"
               label="Pindah Toko"
-              items={stores.map((store) => store.name)}
+              items={stores.map((store) => ({ id: store.id, name: store.nama_toko }))} // ✅ object
               color={'gray'}
-            />
+            /> */}
+            <ButtonInput size="xs" color={'indigo'} onClick={printSummaryOnly}>
+            <IoMdPrint size={20}/>
+            Print
+          </ButtonInput>
           </div>
         </div>
+      </div>
+
+      <div ref={printRef} id="print-summary" className="hidden print:block">
+        <ReceiptView
+          financialSummary={financialSummary}
+          fundSources={fundSources}
+          formatRupiah={formatRupiah}
+        />
       </div>
 
       <FinancialSummaryCards
@@ -329,7 +399,7 @@ const HalamanTransaksi = () => {
       />
 
       <TableContent
-        data={transactions}
+        data={filteredData}
         columns={transactionColumns}
         title={'Data Transaksi'}
         info={`Total Transaksi: ${transactions.length}`}

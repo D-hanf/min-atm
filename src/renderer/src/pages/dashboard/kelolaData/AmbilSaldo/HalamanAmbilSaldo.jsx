@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 
 import ButtonInput from '../../../../components/ButtonInput'
 import ConfirmDialog from '../../../../components/ConfirmDialog'
@@ -8,6 +8,7 @@ import InputField from '../../../../components/InputField'
 import ModalEdit from '../../../../shared/ui/Modal'
 import SearchField from '../../../../components/SearchField'
 import TableContent from '../../../../components/TableContent'
+import AlertDialog from '../../../../components/AlertDialog'
 
 const HalamanAmbilSaldo = () => {
   const [stores] = useState([
@@ -46,6 +47,12 @@ const HalamanAmbilSaldo = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
+
+  // Add new states for logged in user and alert dialog
+  const [loggedInUser, setLoggedInUser] = useState(null)
+  const [showAlertDialog, setShowAlertDialog] = useState(false)
+  const [alertMessage, setAlertMessage] = useState('')
+
   const [formData, setFormData] = useState({
     id: null,
     petugas_pengambil_id: 1, // Default to first user for now
@@ -119,6 +126,12 @@ const HalamanAmbilSaldo = () => {
   }
 
   useEffect(() => {
+    // Get user data from localStorage
+    const userString = localStorage.getItem('user')
+    if (userString) {
+      setLoggedInUser(JSON.parse(userString))
+    }
+
     fetchAmbilSaldo()
     fetchSaldoAwal() // Also fetch saldo_awal for dropdowns
   }, [])
@@ -174,6 +187,13 @@ const HalamanAmbilSaldo = () => {
 
   // Handle delete ambil saldo
   const handleDelete = (id) => {
+    // Check if user is admin first
+    if (!loggedInUser || loggedInUser.role !== 'admin') {
+      setAlertMessage('Maaf, hanya admin yang dapat menghapus data pengambilan saldo.')
+      setShowAlertDialog(true)
+      return
+    }
+
     setDeleteId(id)
     setShowConfirmDialog(true)
   }
@@ -193,6 +213,13 @@ const HalamanAmbilSaldo = () => {
 
   // Handle edit ambil saldo
   const handleEdit = (id) => {
+    // Check if user is admin first
+    if (!loggedInUser || loggedInUser.role !== 'admin') {
+      setAlertMessage('Maaf, hanya admin yang dapat mengedit data pengambilan saldo.')
+      setShowAlertDialog(true)
+      return
+    }
+
     const itemToEdit = ambilSaldo.find((item) => item.id === id)
     if (itemToEdit) {
       // Better date handling with fallback
@@ -341,6 +368,7 @@ const HalamanAmbilSaldo = () => {
           </div>
         </div>
       </div>
+
       <div>
         <TableContent
           searchValue={filterText}
@@ -487,6 +515,14 @@ const HalamanAmbilSaldo = () => {
           Keterangan
         </InputField>
       </ModalEdit>
+
+      {/* Add AlertDialog for non-admin users */}
+      <AlertDialog
+        isOpen={showAlertDialog}
+        onClose={() => setShowAlertDialog(false)}
+        title="Akses Terbatas"
+        message={alertMessage}
+      />
     </>
   )
 }
