@@ -116,7 +116,7 @@ const getBgColorBySource = (sourceName) => {
         {/* <h3 className="text-lg font-semibold text-gray-700 mb-4">
           Sumber Dana ({fundSources.length})
         </h3> */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 p-4 gap-4">
           {fundSources.map((source, index) => (
             <div
               key={index}
