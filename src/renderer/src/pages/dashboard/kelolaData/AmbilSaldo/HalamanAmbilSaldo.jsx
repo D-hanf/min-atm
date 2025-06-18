@@ -216,14 +216,14 @@ const HalamanAmbilSaldo = () => {
       console.log('📅 Original date value:', itemToEdit.tanggal_pengambilan)
       console.log('📅 Formatted date for form:', formattedDate)
 
-      // Update form data with all fields from database
+      // Update form data with all fields from database - format currency fields
       setFormData({
         id: itemToEdit.id,
         petugas_pengambil_id: itemToEdit.petugas_pengambil_id,
         platform: itemToEdit.platform,
         saldo_platform: itemToEdit.saldo_platform.toString(),
-        nominal_pengambilan: itemToEdit.nominal_pengambilan.toString(),
-        biaya_admin: itemToEdit.biaya_admin?.toString() || '0',
+        nominal_pengambilan: formatRupiah(itemToEdit.nominal_pengambilan),
+        biaya_admin: formatRupiah(itemToEdit.biaya_admin || 0),
         metode_pengambilan: itemToEdit.metode_pengambilan || '',
         tujuan_pengambilan: itemToEdit.tujuan_pengambilan || '',
         tanggal_pengambilan: formattedDate,
@@ -246,6 +246,20 @@ const HalamanAmbilSaldo = () => {
     }
   }
 
+  // Handle input changes for currency fields
+  const handleCurrencyInputChange = (e, fieldName) => {
+    const value = e.target.value
+    // Extract numeric value
+    const numericValue = extractNumeric(value)
+    // Format as currency
+    const formattedValue = formatRupiah(numericValue)
+
+    setFormData({
+      ...formData,
+      [fieldName]: formattedValue
+    })
+  }
+
   const handleSubmitEdit = async () => {
     try {
       // Ensure the date is in the correct format
@@ -263,14 +277,18 @@ const HalamanAmbilSaldo = () => {
       console.log('📅 Date before submission:', formData.tanggal_pengambilan)
       console.log('📅 Formatted date for submission:', formattedDate)
 
+      // Extract numeric values from formatted currency strings
+      const numericNominalPengambilan = extractNumeric(formData.nominal_pengambilan)
+      const numericBiayaAdmin = extractNumeric(formData.biaya_admin)
+
       // Ensure all data is properly formatted
       const updatedEntry = {
         id: formData.id,
         petugas_pengambil_id: parseInt(formData.petugas_pengambil_id) || 1,
         platform: formData.platform,
         saldo_platform: parseFloat(formData.saldo_platform) || 0,
-        nominal_pengambilan: parseFloat(formData.nominal_pengambilan) || 0,
-        biaya_admin: parseFloat(formData.biaya_admin) || 0,
+        nominal_pengambilan: parseFloat(numericNominalPengambilan) || 0,
+        biaya_admin: parseFloat(numericBiayaAdmin) || 0,
         metode_pengambilan: formData.metode_pengambilan,
         tujuan_pengambilan: formData.tujuan_pengambilan,
         tanggal_pengambilan: formattedDate, // Use the properly formatted date
@@ -411,18 +429,20 @@ const HalamanAmbilSaldo = () => {
 
         <InputField
           name="nominal_pengambilan"
-          type="number"
+          type="text"
           value={formData.nominal_pengambilan || ''}
-          onChange={(e) => setFormData({ ...formData, nominal_pengambilan: e.target.value })}
+          onChange={(e) => handleCurrencyInputChange(e, 'nominal_pengambilan')}
+          placeholder="Rp 0"
         >
           Nominal Pengambilan
         </InputField>
 
         <InputField
           name="biaya_admin"
-          type="number"
+          type="text"
           value={formData.biaya_admin || ''}
-          onChange={(e) => setFormData({ ...formData, biaya_admin: e.target.value })}
+          onChange={(e) => handleCurrencyInputChange(e, 'biaya_admin')}
+          placeholder="Rp 0"
           className={selectedPlatform ? 'border-yellow-500' : ''}
         >
           Biaya Admin{' '}
