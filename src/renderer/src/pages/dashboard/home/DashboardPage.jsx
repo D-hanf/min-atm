@@ -6,25 +6,33 @@ import { Link } from 'react-router-dom'
 
 const DashboardPage = () => {
   // Sample account balances
-  const [accountBalances, setAccountBalances] = useState([
-    { platform: 'BRI', balance: 5000000 },
-    { platform: 'BNI', balance: 3500000 },
-    { platform: 'Mandiri', balance: 4200000 },
-    { platform: 'DANA', balance: 1800000 },
-    { platform: 'OVO', balance: 950000 },
-    { platform: 'GoPay', balance: 1200000 }
-  ])
-
-  const totalBalance = accountBalances.reduce((total, account) => total + account.balance, 0)
-
+ 
   const [users, setUsers] = useState([])
-
+  const [sumberDanaList, setSumberDanaList] = useState([])
   const [toko, setToko] = useState([])
   const [totalPegawaiTiapToko, setTotalPegawaiTiapToko] = useState(0)
   const [totalSeluruhPegawai, setTotalSeluruhPegawai] = useState(0)
   // Sample sales data
-  const totalSales = 25000000
+  const [transaction,setTransactions]=useState([])
 
+
+  const fetchTransaksi = async () => {
+    try {
+      const result = await window.api.getTransaksi()
+      setTransactions(result)
+    } catch (error) {
+      console.error('Gagal ambil data transaksi:', error)
+    }
+  }
+  
+  const fetchSaldo = async () => {
+    try {
+      const result = await window.api.getSaldoAwal()
+      setSumberDanaList(result)
+    } catch (error) {
+      console.error('Gagal ambil data saldo:', error)
+    }
+  }
   const fetchToko = async () => {
     try {
       const result = await window.api.getTokoWithEmployeeCount()
@@ -36,7 +44,11 @@ const DashboardPage = () => {
   }
   useEffect(() => {
     fetchToko()
+    fetchTransaksi()
+    fetchSaldo()
   }, [])
+  const totalProfit = transaction.reduce((total, trx) => total + (trx.fee || 0), 0)
+  const totalBalance = sumberDanaList.reduce((acc, curr) => acc + curr.saldo, 0)
 
   const countTotalKaryawan = async () => {
     try {
@@ -68,8 +80,8 @@ const DashboardPage = () => {
       linkTo: '/dashboard/kelola-toko'
     },
     {
-      name: 'Total Penjualan',
-      value: `Rp ${totalSales.toLocaleString('id-ID')}`,
+      name: 'Total profit',
+      value: `Rp ${totalProfit.toLocaleString('id-ID')}`,
 
       icon: <HiCurrencyDollar size={24} className="text-yellow-600" />,
       linkTo: '/dashboard/laporan'

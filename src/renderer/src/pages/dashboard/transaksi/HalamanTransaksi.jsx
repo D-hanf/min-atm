@@ -12,7 +12,6 @@ import ModalEdit from '../../../shared/ui/Modal'
 import ReceiptView from './ReceiptView'
 import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
-import { useReactToPrint } from 'react-to-print'
 
 const HalamanTransaksi = () => {
   const [stores, setStore] = useState([])

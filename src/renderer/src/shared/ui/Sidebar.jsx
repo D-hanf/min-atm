@@ -135,6 +135,15 @@ const Sidebar = () => {
           <div className="select-none">
             <p className="font-medium text-sm">{user.nama}</p>
             <p className="text-xs text-zinc-500">{user.role}</p>
+
+            {user.role === 'admin' && (
+              <Link
+                to="/dashboard/profile"
+                className="mt-1 block text-blue-600 hover:underline text-xs"
+              >
+                Edit Profil
+              </Link>
+            )}
           </div>
         )}
       </div>
