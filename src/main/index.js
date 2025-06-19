@@ -36,10 +36,6 @@ function createWindow() {
 
 app.whenReady().then(() => {
   db.serialize(() => {
-    // CREATE TABLES
-    // Aktifkan foreign key enforcement (WAJIB)
-    db.run(`PRAGMA foreign_keys = ON`)
-
     // Tabel toko
     db.run(`
   CREATE TABLE IF NOT EXISTS toko (
@@ -62,7 +58,7 @@ app.whenReady().then(() => {
     role TEXT NOT NULL,
     toko_id INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (toko_id) REFERENCES toko(id) ON DELETE CASCADE
+    FOREIGN KEY (toko_id) REFERENCES toko(id) 
   )
 `)
 
@@ -72,8 +68,8 @@ app.whenReady().then(() => {
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
     toko_id INTEGER,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (toko_id) REFERENCES toko(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (toko_id) REFERENCES toko(id)
   )
 `)
 
@@ -108,20 +104,18 @@ app.whenReady().then(() => {
     `)
     db.run(`
       CREATE TABLE IF NOT EXISTS pindah_saldo (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sumber_dana_id INTEGER NOT NULL,
-      tujuan_dana_id INTEGER NOT NULL,
-      user_pemindah_id INTEGER NOT NULL,
-      nominal REAL NOT NULL,
-      platform TEXT,
-      biaya_admin REAL DEFAULT 0,
-      saldo_sumber REAL NOT NULL,
-      saldo_tujuan REAL NOT NULL,
-      keterangan TEXT,
-      tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
-      FOREIGN KEY (tujuan_dana_id) REFERENCES saldo_awal(id),
-      FOREIGN KEY (user_pemindah_id) REFERENCES users(id)
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sumber_dana_id INTEGER NOT NULL,
+        tujuan_dana_id INTEGER NOT NULL,
+        user_pemindah_id INTEGER NOT NULL,
+        nominal REAL NOT NULL,
+        platform TEXT,
+        biaya_admin REAL DEFAULT 0,
+        keterangan TEXT,
+        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
+        FOREIGN KEY (tujuan_dana_id) REFERENCES saldo_awal(id),
+        FOREIGN KEY (user_pemindah_id) REFERENCES users(id)
       )
     `)
     db.run(`
@@ -333,450 +327,6 @@ app.whenReady().then(() => {
 
     // ============================= end saldo awal handler =============================
 
-    // ============================= pindah saldo handler =============================
-
-    ipcMain.handle('get-pindah-saldo', () => {
-      return new Promise((resolve, reject) => {
-        db.all('SELECT * FROM pindah_saldo', [], (err, rows) => {
-          if (err) reject(err)
-          else resolve(rows)
-        })
-      })
-    })
-
-    // Helper function to update saldo_awal after transfer
-    const updateSaldoAfterTransfer = async (
-      sumberDanaId,
-      tujuanDanaId,
-      nominal,
-      biayaAdmin = 0
-    ) => {
-      return new Promise((resolve, reject) => {
-        db.serialize(() => {
-          // Start transaction
-          db.run('BEGIN TRANSACTION')
-
-          // Update sumber dana (deduct amount + admin fee)
-          db.run(
-            'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-            [nominal + biayaAdmin, sumberDanaId],
-            function (err) {
-              if (err) {
-                db.run('ROLLBACK')
-                console.error('❌ Error updating sumber dana saldo:', err)
-                return reject(err)
-              }
-
-              // Update tujuan dana (add amount)
-              db.run(
-                'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                [nominal, tujuanDanaId],
-                function (err) {
-                  if (err) {
-                    db.run('ROLLBACK')
-                    console.error('❌ Error updating tujuan dana saldo:', err)
-                    return reject(err)
-                  }
-
-                  // Commit transaction
-                  db.run('COMMIT', (err) => {
-                    if (err) {
-                      console.error('❌ Error committing transaction:', err)
-                      return reject(err)
-                    }
-
-                    console.log('✅ Successfully updated both saldo after transfer')
-                    resolve({ success: true })
-                  })
-                }
-              )
-            }
-          )
-        })
-      })
-    }
-
-    ipcMain.handle('create-pindah-saldo', (event, data) => {
-      const {
-        sumber_dana_id,
-        tujuan_dana_id,
-        user_pemindah_id,
-        nominal,
-        platform,
-        biaya_admin,
-        saldo_sumber,
-        saldo_tujuan,
-        keterangan,
-        tanggal
-      } = data
-
-      const query = `
-        INSERT INTO pindah_saldo (
-          sumber_dana_id, 
-          tujuan_dana_id, 
-          user_pemindah_id, 
-          nominal, 
-          platform, 
-          biaya_admin, 
-          saldo_sumber, 
-          saldo_tujuan, 
-          keterangan, 
-          tanggal
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `
-
-      return new Promise((resolve, reject) => {
-        db.run(
-          query,
-          [
-            sumber_dana_id,
-            tujuan_dana_id,
-            user_pemindah_id,
-            nominal,
-            platform,
-            biaya_admin || 0,
-            saldo_sumber,
-            saldo_tujuan,
-            keterangan,
-            tanggal || new Date().toISOString()
-          ],
-          async function (err) {
-            if (err) {
-              console.error('❌ Error creating pindah_saldo:', err)
-              return reject(err)
-            }
-
-            console.log('✅ pindah_saldo created successfully with ID:', this.lastID)
-
-            try {
-              // Update saldo_awal after successful transfer
-              await updateSaldoAfterTransfer(
-                sumber_dana_id,
-                tujuan_dana_id,
-                nominal,
-                biaya_admin || 0
-              )
-              resolve({ id: this.lastID })
-            } catch (updateErr) {
-              console.error('❌ Error updating saldo after transfer:', updateErr)
-              // Still return success for the pindah_saldo creation
-              resolve({
-                id: this.lastID,
-                warningMessage: 'Transfer created but saldo not updated'
-              })
-            }
-          }
-        )
-      })
-    })
-
-    // ipcMain.handle('update-pindah-saldo', (event, id) => {
-    //   return new Promise((resolve, reject) => {
-    //     // First get the record to be deleted so we can reverse the transfer
-    //     db.get(
-    //       'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin FROM pindah_saldo WHERE id = ?',
-    //       [id],
-    //       async (err, record) => {
-    //         if (err) {
-    //           console.error('❌ Error getting pindah_saldo record for deletion:', err)
-    //           return reject(err)
-    //         }
-
-    //         if (record) {
-    //           try {
-    //             // Correctly handle the balance reversal
-    //             db.serialize(() => {
-    //               // Start transaction
-    //               db.run('BEGIN TRANSACTION')
-
-    //               // STEP 1: Add both nominal amount AND admin fee back to source account
-    //               console.log(
-    //                 `Adding back to source: nominal ${record.nominal} + admin fee ${record.biaya_admin}`
-    //               )
-    //               db.run(
-    //                 'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-    //                 [record.nominal + record.biaya_admin, record.sumber_dana_id],
-    //                 function (err) {
-    //                   if (err) {
-    //                     db.run('ROLLBACK')
-    //                     console.error('❌ Error returning funds to source account:', err)
-    //                     return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
-    //                   }
-
-    //                   // STEP 2: Remove only the nominal amount from destination account
-    //                   console.log(`Removing from destination: only nominal ${record.nominal}`)
-    //                   db.run(
-    //                     'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-    //                     [record.nominal, record.tujuan_dana_id],
-    //                     function (err) {
-    //                       if (err) {
-    //                         db.run('ROLLBACK')
-    //                         console.error(
-    //                           '❌ Error subtracting funds from destination account:',
-    //                           err
-    //                         )
-    //                         return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
-    //                       }
-
-    //                       // Commit transaction
-    //                       db.run('COMMIT', (err) => {
-    //                         if (err) {
-    //                           console.error('❌ Error committing transaction:', err)
-    //                           return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
-    //                         }
-
-    //                         console.log(
-    //                           '✅ Transfer reversed correctly: Source received nominal + admin, destination returned nominal'
-    //                         )
-    //                         resolve({ changes: this.changes })
-    //                       })
-    //                     }
-    //                   )
-    //                 }
-    //               )
-    //             })
-    //           } catch (updateErr) {
-    //             console.error('❌ Error reversing transfer after deletion:', updateErr)
-    //             // Still return success for the deletion
-    //             resolve({ changes: this.changes })
-    //           }
-
-    //           // STEP 3: Update the pindah_saldo record with new data
-    //           db.run(
-    //             'UPDATE pindah_saldo SET sumber_dana_id = ?, tujuan_dana_id = ?, nominal = ?, biaya_admin = ?, tanggal = ?, keterangan = ? WHERE id = ?',
-    //             [
-    //               updatedData.sumber_dana_id,
-    //               updatedData.tujuan_dana_id,
-    //               updatedData.nominal,
-    //               updatedData.biaya_admin,
-    //               updatedData.tanggal,
-    //               updatedData.keterangan,
-    //               updatedData.id
-    //             ],
-    //             function (err) {
-    //               if (err) {
-    //                 db.run('ROLLBACK')
-    //                 console.error('❌ Error updating pindah_saldo record:', err)
-    //                 return resolve({ changes: this.changes })
-    //               }
-
-    //               // Commit transaction
-    //               db.run('COMMIT', (err) => {
-    //                 if (err) {
-    //                   console.error('❌ Error committing transaction:', err)
-    //                   return resolve({ changes: this.changes })
-    //                 }
-
-    //                 console.log('✅ Transfer updated correctly: Balances adjusted, record updated')
-    //                 resolve({
-    //                   changes: this.changes,
-    //                   message: 'Transfer updated successfully'
-    //                 })
-    //               })
-    //             }
-    //           )
-    //         } else {
-    //           resolve({ changes: this.changes })
-    //         }
-    //       }
-    //     )
-    //   })
-    // })
-
-    ipcMain.handle('update-pindah-saldo', (event, updatedData) => {
-      return new Promise((resolve, reject) => {
-        // First get the existing record to compare and adjust balances
-        db.get(
-          'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin FROM pindah_saldo WHERE id = ?',
-          [updatedData.id],
-          async (err, oldRecord) => {
-            if (err) {
-              console.error('❌ Error getting existing pindah_saldo record:', err)
-              return reject(err)
-            }
-
-            if (!oldRecord) {
-              console.error('❌ Record not found')
-              return reject(new Error('Record not found'))
-            }
-
-            try {
-              db.serialize(() => {
-                // Start transaction
-                db.run('BEGIN TRANSACTION')
-
-                // STEP 1: Adjust source account balance
-                // Subtract old amounts from source, then add new amounts
-                const sourceDiff =
-                  -(oldRecord.nominal + oldRecord.biaya_admin) +
-                  (updatedData.nominal + updatedData.biaya_admin)
-
-                db.run(
-                  'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                  [sourceDiff, oldRecord.sumber_dana_id],
-                  function (err) {
-                    if (err) {
-                      db.run('ROLLBACK')
-                      console.error('❌ Error adjusting source account balance:', err)
-                      return resolve({ changes: this.changes })
-                    }
-
-                    // STEP 2: Adjust destination account balance
-                    // Subtract old nominal, then add new nominal
-                    const destinationDiff = -oldRecord.nominal + updatedData.nominal
-
-                    db.run(
-                      'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                      [destinationDiff, oldRecord.tujuan_dana_id],
-                      function (err) {
-                        if (err) {
-                          db.run('ROLLBACK')
-                          console.error('❌ Error adjusting destination account balance:', err)
-                          return resolve({ changes: this.changes })
-                        }
-
-                        // STEP 3: Update the pindah_saldo record with new data
-                        db.run(
-                          'UPDATE pindah_saldo SET sumber_dana_id = ?, tujuan_dana_id = ?, nominal = ?, biaya_admin = ?, tanggal = ?, keterangan = ? WHERE id = ?',
-                          [
-                            updatedData.sumber_dana_id,
-                            updatedData.tujuan_dana_id,
-                            updatedData.nominal,
-                            updatedData.biaya_admin,
-                            updatedData.tanggal,
-                            updatedData.keterangan,
-                            updatedData.id
-                          ],
-                          function (err) {
-                            if (err) {
-                              db.run('ROLLBACK')
-                              console.error('❌ Error updating pindah_saldo record:', err)
-                              return resolve({ changes: this.changes })
-                            }
-
-                            // Commit transaction
-                            db.run('COMMIT', (err) => {
-                              if (err) {
-                                console.error('❌ Error committing transaction:', err)
-                                return resolve({ changes: this.changes })
-                              }
-
-                              console.log(
-                                '✅ Transfer updated correctly: Balances adjusted, record updated'
-                              )
-                              resolve({
-                                changes: this.changes,
-                                message: 'Transfer updated successfully'
-                              })
-                            })
-                          }
-                        )
-                      }
-                    )
-                  }
-                )
-              })
-            } catch (updateErr) {
-              console.error('❌ Error updating transfer:', updateErr)
-              resolve({ changes: 0, error: updateErr.message })
-            }
-          }
-        )
-      })
-    })
-
-    ipcMain.handle('delete-pindah-saldo', (event, id) => {
-      return new Promise((resolve, reject) => {
-        // First get the record to be deleted so we can reverse the transfer
-        db.get(
-          'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin FROM pindah_saldo WHERE id = ?',
-          [id],
-          async (err, record) => {
-            if (err) {
-              console.error('❌ Error getting pindah_saldo record for deletion:', err)
-              return reject(err)
-            }
-
-            // Now delete the record
-            db.run('DELETE FROM pindah_saldo WHERE id = ?', [id], async function (err) {
-              if (err) {
-                console.error('❌ Error deleting pindah_saldo:', err)
-                return reject(err)
-              }
-
-              // Record successfully deleted
-              console.log('✅ pindah_saldo deleted successfully. Changes:', this.changes)
-
-              if (record) {
-                try {
-                  // Correctly handle the balance reversal
-                  db.serialize(() => {
-                    // Start transaction
-                    db.run('BEGIN TRANSACTION')
-
-                    // STEP 1: Add both nominal amount AND admin fee back to source account
-                    console.log(
-                      `Adding back to source: nominal ${record.nominal} + admin fee ${record.biaya_admin}`
-                    )
-                    db.run(
-                      'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                      [record.nominal + record.biaya_admin, record.sumber_dana_id],
-                      function (err) {
-                        if (err) {
-                          db.run('ROLLBACK')
-                          console.error('❌ Error returning funds to source account:', err)
-                          return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
-                        }
-
-                        // STEP 2: Remove only the nominal amount from destination account
-                        console.log(`Removing from destination: only nominal ${record.nominal}`)
-                        db.run(
-                          'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                          [record.nominal, record.tujuan_dana_id],
-                          function (err) {
-                            if (err) {
-                              db.run('ROLLBACK')
-                              console.error(
-                                '❌ Error subtracting funds from destination account:',
-                                err
-                              )
-                              return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
-                            }
-
-                            // Commit transaction
-                            db.run('COMMIT', (err) => {
-                              if (err) {
-                                console.error('❌ Error committing transaction:', err)
-                                return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
-                              }
-
-                              console.log(
-                                '✅ Transfer reversed correctly: Source received nominal + admin, destination returned nominal'
-                              )
-                              resolve({ changes: this.changes })
-                            })
-                          }
-                        )
-                      }
-                    )
-                  })
-                } catch (updateErr) {
-                  console.error('❌ Error reversing transfer after deletion:', updateErr)
-                  // Still return success for the deletion
-                  resolve({ changes: this.changes })
-                }
-              } else {
-                resolve({ changes: this.changes })
-              }
-            })
-          }
-        )
-      })
-    })
-
-    // ============================= end pindah saldo handler =============================
-
     // ============================= ambil saldo handler =============================
 
     // Make sure this handler exists and is properly registered
@@ -926,6 +476,21 @@ app.whenReady().then(() => {
 
       console.log('🔄 Updating ambil_saldo:', { id, platform, tanggal_pengambilan })
 
+      const query = `
+        UPDATE ambil_saldo
+        SET 
+          petugas_pengambil_id = ?, 
+          platform = ?, 
+          saldo_platform = ?, 
+          nominal_pengambilan = ?, 
+          biaya_admin = ?, 
+          metode_pengambilan = ?, 
+          tujuan_pengambilan = ?, 
+          tanggal_pengambilan = ?, 
+          keterangan = ?
+        WHERE id = ?
+      `
+
       return new Promise((resolve, reject) => {
         // First get the original record to calculate the difference
         db.get(
@@ -937,110 +502,65 @@ app.whenReady().then(() => {
               return reject(err)
             }
 
-            if (!originalRecord) {
-              console.error('❌ Record not found')
-              return reject(new Error('Record not found'))
-            }
+            db.run(
+              query,
+              [
+                petugas_pengambil_id,
+                platform,
+                saldo_platform,
+                nominal_pengambilan,
+                biaya_admin,
+                metode_pengambilan,
+                tujuan_pengambilan,
+                tanggal_pengambilan || new Date().toISOString().split('T')[0],
+                keterangan,
+                id
+              ],
+              async function (err) {
+                if (err) {
+                  console.error('❌ Error updating ambil_saldo:', err)
+                  return reject(err)
+                }
 
-            try {
-              db.serialize(() => {
-                // Start transaction
-                db.run('BEGIN TRANSACTION')
+                console.log('✅ ambil_saldo updated successfully. Changes:', this.changes)
 
-                // STEP 1: Return original withdrawal amount + admin fee to the original platform
-                console.log(
-                  `Adding back to platform ${originalRecord.platform}: withdrawal ${originalRecord.nominal_pengambilan} + admin fee ${originalRecord.biaya_admin}`
-                )
-                db.run(
-                  'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE nama_sumber_dana = ?',
-                  [
-                    originalRecord.nominal_pengambilan + originalRecord.biaya_admin,
-                    originalRecord.platform
-                  ],
-                  function (err) {
-                    if (err) {
-                      db.run('ROLLBACK')
-                      console.error('❌ Error returning funds to platform:', err)
-                      return resolve({ changes: 0, error: err.message })
+                // Only update saldo if platform, amount, or admin fee changed
+                if (
+                  originalRecord &&
+                  (originalRecord.platform !== platform ||
+                    originalRecord.nominal_pengambilan !== nominal_pengambilan ||
+                    originalRecord.biaya_admin !== biaya_admin)
+                ) {
+                  try {
+                    // If platform changed, we need to adjust both platforms
+                    if (originalRecord.platform !== platform) {
+                      // Return the money to the original platform (including admin fee)
+                      await updateSaldoAfterWithdrawal(
+                        originalRecord.platform,
+                        -originalRecord.nominal_pengambilan, // Negative to add it back
+                        -originalRecord.biaya_admin // Negative to add it back
+                      )
+
+                      // Take from the new platform (including admin fee)
+                      await updateSaldoAfterWithdrawal(platform, nominal_pengambilan, biaya_admin)
+                    } else {
+                      // Just adjust the amount and admin fee differences
+                      const amountDifference =
+                        nominal_pengambilan - originalRecord.nominal_pengambilan
+                      const feeDifference = biaya_admin - originalRecord.biaya_admin
+
+                      // Use the combined differences to adjust the saldo
+                      await updateSaldoAfterWithdrawal(platform, amountDifference, feeDifference)
                     }
-
-                    // STEP 2: Subtract the new withdrawal amount + admin fee from the platform
-                    console.log(
-                      `Subtracting from platform ${platform}: withdrawal ${nominal_pengambilan} + admin fee ${biaya_admin}`
-                    )
-                    db.run(
-                      'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE nama_sumber_dana = ?',
-                      [nominal_pengambilan + biaya_admin, platform],
-                      function (err) {
-                        if (err) {
-                          db.run('ROLLBACK')
-                          console.error('❌ Error deducting funds from platform:', err)
-                          return resolve({ changes: 0, error: err.message })
-                        }
-
-                        // STEP 3: Update the ambil_saldo record with new data
-                        const query = `
-                          UPDATE ambil_saldo
-                          SET 
-                            petugas_pengambil_id = ?, 
-                            platform = ?, 
-                            saldo_platform = ?, 
-                            nominal_pengambilan = ?, 
-                            biaya_admin = ?, 
-                            metode_pengambilan = ?, 
-                            tujuan_pengambilan = ?, 
-                            tanggal_pengambilan = ?, 
-                            keterangan = ?
-                          WHERE id = ?
-                        `
-
-                        db.run(
-                          query,
-                          [
-                            petugas_pengambil_id,
-                            platform,
-                            saldo_platform,
-                            nominal_pengambilan,
-                            biaya_admin,
-                            metode_pengambilan,
-                            tujuan_pengambilan,
-                            tanggal_pengambilan || new Date().toISOString().split('T')[0],
-                            keterangan,
-                            id
-                          ],
-                          function (err) {
-                            if (err) {
-                              db.run('ROLLBACK')
-                              console.error('❌ Error updating ambil_saldo record:', err)
-                              return resolve({ changes: 0, error: err.message })
-                            }
-
-                            // Commit transaction
-                            db.run('COMMIT', (err) => {
-                              if (err) {
-                                console.error('❌ Error committing transaction:', err)
-                                return resolve({ changes: 0, error: err.message })
-                              }
-
-                              console.log(
-                                '✅ Withdrawal updated correctly: Platform balances adjusted, record updated'
-                              )
-                              resolve({
-                                changes: this.changes,
-                                message: 'Withdrawal updated successfully'
-                              })
-                            })
-                          }
-                        )
-                      }
-                    )
+                  } catch (updateErr) {
+                    console.error('❌ Error adjusting saldo after update:', updateErr)
+                    // Still return success for the update
                   }
-                )
-              })
-            } catch (updateErr) {
-              console.error('❌ Error updating withdrawal:', updateErr)
-              resolve({ changes: 0, error: updateErr.message })
-            }
+                }
+
+                resolve({ changes: this.changes })
+              }
+            )
           }
         )
       })
@@ -1059,62 +579,37 @@ app.whenReady().then(() => {
               return reject(err)
             }
 
-            if (!record) {
-              console.error('❌ Record not found')
-              return reject(new Error('Record not found'))
-            }
+            // Now delete the record
+            db.run('DELETE FROM ambil_saldo WHERE id = ?', [id], async function (err) {
+              if (err) {
+                console.error('❌ Error deleting ambil_saldo:', err)
+                return reject(err)
+              }
 
-            // Now delete the record and refund the balance in a transaction
-            db.serialize(() => {
-              // Start transaction
-              db.run('BEGIN TRANSACTION')
+              // Record successfully deleted
+              console.log('✅ ambil_saldo deleted successfully. Changes:', this.changes)
 
-              // STEP 1: Delete the record
-              db.run('DELETE FROM ambil_saldo WHERE id = ?', [id], function (err) {
-                if (err) {
-                  db.run('ROLLBACK')
-                  console.error('❌ Error deleting ambil_saldo:', err)
-                  return reject(err)
+              if (record) {
+                try {
+                  // Refund the platform (use negative amounts to add the money back)
+                  await updateSaldoAfterWithdrawal(
+                    record.platform,
+                    -record.nominal_pengambilan, // Negative to add it back
+                    -record.biaya_admin // Negative to add it back
+                  )
+                  console.log('✅ Balance refunded after deletion')
+                } catch (updateErr) {
+                  console.error('❌ Error refunding balance after deletion:', updateErr)
+                  // Still return success for the deletion
                 }
+              }
 
-                // Record successfully deleted
-                console.log('✅ ambil_saldo deleted successfully. Changes:', this.changes)
-                const deletedChanges = this.changes
-
-                // STEP 2: Refund the platform (add back the withdrawn amount + admin fee)
-                console.log(
-                  `Adding back to platform ${record.platform}: withdrawal ${record.nominal_pengambilan} + admin fee ${record.biaya_admin}`
-                )
-                db.run(
-                  'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE nama_sumber_dana = ?',
-                  [record.nominal_pengambilan + record.biaya_admin, record.platform],
-                  function (err) {
-                    if (err) {
-                      db.run('ROLLBACK')
-                      console.error('❌ Error refunding platform balance:', err)
-                      return resolve({ changes: 0, error: err.message })
-                    }
-
-                    // Commit transaction
-                    db.run('COMMIT', (err) => {
-                      if (err) {
-                        console.error('❌ Error committing transaction:', err)
-                        return resolve({ changes: 0, error: err.message })
-                      }
-
-                      console.log('✅ Withdrawal deleted and balance refunded successfully')
-                      resolve({ changes: deletedChanges })
-                    })
-                  }
-                )
-              })
+              resolve({ changes: this.changes })
             })
           }
         )
       })
     })
-
-    // ============================= end ambil saldo handler =============================
 
     // ============================== kelola toko handler ===============================
     ipcMain.handle('create-toko', (event, data) => {

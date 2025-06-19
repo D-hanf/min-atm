@@ -90,7 +90,7 @@ const DashboardPage = () => {
       name: 'Total Saldo',
       value: `Rp ${totalBalance.toLocaleString('id-ID')}`,
       icon: <HiWallet size={24} className="text-purple-600" />,
-      linkTo: '/dashboard/ambil-saldo'
+      linkTo: '/dashboard/saldo-awal'
     }
   ]
 
