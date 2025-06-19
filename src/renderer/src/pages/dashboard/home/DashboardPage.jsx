@@ -84,13 +84,13 @@ const DashboardPage = () => {
       value: `Rp ${totalProfit.toLocaleString('id-ID')}`,
 
       icon: <HiCurrencyDollar size={24} className="text-yellow-600" />,
-      linkTo: '/dashboard/laporan'
+      linkTo: '/dashboard/transaksi'
     },
     {
       name: 'Total Saldo',
       value: `Rp ${totalBalance.toLocaleString('id-ID')}`,
       icon: <HiWallet size={24} className="text-purple-600" />,
-      linkTo: '/dashboard/kelola-data/ambil-saldo'
+      linkTo: '/dashboard/ambil-saldo'
     }
   ]
 
