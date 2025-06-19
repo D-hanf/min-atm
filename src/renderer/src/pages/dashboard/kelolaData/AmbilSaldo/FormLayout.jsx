@@ -9,8 +9,9 @@ import { useState } from 'react'
 
 const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) => {
   const [modalOpen, setModalOpen] = useState(false)
+  const [loggedInUser, setLoggedInUser] = useState(null)
   const [formData, setFormData] = useState({
-    user_id: 1, // Default to first user for demonstration
+    user_id: 1, // Will be replaced with current user ID
     platform: '',
     currentBalance: '',
     amount: '',
@@ -63,6 +64,17 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
   useEffect(() => {
     // Fetch saldo_awal data when component mounts
     fetchSaldoAwal()
+
+    // Get logged in user from localStorage
+    const userString = localStorage.getItem('user')
+    if (userString) {
+      const user = JSON.parse(userString)
+      setLoggedInUser(user)
+      setFormData((prev) => ({
+        ...prev,
+        user_id: user.id || 1 // Set user ID from logged in user
+      }))
+    }
   }, [])
 
   useEffect(() => {
@@ -70,7 +82,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     if (modalOpen) {
       fetchSaldoAwal()
       setFormData({
-        user_id: 1, // Default to first user
+        user_id: loggedInUser?.id || 1, // Use logged in user ID
         platform: '',
         currentBalance: '',
         amount: '',
@@ -82,7 +94,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       })
       setSelectedPlatform(null)
     }
-  }, [modalOpen])
+  }, [modalOpen, loggedInUser])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -171,15 +183,15 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         </ButtonInput>
       </div>
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}>
-        <InputField
-          name="user_id"
-          type="number"
-          value={formData.user_id}
-          onChange={handleInputChange}
-          disabled={false}
-        >
-          ID Petugas Pengambil
-        </InputField>
+        {/* Replace ID input field with read-only display of user name */}
+        <div className="col-span-2 mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Petugas Pengambil</label>
+          <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
+            {loggedInUser ? loggedInUser.nama || 'User ID: ' + loggedInUser.id : 'Loading...'}
+          </div>
+          {/* Hidden input to store the actual user ID */}
+          <input type="hidden" name="user_id" value={formData.user_id} />
+        </div>
 
         {/* Platform dropdown */}
         <div className="col-span-2 mb-4">

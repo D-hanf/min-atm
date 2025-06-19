@@ -135,9 +135,8 @@ const HalamanPindahSaldo = () => {
       // Prepare platform string for database
       const platformString = `${formData.platformSource} > ${formData.platformDestination}`
 
-      // Get the currently logged in user (should come from auth context)
-      // For now we'll use a dummy user id
-      const currentUserId = 1 // This should be dynamic in a real app
+      // Get the user ID from formData (comes from the currently logged in user)
+      const currentUserId = formData.user_id || (loggedInUser ? loggedInUser.id : 1)
 
       // Get current saldo for source and destination
       const sourceSaldo = saldoData.find((s) => s.nama_sumber_dana === formData.senderBalance)
@@ -152,7 +151,7 @@ const HalamanPindahSaldo = () => {
       const transferData = {
         sumber_dana_id: sourceSaldo.id,
         tujuan_dana_id: destSaldo.id,
-        user_pemindah_id: currentUserId,
+        user_pemindah_id: currentUserId, // Use the ID from logged in user
         nominal: cleanedAmount,
         platform: platformString,
         biaya_admin: cleanedOperational || 0,
@@ -161,6 +160,8 @@ const HalamanPindahSaldo = () => {
         keterangan: formData.description,
         tanggal: new Date().toISOString().split('T')[0]
       }
+
+      console.log('Creating transfer with user ID:', currentUserId)
 
       // Call API to save data
       const result = await window.api.createPindahSaldo(transferData)
@@ -371,6 +372,115 @@ const HalamanPindahSaldo = () => {
     return 'Rp' + number.toLocaleString('id-ID')
   }
 
+  const handleSubmitEdit = async (updatedData) => {
+    try {
+      const cleanedAmount = parseInt(String(updatedData.amount).replace(/[^0-9]/g, ''), 10)
+      const cleanedOperational = parseInt(
+        String(updatedData.operational).replace(/[^0-9]/g, ''),
+        10
+      )
+
+      // Ensure we have the ID from formData if not in updatedData
+      const id = formData.id
+
+      if (!id) {
+        console.error('Error: Missing ID for update operation')
+        alert('Error: Cannot update record - missing ID')
+        return
+      }
+
+      console.log('Updating record with ID:', id)
+
+      // Use the original user ID to maintain data consistency
+      // (Transfer should keep original creator even when edited by admin)
+      const userId = formData.userId || (loggedInUser ? loggedInUser.id : 1)
+
+      // Prepare platform string for database
+      const platformString = `${platformSourceOptions} > ${platformDestinationOptions}`
+
+      // Find the source and destination saldo by IDs from selected saldo objects
+      if (!selectedSourceSaldo || !selectedDestSaldo) {
+        console.error('Source or destination saldo not selected')
+        return
+      }
+
+      // Get the latest saldo data to ensure we're using current balances
+      const latestSaldoData = await window.api.getSaldoAwal()
+
+      // Find the latest balances for the selected source and destination
+      const latestSourceSaldo = latestSaldoData.find((s) => s.id === selectedSourceSaldo.id)
+      const latestDestSaldo = latestSaldoData.find((s) => s.id === selectedDestSaldo.id)
+
+      if (!latestSourceSaldo || !latestDestSaldo) {
+        console.error('Failed to get latest saldo data')
+        return
+      }
+
+      // Create data object for API with latest balances
+      const transferData = {
+        id: id, // Use the ID from formData
+        sumber_dana_id: selectedSourceSaldo.id,
+        tujuan_dana_id: selectedDestSaldo.id,
+        user_pemindah_id: userId, // Keep original user ID
+        nominal: cleanedAmount,
+        platform: platformString,
+        biaya_admin: cleanedOperational || 0,
+        saldo_sumber: latestSourceSaldo.saldo,
+        saldo_tujuan: latestDestSaldo.saldo,
+        keterangan: updatedData.description,
+        tanggal: new Date().toISOString().split('T')[0]
+      }
+
+      console.log('Updating transfer with data:', transferData)
+
+      // Call API to update data
+      const result = await window.api.updatePindahSaldo(transferData)
+      console.log('Update result:', result)
+
+      if (result) {
+        // Refresh data after successful update
+        const updatedTransfers = await window.api.getPindahSaldo()
+        const updatedSaldo = await window.api.getSaldoAwal()
+        setSaldoData(updatedSaldo)
+
+        // Transform the new data
+        const transformedTransfers = await Promise.all(
+          (updatedTransfers || []).map(async (transfer) => {
+            const sourceSaldo = updatedSaldo.find((s) => s.id === transfer.sumber_dana_id)
+            const destSaldo = updatedSaldo.find((s) => s.id === transfer.tujuan_dana_id)
+            const user = users.find((u) => u.id === transfer.user_pemindah_id)
+
+            return {
+              id: transfer.id,
+              user: user?.nama || 'Unknown',
+              userId: transfer.user_pemindah_id,
+              platformSource: transfer.platform ? transfer.platform.split('>')[0]?.trim() : '',
+              platformDestination: transfer.platform ? transfer.platform.split('>')[1]?.trim() : '',
+              senderBalance: sourceSaldo?.nama_sumber_dana || 'Unknown',
+              senderBalanceId: transfer.sumber_dana_id,
+              receiverBalance: destSaldo?.nama_sumber_dana || 'Unknown',
+              receiverBalanceId: transfer.tujuan_dana_id,
+              amount: transfer.nominal,
+              operational: transfer.biaya_admin || 0,
+              description: transfer.keterangan || '',
+              date: transfer.tanggal
+            }
+          })
+        )
+
+        setTransfers(transformedTransfers)
+      }
+    } catch (error) {
+      console.error('Error updating transfer:', error)
+      alert(`Error updating transfer: ${error.message || 'Unknown error'}`)
+    } finally {
+      // Reset form and selected values
+      setSelectedSourceSaldo(null)
+      setSelectedDestSaldo(null)
+      setModalOpen(false)
+    }
+  }
+
   return (
     <>
       <div className="flex w-full gap-4 items-center mb-6">
@@ -426,126 +536,25 @@ const HalamanPindahSaldo = () => {
       <ModalEdit
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSubmit={async (updatedData) => {
-          try {
-            const cleanedAmount = parseInt(String(updatedData.amount).replace(/[^0-9]/g, ''), 10)
-            const cleanedOperational = parseInt(
-              String(updatedData.operational).replace(/[^0-9]/g, ''),
-              10
-            )
-
-            // Ensure we have the ID from formData if not in updatedData
-            const id = formData.id
-
-            if (!id) {
-              console.error('Error: Missing ID for update operation')
-              alert('Error: Cannot update record - missing ID')
-              return
-            }
-
-            console.log('Updating record with ID:', id)
-
-            // Fix: Always use default userId
-            const userId = 1
-
-            // Prepare platform string for database
-            const platformString = `${platformSourceOptions} > ${platformDestinationOptions}`
-
-            // Find the source and destination saldo by IDs from selected saldo objects
-            if (!selectedSourceSaldo || !selectedDestSaldo) {
-              console.error('Source or destination saldo not selected')
-              return
-            }
-
-            // Get the latest saldo data to ensure we're using current balances
-            const latestSaldoData = await window.api.getSaldoAwal()
-
-            // Find the latest balances for the selected source and destination
-            const latestSourceSaldo = latestSaldoData.find((s) => s.id === selectedSourceSaldo.id)
-            const latestDestSaldo = latestSaldoData.find((s) => s.id === selectedDestSaldo.id)
-
-            if (!latestSourceSaldo || !latestDestSaldo) {
-              console.error('Failed to get latest saldo data')
-              return
-            }
-
-            // Create data object for API with latest balances
-            const transferData = {
-              id: id, // Use the ID from formData
-              sumber_dana_id: selectedSourceSaldo.id,
-              tujuan_dana_id: selectedDestSaldo.id,
-              user_pemindah_id: userId,
-              nominal: cleanedAmount,
-              platform: platformString,
-              biaya_admin: cleanedOperational || 0,
-              saldo_sumber: latestSourceSaldo.saldo,
-              saldo_tujuan: latestDestSaldo.saldo,
-              keterangan: updatedData.description,
-              tanggal: new Date().toISOString().split('T')[0]
-            }
-
-            console.log('Updating transfer with data:', transferData)
-
-            // Call API to update data
-            const result = await window.api.updatePindahSaldo(transferData)
-            console.log('Update result:', result)
-
-            if (result) {
-              // Refresh data after successful update
-              const updatedTransfers = await window.api.getPindahSaldo()
-              const updatedSaldo = await window.api.getSaldoAwal()
-              setSaldoData(updatedSaldo)
-
-              // Transform the new data
-              const transformedTransfers = await Promise.all(
-                (updatedTransfers || []).map(async (transfer) => {
-                  const sourceSaldo = updatedSaldo.find((s) => s.id === transfer.sumber_dana_id)
-                  const destSaldo = updatedSaldo.find((s) => s.id === transfer.tujuan_dana_id)
-                  const user = users.find((u) => u.id === transfer.user_pemindah_id)
-
-                  return {
-                    id: transfer.id,
-                    user: user?.nama || 'Unknown',
-                    userId: transfer.user_pemindah_id,
-                    platformSource: transfer.platform
-                      ? transfer.platform.split('>')[0]?.trim()
-                      : '',
-                    platformDestination: transfer.platform
-                      ? transfer.platform.split('>')[1]?.trim()
-                      : '',
-                    senderBalance: sourceSaldo?.nama_sumber_dana || 'Unknown',
-                    senderBalanceId: transfer.sumber_dana_id,
-                    receiverBalance: destSaldo?.nama_sumber_dana || 'Unknown',
-                    receiverBalanceId: transfer.tujuan_dana_id,
-                    amount: transfer.nominal,
-                    operational: transfer.biaya_admin || 0,
-                    description: transfer.keterangan || '',
-                    date: transfer.tanggal
-                  }
-                })
-              )
-
-              setTransfers(transformedTransfers)
-            }
-          } catch (error) {
-            console.error('Error updating transfer:', error)
-            alert(`Error updating transfer: ${error.message || 'Unknown error'}`)
-          } finally {
-            // Reset form and selected values
-            setSelectedSourceSaldo(null)
-            setSelectedDestSaldo(null)
-            setModalOpen(false)
-          }
-        }}
+        onSubmit={handleSubmitEdit}
+        title="Edit Data Pemindahan Saldo"
       >
-        <InputField
-          name="user"
-          value={formData.user || ''}
-          onChange={(e) => setFormData({ ...formData, user: e.target.value })}
-          disabled={true}
-        >
-          User Pemindah
-        </InputField>
+        {/* Replace input field with display of user name */}
+        <div className="col-span-2 mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">User Pemindah</label>
+          <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
+            {formData.user ||
+              (loggedInUser
+                ? loggedInUser.username || loggedInUser.nama || 'User ID: ' + loggedInUser.id
+                : 'Loading...')}
+          </div>
+          {/* Hidden input to maintain the original user ID */}
+          <input
+            type="hidden"
+            name="userId"
+            value={formData.userId || (loggedInUser ? loggedInUser.id : 1)}
+          />
+        </div>
 
         {/* Platform section with flex layout */}
         <div className="col-span-2 flex gap-4 mb-4">
