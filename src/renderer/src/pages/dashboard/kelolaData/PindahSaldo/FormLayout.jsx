@@ -16,6 +16,7 @@ const FormLayout = ({
   const [modalOpen, setModalOpen] = useState(false)
   const [formData, setFormData] = useState(initialData)
   const [saldoData, setSaldoData] = useState([])
+  const [loggedInUser, setLoggedInUser] = useState(null)
 
   // Platform options
   const [platformSourceOptions, setPlatformSourceOptions] = useState('')
@@ -25,11 +26,14 @@ const FormLayout = ({
   const [selectedSourceSaldo, setSelectedSourceSaldo] = useState(null)
   const [selectedDestSaldo, setSelectedDestSaldo] = useState(null)
 
-  // Sample current user (would come from auth context in real app)
-  const currentUser = {
-    name: 'Ahmad Sulaiman',
-    role: 'Admin'
-  }
+  // Fetch logged in user from localStorage
+  useEffect(() => {
+    const userString = localStorage.getItem('user')
+    if (userString) {
+      const user = JSON.parse(userString)
+      setLoggedInUser(user)
+    }
+  }, [])
 
   // Format currency
   const formatRupiah = (value) => {
@@ -73,10 +77,13 @@ const FormLayout = ({
       // Auto-fill user when modal opens
       setFormData((prevData) => ({
         ...prevData,
-        user: currentUser.name
+        user: loggedInUser
+          ? loggedInUser.username || loggedInUser.nama || 'User ID: ' + loggedInUser.id
+          : 'Loading...',
+        user_id: loggedInUser ? loggedInUser.id : 1 // Store user ID for backend
       }))
     }
-  }, [modalOpen, saldoOptions])
+  }, [modalOpen, saldoOptions, loggedInUser])
 
   // Set the selected saldo when platform changes
   useEffect(() => {
@@ -165,7 +172,8 @@ const FormLayout = ({
       senderBalanceId: selectedSourceSaldo?.id,
       receiverBalanceId: selectedDestSaldo?.id,
       amount: formData.amountRaw || extractNumeric(formData.amount),
-      operational: formData.operationalRaw || extractNumeric(formData.operational)
+      operational: formData.operationalRaw || extractNumeric(formData.operational),
+      user_id: loggedInUser ? loggedInUser.id : 1 // Ensure user ID is sent to backend
     }
 
     onSubmit(submissionData)
@@ -223,15 +231,17 @@ const FormLayout = ({
         </ButtonInput>
       </div>
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}>
-        <InputField
-          name="user"
-          type="text"
-          value={formData.user || currentUser.name}
-          onChange={handleInputChange}
-          disabled={true}
-        >
-          User Pemindah
-        </InputField>
+        {/* Replace input field with display of user name */}
+        <div className="col-span-2 mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Petugas Pemindah</label>
+          <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
+            {loggedInUser
+              ? loggedInUser.username || loggedInUser.nama || 'User ID: ' + loggedInUser.id
+              : 'Loading...'}
+          </div>
+          {/* Hidden input to store the user ID */}
+          <input type="hidden" name="user_id" value={loggedInUser ? loggedInUser.id : 1} />
+        </div>
 
         {/* Platform section with flex layout */}
         <div className="col-span-2 flex gap-4 mb-4">
