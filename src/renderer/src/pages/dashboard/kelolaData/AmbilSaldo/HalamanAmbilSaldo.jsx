@@ -49,13 +49,14 @@ const HalamanAmbilSaldo = () => {
   const [modalOpen, setModalOpen] = useState(false)
 
   // Add new states for logged in user and alert dialog
+  const [users, setUsers] = useState([])
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
 
   const [formData, setFormData] = useState({
     id: null,
-    petugas_pengambil_id: 1, // Default to first user for now
+    petugas_pengambil_id: 1,
     platform: '',
     saldo_platform: '',
     nominal_pengambilan: '',
@@ -114,6 +115,18 @@ const HalamanAmbilSaldo = () => {
     }
   }
 
+  // Fetch users data from database
+  const fetchUsers = async () => {
+    try {
+      const result = await window.api.getUsers()
+      setUsers(result || [])
+      console.log('✅ Data users berhasil diambil:', result)
+    } catch (error) {
+      console.error('❌ Gagal ambil data users:', error)
+      setUsers([])
+    }
+  }
+
   // Fetch ambil saldo data from database
   const fetchAmbilSaldo = async () => {
     try {
@@ -134,6 +147,7 @@ const HalamanAmbilSaldo = () => {
 
     fetchAmbilSaldo()
     fetchSaldoAwal() // Also fetch saldo_awal for dropdowns
+    fetchUsers() // Fetch all users for displaying names
   }, [])
 
   // Handle platform selection in edit mode
@@ -343,13 +357,29 @@ const HalamanAmbilSaldo = () => {
         String(val).toLowerCase().includes(filterText.toLowerCase())
       )
     )
-    .map((item) => ({
-      ...item,
-      // Remove the index field
-      saldo_platform: formatRupiah(item.saldo_platform),
-      nominal_pengambilan: formatRupiah(item.nominal_pengambilan),
-      biaya_admin: formatRupiah(item.biaya_admin)
-    }))
+    .map((item) => {
+      // Look up the user's name from the users array
+      let petugasName = 'ID: ' + item.petugas_pengambil_id
+
+      // Find the user in the users array
+      const user = users.find((user) => user.id === item.petugas_pengambil_id)
+      if (user) {
+        petugasName = user.nama || user.username || petugasName
+      }
+      // If it's the current user, we could use the data from loggedInUser as a fallback
+      else if (loggedInUser && loggedInUser.id === item.petugas_pengambil_id) {
+        petugasName = loggedInUser.nama || loggedInUser.username || petugasName
+      }
+
+      return {
+        ...item,
+        // Replace ID with name for display but keep ID for backend
+        petugas_pengambil_id: petugasName,
+        saldo_platform: formatRupiah(item.saldo_platform),
+        nominal_pengambilan: formatRupiah(item.nominal_pengambilan),
+        biaya_admin: formatRupiah(item.biaya_admin)
+      }
+    })
 
   return (
     <>
@@ -402,14 +432,27 @@ const HalamanAmbilSaldo = () => {
         onSubmit={handleSubmitEdit}
         title="Edit Data Pengambilan Saldo"
       >
-        <InputField
-          name="petugas_pengambil_id"
-          type="number"
-          value={formData.petugas_pengambil_id || ''}
-          onChange={(e) => setFormData({ ...formData, petugas_pengambil_id: e.target.value })}
-        >
-          ID Petugas Pengambil
-        </InputField>
+        {/* Display the original user's name in edit mode */}
+        <div className="col-span-2 mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">Petugas Pengambil</label>
+          <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
+            {(() => {
+              // Find the user in the users array
+              const user = users.find((user) => user.id === formData.petugas_pengambil_id)
+              if (user) {
+                return user.nama || user.username || 'ID: ' + user.id
+              }
+              // Fallback to logged in user if it's the same ID
+              else if (loggedInUser && loggedInUser.id === formData.petugas_pengambil_id) {
+                return loggedInUser.nama || loggedInUser.username || 'ID: ' + loggedInUser.id
+              }
+              // Last resort, just show the ID
+              return 'ID: ' + formData.petugas_pengambil_id
+            })()}
+          </div>
+          {/* Keep the original ID for submission */}
+          <input type="hidden" name="petugas_pengambil_id" value={formData.petugas_pengambil_id} />
+        </div>
 
         {/* Platform dropdown */}
         <div className="col-span-2 mb-4">

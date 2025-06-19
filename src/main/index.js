@@ -329,6 +329,450 @@ app.whenReady().then(() => {
 
     // ============================= end saldo awal handler =============================
 
+     // ============================= pindah saldo handler =============================
+
+    ipcMain.handle('get-pindah-saldo', () => {
+      return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM pindah_saldo', [], (err, rows) => {
+          if (err) reject(err)
+          else resolve(rows)
+        })
+      })
+    })
+
+    // Helper function to update saldo_awal after transfer
+    const updateSaldoAfterTransfer = async (
+      sumberDanaId,
+      tujuanDanaId,
+      nominal,
+      biayaAdmin = 0
+    ) => {
+      return new Promise((resolve, reject) => {
+        db.serialize(() => {
+          // Start transaction
+          db.run('BEGIN TRANSACTION')
+
+          // Update sumber dana (deduct amount + admin fee)
+          db.run(
+            'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+            [nominal + biayaAdmin, sumberDanaId],
+            function (err) {
+              if (err) {
+                db.run('ROLLBACK')
+                console.error('❌ Error updating sumber dana saldo:', err)
+                return reject(err)
+              }
+
+              // Update tujuan dana (add amount)
+              db.run(
+                'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+                [nominal, tujuanDanaId],
+                function (err) {
+                  if (err) {
+                    db.run('ROLLBACK')
+                    console.error('❌ Error updating tujuan dana saldo:', err)
+                    return reject(err)
+                  }
+
+                  // Commit transaction
+                  db.run('COMMIT', (err) => {
+                    if (err) {
+                      console.error('❌ Error committing transaction:', err)
+                      return reject(err)
+                    }
+
+                    console.log('✅ Successfully updated both saldo after transfer')
+                    resolve({ success: true })
+                  })
+                }
+              )
+            }
+          )
+        })
+      })
+    }
+
+    ipcMain.handle('create-pindah-saldo', (event, data) => {
+      const {
+        sumber_dana_id,
+        tujuan_dana_id,
+        user_pemindah_id,
+        nominal,
+        platform,
+        biaya_admin,
+        saldo_sumber,
+        saldo_tujuan,
+        keterangan,
+        tanggal
+      } = data
+
+      const query = `
+        INSERT INTO pindah_saldo (
+          sumber_dana_id, 
+          tujuan_dana_id, 
+          user_pemindah_id, 
+          nominal, 
+          platform, 
+          biaya_admin, 
+          saldo_sumber, 
+          saldo_tujuan, 
+          keterangan, 
+          tanggal
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+
+      return new Promise((resolve, reject) => {
+        db.run(
+          query,
+          [
+            sumber_dana_id,
+            tujuan_dana_id,
+            user_pemindah_id,
+            nominal,
+            platform,
+            biaya_admin || 0,
+            saldo_sumber,
+            saldo_tujuan,
+            keterangan,
+            tanggal || new Date().toISOString()
+          ],
+          async function (err) {
+            if (err) {
+              console.error('❌ Error creating pindah_saldo:', err)
+              return reject(err)
+            }
+
+            console.log('✅ pindah_saldo created successfully with ID:', this.lastID)
+
+            try {
+              // Update saldo_awal after successful transfer
+              await updateSaldoAfterTransfer(
+                sumber_dana_id,
+                tujuan_dana_id,
+                nominal,
+                biaya_admin || 0
+              )
+              resolve({ id: this.lastID })
+            } catch (updateErr) {
+              console.error('❌ Error updating saldo after transfer:', updateErr)
+              // Still return success for the pindah_saldo creation
+              resolve({
+                id: this.lastID,
+                warningMessage: 'Transfer created but saldo not updated'
+              })
+            }
+          }
+        )
+      })
+    })
+
+    // ipcMain.handle('update-pindah-saldo', (event, id) => {
+    //   return new Promise((resolve, reject) => {
+    //     // First get the record to be deleted so we can reverse the transfer
+    //     db.get(
+    //       'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin FROM pindah_saldo WHERE id = ?',
+    //       [id],
+    //       async (err, record) => {
+    //         if (err) {
+    //           console.error('❌ Error getting pindah_saldo record for deletion:', err)
+    //           return reject(err)
+    //         }
+
+    //         if (record) {
+    //           try {
+    //             // Correctly handle the balance reversal
+    //             db.serialize(() => {
+    //               // Start transaction
+    //               db.run('BEGIN TRANSACTION')
+
+    //               // STEP 1: Add both nominal amount AND admin fee back to source account
+    //               console.log(
+    //                 `Adding back to source: nominal ${record.nominal} + admin fee ${record.biaya_admin}`
+    //               )
+    //               db.run(
+    //                 'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+    //                 [record.nominal + record.biaya_admin, record.sumber_dana_id],
+    //                 function (err) {
+    //                   if (err) {
+    //                     db.run('ROLLBACK')
+    //                     console.error('❌ Error returning funds to source account:', err)
+    //                     return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
+    //                   }
+
+    //                   // STEP 2: Remove only the nominal amount from destination account
+    //                   console.log(`Removing from destination: only nominal ${record.nominal}`)
+    //                   db.run(
+    //                     'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+    //                     [record.nominal, record.tujuan_dana_id],
+    //                     function (err) {
+    //                       if (err) {
+    //                         db.run('ROLLBACK')
+    //                         console.error(
+    //                           '❌ Error subtracting funds from destination account:',
+    //                           err
+    //                         )
+    //                         return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
+    //                       }
+
+    //                       // Commit transaction
+    //                       db.run('COMMIT', (err) => {
+    //                         if (err) {
+    //                           console.error('❌ Error committing transaction:', err)
+    //                           return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
+    //                         }
+
+    //                         console.log(
+    //                           '✅ Transfer reversed correctly: Source received nominal + admin, destination returned nominal'
+    //                         )
+    //                         resolve({ changes: this.changes })
+    //                       })
+    //                     }
+    //                   )
+    //                 }
+    //               )
+    //             })
+    //           } catch (updateErr) {
+    //             console.error('❌ Error reversing transfer after deletion:', updateErr)
+    //             // Still return success for the deletion
+    //             resolve({ changes: this.changes })
+    //           }
+
+    //           // STEP 3: Update the pindah_saldo record with new data
+    //           db.run(
+    //             'UPDATE pindah_saldo SET sumber_dana_id = ?, tujuan_dana_id = ?, nominal = ?, biaya_admin = ?, tanggal = ?, keterangan = ? WHERE id = ?',
+    //             [
+    //               updatedData.sumber_dana_id,
+    //               updatedData.tujuan_dana_id,
+    //               updatedData.nominal,
+    //               updatedData.biaya_admin,
+    //               updatedData.tanggal,
+    //               updatedData.keterangan,
+    //               updatedData.id
+    //             ],
+    //             function (err) {
+    //               if (err) {
+    //                 db.run('ROLLBACK')
+    //                 console.error('❌ Error updating pindah_saldo record:', err)
+    //                 return resolve({ changes: this.changes })
+    //               }
+
+    //               // Commit transaction
+    //               db.run('COMMIT', (err) => {
+    //                 if (err) {
+    //                   console.error('❌ Error committing transaction:', err)
+    //                   return resolve({ changes: this.changes })
+    //                 }
+
+    //                 console.log('✅ Transfer updated correctly: Balances adjusted, record updated')
+    //                 resolve({
+    //                   changes: this.changes,
+    //                   message: 'Transfer updated successfully'
+    //                 })
+    //               })
+    //             }
+    //           )
+    //         } else {
+    //           resolve({ changes: this.changes })
+    //         }
+    //       }
+    //     )
+    //   })
+    // })
+
+    ipcMain.handle('update-pindah-saldo', (event, updatedData) => {
+      return new Promise((resolve, reject) => {
+        // First get the existing record to compare and adjust balances
+        db.get(
+          'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin FROM pindah_saldo WHERE id = ?',
+          [updatedData.id],
+          async (err, oldRecord) => {
+            if (err) {
+              console.error('❌ Error getting existing pindah_saldo record:', err)
+              return reject(err)
+            }
+
+            if (!oldRecord) {
+              console.error('❌ Record not found')
+              return reject(new Error('Record not found'))
+            }
+
+            try {
+              db.serialize(() => {
+                // Start transaction
+                db.run('BEGIN TRANSACTION')
+
+                // STEP 1: Adjust source account balance
+                // Subtract old amounts from source, then add new amounts
+                const sourceDiff =
+                  -(oldRecord.nominal + oldRecord.biaya_admin) +
+                  (updatedData.nominal + updatedData.biaya_admin)
+
+                db.run(
+                  'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+                  [sourceDiff, oldRecord.sumber_dana_id],
+                  function (err) {
+                    if (err) {
+                      db.run('ROLLBACK')
+                      console.error('❌ Error adjusting source account balance:', err)
+                      return resolve({ changes: this.changes })
+                    }
+
+                    // STEP 2: Adjust destination account balance
+                    // Subtract old nominal, then add new nominal
+                    const destinationDiff = -oldRecord.nominal + updatedData.nominal
+
+                    db.run(
+                      'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+                      [destinationDiff, oldRecord.tujuan_dana_id],
+                      function (err) {
+                        if (err) {
+                          db.run('ROLLBACK')
+                          console.error('❌ Error adjusting destination account balance:', err)
+                          return resolve({ changes: this.changes })
+                        }
+
+                        // STEP 3: Update the pindah_saldo record with new data
+                        db.run(
+                          'UPDATE pindah_saldo SET sumber_dana_id = ?, tujuan_dana_id = ?, nominal = ?, biaya_admin = ?, tanggal = ?, keterangan = ? WHERE id = ?',
+                          [
+                            updatedData.sumber_dana_id,
+                            updatedData.tujuan_dana_id,
+                            updatedData.nominal,
+                            updatedData.biaya_admin,
+                            updatedData.tanggal,
+                            updatedData.keterangan,
+                            updatedData.id
+                          ],
+                          function (err) {
+                            if (err) {
+                              db.run('ROLLBACK')
+                              console.error('❌ Error updating pindah_saldo record:', err)
+                              return resolve({ changes: this.changes })
+                            }
+
+                            // Commit transaction
+                            db.run('COMMIT', (err) => {
+                              if (err) {
+                                console.error('❌ Error committing transaction:', err)
+                                return resolve({ changes: this.changes })
+                              }
+
+                              console.log(
+                                '✅ Transfer updated correctly: Balances adjusted, record updated'
+                              )
+                              resolve({
+                                changes: this.changes,
+                                message: 'Transfer updated successfully'
+                              })
+                            })
+                          }
+                        )
+                      }
+                    )
+                  }
+                )
+              })
+            } catch (updateErr) {
+              console.error('❌ Error updating transfer:', updateErr)
+              resolve({ changes: 0, error: updateErr.message })
+            }
+          }
+        )
+      })
+    })
+
+    ipcMain.handle('delete-pindah-saldo', (event, id) => {
+      return new Promise((resolve, reject) => {
+        // First get the record to be deleted so we can reverse the transfer
+        db.get(
+          'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin FROM pindah_saldo WHERE id = ?',
+          [id],
+          async (err, record) => {
+            if (err) {
+              console.error('❌ Error getting pindah_saldo record for deletion:', err)
+              return reject(err)
+            }
+
+            // Now delete the record
+            db.run('DELETE FROM pindah_saldo WHERE id = ?', [id], async function (err) {
+              if (err) {
+                console.error('❌ Error deleting pindah_saldo:', err)
+                return reject(err)
+              }
+
+              // Record successfully deleted
+              console.log('✅ pindah_saldo deleted successfully. Changes:', this.changes)
+
+              if (record) {
+                try {
+                  // Correctly handle the balance reversal
+                  db.serialize(() => {
+                    // Start transaction
+                    db.run('BEGIN TRANSACTION')
+
+                    // STEP 1: Add both nominal amount AND admin fee back to source account
+                    console.log(
+                      `Adding back to source: nominal ${record.nominal} + admin fee ${record.biaya_admin}`
+                    )
+                    db.run(
+                      'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+                      [record.nominal + record.biaya_admin, record.sumber_dana_id],
+                      function (err) {
+                        if (err) {
+                          db.run('ROLLBACK')
+                          console.error('❌ Error returning funds to source account:', err)
+                          return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
+                        }
+
+                        // STEP 2: Remove only the nominal amount from destination account
+                        console.log(`Removing from destination: only nominal ${record.nominal}`)
+                        db.run(
+                          'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+                          [record.nominal, record.tujuan_dana_id],
+                          function (err) {
+                            if (err) {
+                              db.run('ROLLBACK')
+                              console.error(
+                                '❌ Error subtracting funds from destination account:',
+                                err
+                              )
+                              return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
+                            }
+
+                            // Commit transaction
+                            db.run('COMMIT', (err) => {
+                              if (err) {
+                                console.error('❌ Error committing transaction:', err)
+                                return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
+                              }
+
+                              console.log(
+                                '✅ Transfer reversed correctly: Source received nominal + admin, destination returned nominal'
+                              )
+                              resolve({ changes: this.changes })
+                            })
+                          }
+                        )
+                      }
+                    )
+                  })
+                } catch (updateErr) {
+                  console.error('❌ Error reversing transfer after deletion:', updateErr)
+                  // Still return success for the deletion
+                  resolve({ changes: this.changes })
+                }
+              } else {
+                resolve({ changes: this.changes })
+              }
+            })
+          }
+        )
+      })
+    })
+
+    // ============================= end pindah saldo handler =============================
+
     // ============================= ambil saldo handler =============================
 
     // Make sure this handler exists and is properly registered
