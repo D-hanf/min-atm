@@ -50,12 +50,14 @@ const FormLayout = ({ onSubmit }) => {
           value={formData.name}
           onChange={(e) => handleChange('name', e.target.value)}
           required={true}
+          placeholder={'Nama Karyawan'}
         >
           Nama
         </InputField>
 
         <InputField
         required={true}
+        placeholder={'Username karyawan'}
           name="username"
           value={formData.username}
           onChange={(e) => handleChange('username', e.target.value)}
@@ -65,6 +67,7 @@ const FormLayout = ({ onSubmit }) => {
 
         <InputField
           name="password"
+          placeholder={'Password karyawan'}
           type="password"
           value={formData.password}
           onChange={(e) => handleChange('password', e.target.value)}
@@ -84,6 +87,7 @@ const FormLayout = ({ onSubmit }) => {
 
         <InputField
           name="address"
+          placeholder={'Jl. xxxxxxx'}
           value={formData.address}
           onChange={(e) => handleChange('address', e.target.value)}
         >
@@ -91,6 +95,7 @@ const FormLayout = ({ onSubmit }) => {
         </InputField>
 
         <InputField   value={formData.role}
+        placeholder={'kasir, admin'}
           onChange={(e) => handleChange('role', e.target.value)}
         name='role'>
           Jabatan

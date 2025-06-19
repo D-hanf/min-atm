@@ -44,11 +44,11 @@ const FormLayout = ({ onSubmit }) => {
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
       >
-        <InputField name="name" value={formData.name} onChange={handleChange}>Nama toko</InputField>
+        <InputField name="name" value={formData.name} onChange={handleChange} placeholder={'Nama toko'}>Nama toko</InputField>
         <InputField placeholder={'08xxxxxxxx'} type="number" name="phone" onChange={handleChange} value={formData.phone}>
           No.Telp
         </InputField>
-        <InputField name="address" className="" onChange={handleChange} value={formData.address}>
+        <InputField name="address" className="" onChange={handleChange} placeholder={'jl. xxx'} value={formData.address}>
           alamat
         </InputField>
       </Modal>

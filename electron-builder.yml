@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: miniATM-app
+appId: com.jayamart.miniatm
+productName: Mini Atm by Jaya Mart
 directories:
   buildResources: build
 files:

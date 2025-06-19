@@ -206,7 +206,6 @@ const FormLayout = ({
 
     // Convert to array of options with default option first
     return [
-      { label: 'Pilih platform', value: '' },
       ...Object.keys(platformGroups).map((platform) => ({
         label: platform,
         value: platform

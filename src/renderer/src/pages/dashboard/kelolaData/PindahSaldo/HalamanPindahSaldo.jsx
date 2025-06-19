@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 
+import AlertDialog from '../../../../components/AlertDialog'
 import ButtonInput from '../../../../components/ButtonInput'
 import ConfirmDialog from '../../../../components/ConfirmDialog'
 import Dropdown from '../../../../components/Dropdown'
@@ -9,7 +10,6 @@ import ModalEdit from '../../../../shared/ui/Modal'
 import SearchField from '../../../../components/SearchField'
 import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
-import AlertDialog from '../../../../components/AlertDialog'
 
 const HalamanPindahSaldo = () => {
   const [stores, setStores] = useState([])
@@ -343,7 +343,6 @@ const HalamanPindahSaldo = () => {
 
     // Convert to array of options with default option first
     return [
-      { label: 'Pilih platform', value: '' },
       ...Object.keys(platformGroups).map((platform) => ({
         label: platform,
         value: platform

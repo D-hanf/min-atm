@@ -2,7 +2,7 @@ import { BrowserWindow, app, screen } from 'electron'
 import { createTransaksi, deleteTransaksi, getTransaksi } from './transactionHandler.js'
 
 import db from './db.js'
-import icon from '../../resources/icon.png?asset'
+import icon from '../../resources/iconNew.jpg?asset'
 import { ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
@@ -14,9 +14,9 @@ function createWindow() {
     height,
     frame: true, // <- biar tombol exit tetap ada
     autoHideMenuBar: true, // <- hilangkan menu bar atas
-    title: 'Mini ATM',
+    title: 'Mini  by Jaya Mart',
     show: false,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform === 'linux' ? { icon } : {icon}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

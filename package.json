@@ -1,9 +1,10 @@
 {
-  "name": "miniATM",
-  "version": "1.0.1",
-  "description": "An Electron application with React",
+  "name": "mini-atm-jaya-mart",
+  "productName": "mini-atm-jaya-mart",
+  "version": "1.0.3",
+  "description": "aplikasi mini ATM untuk mengelola keuangan",
   "main": "out/main/index.js",
-  "author": "example.com",
+  "author": "github.com/D-hanf & github.com/willyChairullah",
   "homepage": "https://electron-vite.org",
   "scripts": {
     "format": "prettier --write .",
@@ -44,6 +45,8 @@
     "vite": "^6.2.6"
   },
   "build": {
+    "productName": "mini-atm-jaya-mart",
+    "icon": "resources/iconNew.jpg",
     "files": [
       "out/**/*",
       "node_modules/**/*",
