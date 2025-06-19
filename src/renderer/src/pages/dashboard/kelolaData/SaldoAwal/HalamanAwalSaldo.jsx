@@ -57,7 +57,7 @@ const HalamanAwalSaldo = () => {
     description: ''
   })
   const [filterText, setFilterText] = useState('')
-  
+
   const columns = [
     { key: 'nama_sumber_dana', label: 'Sumber' },
     { key: 'saldo', label: 'Saldo' },
@@ -74,19 +74,18 @@ const HalamanAwalSaldo = () => {
       minimumFractionDigits: 0
     }).format(value)
 
-    const fetchSaldo = async () => {
-      try {
-        const result = await window.api.getSaldoAwal()
-        setSaldo(result)
-      } catch (error) {
-        console.error('❌ Gagal ambil data saldo:', error)
-      }
+  const fetchSaldo = async () => {
+    try {
+      const result = await window.api.getSaldoAwal()
+      setSaldo(result)
+    } catch (error) {
+      console.error('❌ Gagal ambil data saldo:', error)
     }
+  }
 
   useEffect(() => {
     fetchSaldo()
   }, [])
-
 
   const handleAddSaldo = async (formData) => {
     const cleanedSaldo = parseFloat(formData.saldo.replace(/[^0-9]/g, ''), 10)
@@ -125,27 +124,34 @@ const HalamanAwalSaldo = () => {
   }
 
   const handleEdit = (id) => {
-  const itemToEdit = saldo.find((item) => item.id === id)
-  if (itemToEdit) {
-    setFormData({
-      id: itemToEdit.id,
-      source: itemToEdit.nama_sumber_dana,
-      saldo: itemToEdit.saldo.toString(),
-      biaya_admin: itemToEdit.biaya_admin?.toString() || '',
-      description: itemToEdit.keterangan,
-      dateCreated: itemToEdit.tanggal_buat,
-      dateUpdated: itemToEdit.tanggal_update
-    })
-    setModalOpen(true)
+    const itemToEdit = saldo.find((item) => item.id === id)
+    if (itemToEdit) {
+      setFormData({
+        id: itemToEdit.id,
+        source: itemToEdit.nama_sumber_dana,
+        saldo: formatRupiah(itemToEdit.saldo || 0), // Format as Rupiah
+        biaya_admin: formatRupiah(itemToEdit.biaya_admin || 0), // Format as Rupiah
+        description: itemToEdit.keterangan,
+        dateCreated: itemToEdit.tanggal_buat,
+        dateUpdated: itemToEdit.tanggal_update
+      })
+      setModalOpen(true)
+    }
   }
-}
 
   const handleSubmitEdit = async (updatedData) => {
+    // Clean biaya_admin and saldo by removing non-numeric characters
+    const cleanedBiayaAdmin = updatedData.biaya_admin
+      ? parseInt(updatedData.biaya_admin.replace(/[^0-9]/g, ''))
+      : 0
+
+    const cleanedSaldo = updatedData.saldo ? parseInt(updatedData.saldo.replace(/[^0-9]/g, '')) : 0
+
     const updatedEntry = {
       id: updatedData.id,
       nama_sumber_dana: updatedData.source,
-      saldo: parseInt(updatedData.saldo),
-      biaya_admin: parseInt(updatedData.biaya_admin || 0),
+      saldo: cleanedSaldo,
+      biaya_admin: cleanedBiayaAdmin,
       tanggal_buat: updatedData.dateCreated,
       tanggal_update: new Date().toISOString().split('T')[0],
       keterangan: updatedData.description
@@ -157,6 +163,28 @@ const HalamanAwalSaldo = () => {
       setModalOpen(false)
     } catch (err) {
       console.error('Gagal update saldo:', err)
+    }
+  }
+
+  // Generalized function to handle numeric inputs with Rupiah formatting
+  const handleRupiahInput = (e) => {
+    const { name, value } = e.target
+
+    // Remove non-numeric characters for processing
+    const numericValue = value.replace(/[^0-9]/g, '')
+
+    if (numericValue === '') {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: ''
+      }))
+    } else {
+      // Format as Rupiah for display
+      const formattedValue = formatRupiah(numericValue)
+      setFormData((prev) => ({
+        ...prev,
+        [name]: formattedValue
+      }))
     }
   }
 
@@ -210,7 +238,11 @@ const HalamanAwalSaldo = () => {
         onConfirm={confirmDelete}
       />
 
-      <ModalEdit isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={()=>handleSubmitEdit(formData)}>
+      <ModalEdit
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSubmit={() => handleSubmitEdit(formData)}
+      >
         <InputField
           name="source"
           value={formData.source}
@@ -220,14 +252,20 @@ const HalamanAwalSaldo = () => {
         </InputField>
         <InputField
           name="saldo"
-          type="number"
+          type="text" // Changed from number to text
           value={formData.saldo}
-          onChange={(e) => setFormData({ ...formData, saldo: e.target.value })}
+          onChange={handleRupiahInput}
+          required
         >
           Jumlah Saldo
         </InputField>
-        <InputField name="biaya_admin" type="number" value={formData.biaya_admin} onChange={(e) => setFormData({ ...formData, biaya_admin: e.target.value })}>
-          biaya admin
+        <InputField
+          name="biaya_admin"
+          type="text"
+          value={formData.biaya_admin}
+          onChange={handleRupiahInput}
+        >
+          Biaya Admin
         </InputField>
         <InputField
           name="description"

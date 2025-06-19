@@ -20,7 +20,7 @@ const FormLayout = ({
   // Platform options
   const [platformSourceOptions, setPlatformSourceOptions] = useState('')
   const [platformDestinationOptions, setPlatformDestinationOptions] = useState('')
-  
+
   // Selected saldo objects
   const [selectedSourceSaldo, setSelectedSourceSaldo] = useState(null)
   const [selectedDestSaldo, setSelectedDestSaldo] = useState(null)
@@ -82,22 +82,29 @@ const FormLayout = ({
   useEffect(() => {
     if (platformSourceOptions && saldoData.length > 0) {
       // Find the first saldo entry that matches the selected platform
-      const matchingSaldo = saldoData.find(s => 
-        s.nama_sumber_dana && 
-        s.nama_sumber_dana.toLowerCase().includes(platformSourceOptions.toLowerCase())
+      const matchingSaldo = saldoData.find(
+        (s) =>
+          s.nama_sumber_dana &&
+          s.nama_sumber_dana.toLowerCase().includes(platformSourceOptions.toLowerCase())
       )
-      
+
       if (matchingSaldo) {
         setSelectedSourceSaldo(matchingSaldo)
-        setFormData(prev => ({
+
+        // Set operational value from the source platform's biaya_admin
+        const biayaAdmin = matchingSaldo.biaya_admin || 0
+
+        setFormData((prev) => ({
           ...prev,
           senderBalance: matchingSaldo.nama_sumber_dana,
-          senderBalanceId: matchingSaldo.id
+          senderBalanceId: matchingSaldo.id,
+          operational: formatRupiah(biayaAdmin),
+          operationalRaw: biayaAdmin.toString()
         }))
       }
     } else {
       setSelectedSourceSaldo(null)
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         senderBalance: '',
         senderBalanceId: null
@@ -109,14 +116,15 @@ const FormLayout = ({
   useEffect(() => {
     if (platformDestinationOptions && saldoData.length > 0) {
       // Find the first saldo entry that matches the selected platform
-      const matchingSaldo = saldoData.find(s => 
-        s.nama_sumber_dana && 
-        s.nama_sumber_dana.toLowerCase().includes(platformDestinationOptions.toLowerCase())
+      const matchingSaldo = saldoData.find(
+        (s) =>
+          s.nama_sumber_dana &&
+          s.nama_sumber_dana.toLowerCase().includes(platformDestinationOptions.toLowerCase())
       )
-      
+
       if (matchingSaldo) {
         setSelectedDestSaldo(matchingSaldo)
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           receiverBalance: matchingSaldo.nama_sumber_dana,
           receiverBalanceId: matchingSaldo.id
@@ -124,7 +132,7 @@ const FormLayout = ({
       }
     } else {
       setSelectedDestSaldo(null)
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         receiverBalance: '',
         receiverBalanceId: null
@@ -183,27 +191,27 @@ const FormLayout = ({
   // Extract unique platforms from saldo data for select options
   const getPlatformOptions = () => {
     // Group saldo by platform for dropdown options
-    const platformGroups = {};
-    
-    saldoData.forEach(item => {
+    const platformGroups = {}
+
+    saldoData.forEach((item) => {
       if (item.nama_sumber_dana) {
         // Extract platform name (e.g., "DANA Pusat" -> "DANA")
-        const platformMatch = item.nama_sumber_dana.match(/^(\w+)/);
+        const platformMatch = item.nama_sumber_dana.match(/^(\w+)/)
         if (platformMatch) {
-          const platform = platformMatch[1];
-          platformGroups[platform] = true;
+          const platform = platformMatch[1]
+          platformGroups[platform] = true
         }
       }
-    });
-    
+    })
+
     // Convert to array of options with default option first
     return [
-      { label: "Pilih platform", value: "" },
-      ...Object.keys(platformGroups).map(platform => ({
+      { label: 'Pilih platform', value: '' },
+      ...Object.keys(platformGroups).map((platform) => ({
         label: platform,
         value: platform
       }))
-    ];
+    ]
   }
 
   return (
@@ -261,9 +269,7 @@ const FormLayout = ({
             <InputField
               name="senderBalance"
               type="text"
-              value={selectedSourceSaldo ? 
-                `${formatRupiah(selectedSourceSaldo.saldo)}` : 
-                '-'}
+              value={selectedSourceSaldo ? `${formatRupiah(selectedSourceSaldo.saldo)}` : '-'}
               onChange={() => {}} // No change handler needed as it's disabled
               disabled={true}
             >
@@ -276,9 +282,7 @@ const FormLayout = ({
             <InputField
               name="receiverBalance"
               type="text"
-              value={selectedDestSaldo ? 
-                `${formatRupiah(selectedDestSaldo.saldo)}` : 
-                '-'}
+              value={selectedDestSaldo ? `${formatRupiah(selectedDestSaldo.saldo)}` : '-'}
               onChange={() => {}} // No change handler needed as it's disabled
               disabled={true}
             >
@@ -313,6 +317,7 @@ const FormLayout = ({
           className="col-span-2"
           value={formData.description || ''}
           onChange={handleInputChange}
+          placeholder="Tambahkan keterangan (opsional)"
         >
           Keterangan
         </InputField>

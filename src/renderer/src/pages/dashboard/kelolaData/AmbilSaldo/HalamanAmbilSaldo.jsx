@@ -151,7 +151,7 @@ const HalamanAmbilSaldo = () => {
         ...formData,
         platform: selectedItem.nama_sumber_dana,
         saldo_platform: selectedItem.saldo.toString(),
-        biaya_admin: selectedItem.biaya_admin.toString()
+        biaya_admin: formatRupiah(selectedItem.biaya_admin) // Format biaya_admin as Rupiah
       })
     } else {
       setSelectedPlatform(null)
