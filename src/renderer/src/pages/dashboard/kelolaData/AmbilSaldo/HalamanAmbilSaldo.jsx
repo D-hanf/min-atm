@@ -358,14 +358,14 @@ const HalamanAmbilSaldo = () => {
           <div className="flex items-center">
             <h1 className="text-2xl font-bold text-gray-800 ">Ambil Saldo </h1>
           </div>
-          <div className="flex-1 max-w-xs">
+          {/* <div className="flex-1 max-w-xs">
             <Dropdown
               className="w-full"
               label="Pilih Toko"
               color={'gray'}
               items={stores.map((store) => store.name)}
             />
-          </div>
+          </div> */}
         </div>
       </div>
 
