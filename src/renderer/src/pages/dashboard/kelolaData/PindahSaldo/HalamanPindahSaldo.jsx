@@ -378,7 +378,7 @@ const HalamanPindahSaldo = () => {
           <div className="flex items-center">
             <h1 className="text-2xl font-bold text-gray-800 ">Pindah Saldo</h1>
           </div>
-          <div className="flex-1 max-w-xs">
+          {/* <div className="flex-1 max-w-xs">
             <Dropdown
               className="w-full"
               color={'gray'}
@@ -386,7 +386,7 @@ const HalamanPindahSaldo = () => {
               items={stores.map((store) => store.nama_toko)}
               onSelect={(index) => setSelectedStore(stores[index])}
             />
-          </div>
+          </div> */}
         </div>
       </div>
       <div>

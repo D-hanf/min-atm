@@ -151,7 +151,7 @@ const HalamanAmbilSaldo = () => {
         ...formData,
         platform: selectedItem.nama_sumber_dana,
         saldo_platform: selectedItem.saldo.toString(),
-        biaya_admin: selectedItem.biaya_admin.toString()
+        biaya_admin: formatRupiah(selectedItem.biaya_admin) // Format biaya_admin as Rupiah
       })
     } else {
       setSelectedPlatform(null)
@@ -358,14 +358,14 @@ const HalamanAmbilSaldo = () => {
           <div className="flex items-center">
             <h1 className="text-2xl font-bold text-gray-800 ">Ambil Saldo </h1>
           </div>
-          <div className="flex-1 max-w-xs">
+          {/* <div className="flex-1 max-w-xs">
             <Dropdown
               className="w-full"
               label="Pilih Toko"
               color={'gray'}
               items={stores.map((store) => store.name)}
             />
-          </div>
+          </div> */}
         </div>
       </div>
 
