@@ -338,7 +338,7 @@ const FormLayout = ({
           <label className="block text-sm font-medium text-gray-700 mb-1">Petugas Pemindah</label>
           <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
             {loggedInUser
-              ? loggedInUser.username || loggedInUser.nama || 'User ID: ' + loggedInUser.id
+              ? loggedInUser.nama || 'User ID: ' + loggedInUser.id
               : 'Loading...'}
           </div>
           {/* Hidden input to store the user ID */}

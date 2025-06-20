@@ -16,7 +16,7 @@ function createWindow() {
     autoHideMenuBar: true, // <- hilangkan menu bar atas
     title: 'Mini  by Jaya Mart',
     show: false,
-    ...(process.platform === 'linux' ? { icon } : {icon}),
+    ...(process.platform === 'linux' ? { icon } : { icon }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -331,7 +331,7 @@ app.whenReady().then(() => {
 
     // ============================= end saldo awal handler =============================
 
-     // ============================= pindah saldo handler =============================
+    // ============================= pindah saldo handler =============================
 
     ipcMain.handle('get-pindah-saldo', () => {
       return new Promise((resolve, reject) => {
@@ -584,7 +584,7 @@ app.whenReady().then(() => {
 
     ipcMain.handle('update-pindah-saldo', (event, updatedData) => {
       return new Promise((resolve, reject) => {
-        // First get the existing record to compare and adjust balances
+        // First get the existing record to completely reverse the original transaction
         db.get(
           'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin FROM pindah_saldo WHERE id = ?',
           [updatedData.id],
@@ -604,70 +604,114 @@ app.whenReady().then(() => {
                 // Start transaction
                 db.run('BEGIN TRANSACTION')
 
-                // STEP 1: Adjust source account balance
-                // Subtract old amounts from source, then add new amounts
-                const sourceDiff =
-                  -(oldRecord.nominal + oldRecord.biaya_admin) +
-                  (updatedData.nominal + updatedData.biaya_admin)
+                // STEP 1: REVERSE THE ORIGINAL TRANSACTION
+                console.log('1️⃣ Reversing original transaction...')
 
+                // A) Add back the amount + admin fee to the original source account
                 db.run(
                   'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                  [sourceDiff, oldRecord.sumber_dana_id],
+                  [oldRecord.nominal + oldRecord.biaya_admin, oldRecord.sumber_dana_id],
                   function (err) {
                     if (err) {
                       db.run('ROLLBACK')
-                      console.error('❌ Error adjusting source account balance:', err)
-                      return resolve({ changes: this.changes })
+                      console.error('❌ Error returning funds to original source account:', err)
+                      return resolve({ success: false, error: err.message })
                     }
 
-                    // STEP 2: Adjust destination account balance
-                    // Subtract old nominal, then add new nominal
-                    const destinationDiff = -oldRecord.nominal + updatedData.nominal
-
+                    // B) Subtract the original amount from the original destination account
                     db.run(
-                      'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                      [destinationDiff, oldRecord.tujuan_dana_id],
+                      'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+                      [oldRecord.nominal, oldRecord.tujuan_dana_id],
                       function (err) {
                         if (err) {
                           db.run('ROLLBACK')
-                          console.error('❌ Error adjusting destination account balance:', err)
-                          return resolve({ changes: this.changes })
+                          console.error(
+                            '❌ Error removing funds from original destination account:',
+                            err
+                          )
+                          return resolve({ success: false, error: err.message })
                         }
 
-                        // STEP 3: Update the pindah_saldo record with new data
+                        console.log('✅ Original transaction reversed successfully')
+
+                        // STEP 2: EXECUTE THE NEW TRANSACTION
+                        console.log('2️⃣ Executing new transaction...')
+
+                        // A) Subtract the new amount + admin fee from the new source account
                         db.run(
-                          'UPDATE pindah_saldo SET sumber_dana_id = ?, tujuan_dana_id = ?, nominal = ?, biaya_admin = ?, tanggal = ?, keterangan = ? WHERE id = ?',
+                          'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
                           [
-                            updatedData.sumber_dana_id,
-                            updatedData.tujuan_dana_id,
-                            updatedData.nominal,
-                            updatedData.biaya_admin,
-                            updatedData.tanggal,
-                            updatedData.keterangan,
-                            updatedData.id
+                            updatedData.nominal + updatedData.biaya_admin,
+                            updatedData.sumber_dana_id
                           ],
                           function (err) {
                             if (err) {
                               db.run('ROLLBACK')
-                              console.error('❌ Error updating pindah_saldo record:', err)
-                              return resolve({ changes: this.changes })
+                              console.error(
+                                '❌ Error deducting funds from new source account:',
+                                err
+                              )
+                              return resolve({ success: false, error: err.message })
                             }
 
-                            // Commit transaction
-                            db.run('COMMIT', (err) => {
-                              if (err) {
-                                console.error('❌ Error committing transaction:', err)
-                                return resolve({ changes: this.changes })
-                              }
+                            // B) Add the new amount to the new destination account
+                            db.run(
+                              'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+                              [updatedData.nominal, updatedData.tujuan_dana_id],
+                              function (err) {
+                                if (err) {
+                                  db.run('ROLLBACK')
+                                  console.error(
+                                    '❌ Error adding funds to new destination account:',
+                                    err
+                                  )
+                                  return resolve({ success: false, error: err.message })
+                                }
 
-                              console.log(
-                                '✅ Transfer updated correctly: Balances adjusted, record updated'
-                              )
-                              resolve({
-                                changes: this.changes,
-                                message: 'Transfer updated successfully'
-                              })
-                            })
+                                console.log('✅ New transaction executed successfully')
+
+                                // STEP 3: Update the pindah_saldo record with new data
+                                db.run(
+                                  'UPDATE pindah_saldo SET sumber_dana_id = ?, tujuan_dana_id = ?, nominal = ?, platform = ?, biaya_admin = ?, saldo_sumber = (SELECT saldo FROM saldo_awal WHERE id = ?), saldo_tujuan = (SELECT saldo FROM saldo_awal WHERE id = ?), keterangan = ?, tanggal = ? WHERE id = ?',
+                                  [
+                                    updatedData.sumber_dana_id,
+                                    updatedData.tujuan_dana_id,
+                                    updatedData.nominal,
+                                    updatedData.platform,
+                                    updatedData.biaya_admin,
+                                    updatedData.sumber_dana_id, // For getting current source balance
+                                    updatedData.tujuan_dana_id, // For getting current destination balance
+                                    updatedData.keterangan,
+                                    updatedData.tanggal,
+                                    updatedData.id
+                                  ],
+                                  function (err) {
+                                    if (err) {
+                                      db.run('ROLLBACK')
+                                      console.error('❌ Error updating pindah_saldo record:', err)
+                                      return resolve({ success: false, error: err.message })
+                                    }
+
+                                    // Commit transaction
+                                    db.run('COMMIT', (err) => {
+                                      if (err) {
+                                        console.error('❌ Error committing transaction:', err)
+                                        return resolve({ success: false, error: err.message })
+                                      }
+
+                                      console.log(
+                                        '✅ Transfer updated correctly: Balances adjusted, record updated'
+                                      )
+                                      resolve({
+                                        success: true,
+                                        changes: this.changes,
+                                        message: 'Transfer updated successfully'
+                                      })
+                                    })
+                                  }
+                                )
+                              }
+                            )
                           }
                         )
                       }
@@ -677,7 +721,7 @@ app.whenReady().then(() => {
               })
             } catch (updateErr) {
               console.error('❌ Error updating transfer:', updateErr)
-              resolve({ changes: 0, error: updateErr.message })
+              resolve({ success: false, error: updateErr.message })
             }
           }
         )
