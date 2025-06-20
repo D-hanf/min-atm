@@ -25,6 +25,15 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
   const [isLoading, setIsLoading] = useState(false)
   const [selectedPlatform, setSelectedPlatform] = useState(null)
 
+  // Add error state to track validation errors
+  const [errors, setErrors] = useState({
+    platform: '',
+    amount: '',
+    balance: '',
+    withdrawalMethod: '',
+    withdrawalAccount: ''
+  })
+
   // Format currency
   const formatRupiah = (value) => {
     if (!value) return ''
@@ -145,14 +154,80 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     }
   }
 
-  const handleSubmit = () => {
-    // Validate withdrawal amount doesn't exceed current balance
-    const currentBalance = parseFloat(formData.currentBalanceRaw || 0)
-    const withdrawalAmount = parseFloat(formData.amountRaw || extractNumeric(formData.amount) || 0)
+  // Instead of having the Modal call handleSubmit directly,
+  // we'll create a custom submit handler that the Modal will call
+  const onModalSubmit = (e) => {
+    // Only call preventDefault if e is actually an event object
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault()
+    }
 
-    if (withdrawalAmount > currentBalance) {
-      alert('Nominal pengambilan tidak boleh melebihi saldo yang tersedia!')
-      return
+    // Call our validation function
+    const isValid = handleSubmit()
+
+    // Return false to prevent the Modal from closing when validation fails
+    return isValid
+  }
+
+  // Our handleSubmit function with modification to ensure modal stays open
+  const handleSubmit = () => {
+    // Reset all errors
+    const newErrors = {
+      platform: '',
+      amount: '',
+      balance: '',
+      withdrawalMethod: '',
+      withdrawalAccount: ''
+    }
+
+    let isValid = true
+
+    // Validate platform selection
+    if (!selectedPlatform || !formData.platform) {
+      newErrors.platform = 'Pilih platform/sumber dana terlebih dahulu'
+      isValid = false
+    }
+
+    // Validate withdrawal amount
+    if (!formData.amount || formData.amountRaw === '0') {
+      newErrors.amount = 'Masukkan nominal pengambilan yang valid'
+      isValid = false
+    }
+
+    // Validate withdrawal method
+    if (!formData.withdrawalMethod) {
+      newErrors.withdrawalMethod = 'Masukkan metode pengambilan'
+      isValid = false
+    }
+
+    // Validate withdrawal account
+    if (!formData.withdrawalAccount) {
+      newErrors.withdrawalAccount = 'Masukkan tujuan pengambilan'
+      isValid = false
+    }
+
+    // Validate withdrawal amount doesn't exceed current balance
+    if (selectedPlatform && formData.amount) {
+      const currentBalance = parseFloat(formData.currentBalanceRaw || 0)
+      const withdrawalAmount = parseFloat(
+        formData.amountRaw || extractNumeric(formData.amount) || 0
+      )
+      const adminFee = parseFloat(formData.feeRaw || extractNumeric(formData.fee) || 0)
+      const totalWithdrawal = withdrawalAmount + adminFee
+
+      if (totalWithdrawal > currentBalance) {
+        newErrors.balance = `Saldo ${selectedPlatform.nama_sumber_dana} tidak mencukupi untuk pengambilan sebesar ${formatRupiah(withdrawalAmount)} + biaya admin ${formatRupiah(adminFee)}.`
+        isValid = false
+      }
+    }
+
+    // Update error states
+    setErrors(newErrors)
+
+    // If form is not valid, explicitly set modalOpen to true to ensure it stays open
+    if (!isValid) {
+      setModalOpen(true); // Force modal to stay open
+      return false;
     }
 
     // Prepare data for submission
@@ -170,8 +245,13 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       keterangan: formData.description
     }
 
+    // Submit the data
     onSubmit(submissionData)
+
+    // Only close the modal if validation passed
     setModalOpen(false)
+
+    return true
   }
 
   return (
@@ -182,7 +262,9 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
           {buttonText}
         </ButtonInput>
       </div>
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}>
+
+      {/* Change the onSubmit to use our custom handler */}
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={onModalSubmit}>
         {/* Replace ID input field with read-only display of user name */}
         <div className="col-span-2 mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">Petugas Pengambil</label>
@@ -211,6 +293,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
               </option>
             ))}
           </select>
+          {errors.platform && <p className="text-red-500 text-xs mt-1">{errors.platform}</p>}
           {saldoAwalOptions.length === 0 && !isLoading && (
             <p className="text-red-500 text-xs mt-1">
               Tidak ada sumber dana tersedia. Silakan tambahkan sumber dana terlebih dahulu.
@@ -224,9 +307,14 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Saldo Platform Saat Ini
             </label>
-            <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
-              {formatRupiah(selectedPlatform.saldo)}
+            <div
+              className={`p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700 ${selectedPlatform.saldo === 0 ? 'text-red-500' : ''}`}
+            >
+              {selectedPlatform.saldo === 0
+                ? 'Tidak ada Saldo'
+                : formatRupiah(selectedPlatform.saldo)}
             </div>
+            {errors.balance && <p className="text-red-500 text-xs mt-1">{errors.balance}</p>}
           </div>
         )}
 
@@ -239,6 +327,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         >
           Nominal Pengambilan
         </InputField>
+        {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
 
         <InputField
           name="fee"
@@ -263,6 +352,9 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         >
           Metode Pengambilan
         </InputField>
+        {errors.withdrawalMethod && (
+          <p className="text-red-500 text-xs mt-1">{errors.withdrawalMethod}</p>
+        )}
 
         <InputField
           name="withdrawalAccount"
@@ -273,6 +365,9 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         >
           Tujuan Pengambilan
         </InputField>
+        {errors.withdrawalAccount && (
+          <p className="text-red-500 text-xs mt-1">{errors.withdrawalAccount}</p>
+        )}
 
         <InputField
           name="withdrawalDate"
