@@ -10,9 +10,11 @@ import ModalEdit from '../../../../shared/ui/Modal'
 import SearchField from '../../../../components/SearchField'
 import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const HalamanPindahSaldo = () => {
   const [stores, setStores] = useState([])
+    const { isDark } = useTheme()
   const [selectedStore, setSelectedStore] = useState(null)
   const [transfers, setTransfers] = useState([])
   const [saldoData, setSaldoData] = useState([])
@@ -540,7 +542,7 @@ const HalamanPindahSaldo = () => {
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-gray-800 ">Pindah Saldo</h1>
+            <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`} >Pindah Saldo</h1>
           </div>
           {/* <div className="flex-1 max-w-xs">
             <Dropdown

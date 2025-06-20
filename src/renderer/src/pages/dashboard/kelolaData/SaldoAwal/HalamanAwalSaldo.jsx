@@ -10,6 +10,7 @@ import SearchField from '../../../../components/SearchField'
 import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
 import { useEffect } from 'react'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const HalamanAwalSaldo = () => {
   const [stores] = useState([
@@ -42,6 +43,7 @@ const HalamanAwalSaldo = () => {
       phone: '081234567893'
     }
   ])
+    const { isDark } = useTheme()
 
   const [saldo, setSaldo] = useState([])
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -205,7 +207,7 @@ const HalamanAwalSaldo = () => {
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-gray-800 ">Saldo Awal</h1>
+            <h1  className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>Saldo Awal</h1>
           </div>
           {/* <div className="flex-1 max-w-xs">
             <Dropdown
