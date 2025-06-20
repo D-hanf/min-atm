@@ -1,10 +1,15 @@
 import { HiEye, HiEyeSlash } from 'react-icons/hi2'
 import React, { useState } from 'react'
+
 import { useTheme } from '../context/ThemeContext'
 
 const LabelInput = ({ id, children }) => {
+  const { isDark } = useTheme()
   return (
-    <label htmlFor={id} className="block text-sm/6 font-medium text-gray-900">
+    <label
+      htmlFor={id}
+      className={`block text-sm/6 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}
+    >
       {children}
     </label>
   )
@@ -37,13 +42,20 @@ const InputHere = ({
         onChange={onChange}
         disabled={disabled}
         {...props}
-        className={`block w-full rounded-md px-3 py-1.5 text-base outline-1 -outline-offset-1 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 sm:text-sm/6 ${isDark ? 'bg-gray-700 text-white' : 'bg-white text-gray-900'} ${showPassword ? 'border-blue-500' : 'border-gray-300'} ${showToggle ? 'pr-10' : ''} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+        className={`
+          block w-full rounded-md px-3 py-1.5 text-base 
+          placeholder:text-gray-400 sm:text-sm/6 outline-1 focus:outline-2 
+          ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-900 border-gray-300'}
+          ${showPassword ? 'border-blue-500' : ''}
+          ${showToggle ? 'pr-10' : ''}
+          ${disabled ? 'opacity-60 cursor-not-allowed' : ''}
+        `}
       />
       {showToggle && (
         <button
           type="button"
           onClick={togglePassword}
-          className="absolute inset-y-0 right-3 flex items-center text-gray-500 focus:outline-none"
+          className="absolute inset-y-0 right-3 flex items-center text-gray-400 focus:outline-none"
         >
           {showPassword ? <HiEyeSlash /> : <HiEye />}
         </button>
@@ -63,13 +75,21 @@ const InputField = ({
   placeholder = '',
   disabled = false,
   ...props
+const InputField = ({
+  children,
+  name,
+  type = 'text',
+  value,
+  onChange,
+  required = true,
+  className = '',
+  placeholder = '',
+  disabled = false,
+  ...props
 }) => {
   const [showPassword, setShowPassword] = useState(false)
-
   const togglePassword = () => setShowPassword((prev) => !prev)
-
   const isPasswordField = type === 'password'
-  const { isDark } = useTheme()
 
   return (
     <div className={`mb-4 ${className}`}>
