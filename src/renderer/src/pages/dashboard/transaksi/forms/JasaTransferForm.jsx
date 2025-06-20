@@ -40,18 +40,15 @@ const JasaTransferForm = ({ formData, onChange }) => {
   }, [])
 
   useEffect(() => {
-  if (
-    sumberDanaList.length > 0 &&
-    !formData.sumber_dana_id // jika belum dipilih
-  ) {
-    onChange({
-      target: {
-        name: 'sumber_dana_id',
-        value: sumberDanaList[0].id
-      }
-    })
-  }
-}, [sumberDanaList])
+    if (sumberDanaList.length > 0 && formData.terima_dana_id && !formData.sumber_dana_id) {
+      onChange({
+        target: {
+          name: 'sumber_dana_id',
+          value: formData.terima_dana_id
+        }
+      })
+    }
+  }, [formData.terima_dana_id, formData.sumber_dana_id, sumberDanaList])
 
   return (
     <>
@@ -73,7 +70,8 @@ const JasaTransferForm = ({ formData, onChange }) => {
       >
         Tanggal
       </InputField>
-      <SelectItems className="hidden"
+      <SelectItems
+        className="hidden"
         options={sumberDanaList.map((item) => ({
           label: item.nama_sumber_dana,
           value: item.id
@@ -83,6 +81,7 @@ const JasaTransferForm = ({ formData, onChange }) => {
         value={formData.sumber_dana_id || ''}
         onChange={onChange}
       />
+
       <SelectItems
         options={sumberDanaList.map((item) => ({
           label: item.nama_sumber_dana,
