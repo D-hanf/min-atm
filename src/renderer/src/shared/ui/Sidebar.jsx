@@ -13,11 +13,10 @@ import { AiOutlineShop } from 'react-icons/ai'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { useNavigate } from 'react-router-dom'
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const currentLocation = location.pathname
-  const [isOpen, setIsOpen] = useState(false)
   const [hoveringSidebar, setHoveringSidebar] = useState(false)
   const [openSubmenu, setOpenSubmenu] = useState(null)
   const [confirmLogout, setConfirmLogout] = useState(false)
@@ -101,13 +100,15 @@ const Sidebar = () => {
   return (
     <>
       <div
-        onMouseEnter={() => setHoveringSidebar(true)}
-        onMouseLeave={() => setHoveringSidebar(false)}
-        className={`flex flex-col h-screen bg-white border-r border-zinc-200 
-          transition-all duration-300 ease-in-out
-          ${isOpen ? 'w-64 opacity-100' : 'w-20 opacity-80'}
-          relative`}
-        style={{ transform: isOpen ? 'translateX(0)' : 'translateX(-10px)' }}
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => {
+          setIsOpen(false)
+          setOpenSubmenu(null)
+        }}
+        className={`
+    flex flex-col h-screen bg-white border-r border-zinc-200 transition-all duration-300 ease-in-out
+    ${isOpen ? 'w-64' : 'w-[80px]'}
+  `}
       >
         <div className="flex items-center justify-between px-4 py-6">
           {isOpen && <h1 className="text-xl font-bold text-zinc-800 select-none">mini ATM</h1>}

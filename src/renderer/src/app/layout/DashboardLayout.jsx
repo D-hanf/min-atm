@@ -5,16 +5,14 @@ import Sidebar from '../../shared/ui/Sidebar'
 import { useState } from 'react'
 
 const DashboardLayout = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
   // const navigate = useNavigate()
   return (
-    <div className="flex w-full h-full ">
-      <Sidebar className='w-1/3'/>
-      <div
-        className={`
-      flex-1 transition-all duration-300
-      ml-4 w-3/4
-    `}
-      >
+    <div className="flex w-full h-screen">
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+
+      <div className="flex-1 overflow-auto">
         <div className="py-6 px-4">
           <Breadcrumb />
           <Outlet />
