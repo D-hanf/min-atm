@@ -39,6 +39,20 @@ const JasaTransferForm = ({ formData, onChange }) => {
     }
   }, [])
 
+  useEffect(() => {
+  if (
+    sumberDanaList.length > 0 &&
+    !formData.sumber_dana_id // jika belum dipilih
+  ) {
+    onChange({
+      target: {
+        name: 'sumber_dana_id',
+        value: sumberDanaList[0].id
+      }
+    })
+  }
+}, [sumberDanaList])
+
   return (
     <>
       {/* Header Nomor Transaksi */}
@@ -59,12 +73,12 @@ const JasaTransferForm = ({ formData, onChange }) => {
       >
         Tanggal
       </InputField>
-      <SelectItems
+      <SelectItems className="hidden"
         options={sumberDanaList.map((item) => ({
           label: item.nama_sumber_dana,
           value: item.id
         }))}
-        label="Sumber Dana"
+        label=""
         name="sumber_dana_id"
         value={formData.sumber_dana_id || ''}
         onChange={onChange}

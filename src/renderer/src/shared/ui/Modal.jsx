@@ -10,7 +10,8 @@ const Modal = ({
   fullWidthCancel = false,
   showBackButton = false,
   onBack,
-  title
+  title,
+  disabled = false
 }) => {
   if (!isOpen) return null
 
@@ -54,7 +55,8 @@ const Modal = ({
               >
                 Cancel
               </ButtonInput>
-              {!hideSubmit && <ButtonInput type="submit">Simpan</ButtonInput>}
+                
+              {!hideSubmit && <ButtonInput disabled={disabled} type="submit" >Simpan</ButtonInput>}
             </div>
           </div>
         </form>

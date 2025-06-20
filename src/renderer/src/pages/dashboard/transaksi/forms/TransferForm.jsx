@@ -4,7 +4,7 @@ import InputField from '../../../../components/InputField'
 import RupiahInput from '../../../../components/RupiahInput'
 import SelectItems from '../../../../components/SelectItems'
 
-const TransferForm = ({ formData, onChange }) => {
+const TransferForm = ({ formData, onChange, onValidChange }) => {
   const [nominalError, setNominalError] = useState('')
   const [feeType, setFeeType] = useState('Digital')
   const [sumberDanaList, setSumberDanaList] = useState([])
@@ -33,9 +33,7 @@ const TransferForm = ({ formData, onChange }) => {
 
   // Set biaya_admin default dari sumber dana
   useEffect(() => {
-    const sumberDana = sumberDanaList.find(
-      (item) => item.id === parseInt(formData.sumber_dana_id)
-    )
+    const sumberDana = sumberDanaList.find((item) => item.id === parseInt(formData.sumber_dana_id))
     if (sumberDana && !manualAdmin) {
       onChange({ target: { name: 'biaya_admin', value: sumberDana.biaya_admin || 0 } })
     }
@@ -66,18 +64,31 @@ const TransferForm = ({ formData, onChange }) => {
   }, [formData.nominal_transaksi, manualFee])
 
   // Validasi saldo cukup
-  useEffect(() => {
-    const nominal = parseFloat(formData.nominal_transaksi || 0)
-    const sumberDana = sumberDanaList.find((item) => item.id === parseInt(formData.sumber_dana_id))
+// Validasi saldo cukup
+useEffect(() => {
+  const nominal = parseFloat(formData.nominal_transaksi || 0)
+  const admin = parseFloat(formData.biaya_admin || 0)
+  const totalPengeluaran = nominal + admin
 
-    if (sumberDana && nominal > sumberDana.saldo) {
-      setNominalError(
-        `Saldo tidak cukup. Saldo tersedia: Rp ${sumberDana.saldo.toLocaleString('id-ID')}`
-      )
-    } else {
-      setNominalError('')
-    }
-  }, [formData.sumber_dana_id, formData.nominal_transaksi, sumberDanaList])
+  const sumberDana = sumberDanaList.find(
+    (item) => item.id === parseInt(formData.sumber_dana_id)
+  )
+
+  if (sumberDana && totalPengeluaran > sumberDana.saldo) {
+    setNominalError(
+      `Saldo tidak cukup. Saldo tersedia: Rp ${sumberDana.saldo.toLocaleString('id-ID')}`
+    )
+    onValidChange?.(false)
+  } else {
+    setNominalError('')
+    onValidChange?.(true)
+  }
+}, [
+  formData.sumber_dana_id,
+  formData.nominal_transaksi,
+  formData.biaya_admin, // ✅ tambahkan dependency-nya juga
+  sumberDanaList
+])
 
   return (
     <>
@@ -104,10 +115,12 @@ const TransferForm = ({ formData, onChange }) => {
       />
 
       <SelectItems
-        options={sumberDanaList.map((item) => ({
-          label: item.nama_sumber_dana,
-          value: item.id
-        }))}
+        options={sumberDanaList
+          .filter((item) => item.nama_sumber_dana !== 'Laci' && item.nama_sumber_dana !== 'Cash')
+          .map((item) => ({
+            label: item.nama_sumber_dana,
+            value: item.id
+          }))}
         label="Sumber Dana"
         name="sumber_dana_id"
         value={formData.sumber_dana_id || ''}
