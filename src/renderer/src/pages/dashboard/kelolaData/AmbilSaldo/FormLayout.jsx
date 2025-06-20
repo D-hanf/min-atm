@@ -10,6 +10,8 @@ import { useState } from 'react'
 const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) => {
   const [modalOpen, setModalOpen] = useState(false)
   const [loggedInUser, setLoggedInUser] = useState(null)
+  // Add state to persist the previously selected platform
+  const [lastSelectedPlatform, setLastSelectedPlatform] = useState('')
   const [formData, setFormData] = useState({
     user_id: 1, // Will be replaced with current user ID
     platform: '',
@@ -92,7 +94,8 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       fetchSaldoAwal()
       setFormData({
         user_id: loggedInUser?.id || 1, // Use logged in user ID
-        platform: '',
+        // Use the last selected platform if available
+        platform: lastSelectedPlatform || '',
         currentBalance: '',
         amount: '',
         fee: '',
@@ -101,9 +104,21 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         withdrawalDate: new Date().toISOString().split('T')[0],
         description: ''
       })
-      setSelectedPlatform(null)
+
+      // If we have a last selected platform, reselect it when the options are loaded
+      if (lastSelectedPlatform) {
+        // We need to wait for saldoAwalOptions to be populated
+        setTimeout(() => {
+          const platform = saldoAwalOptions.find((p) => p.nama_sumber_dana === lastSelectedPlatform)
+          if (platform) {
+            handlePlatformChange(lastSelectedPlatform)
+          }
+        }, 300) // Small delay to ensure saldoAwalOptions is populated
+      } else {
+        setSelectedPlatform(null)
+      }
     }
-  }, [modalOpen, loggedInUser])
+  }, [modalOpen, loggedInUser, lastSelectedPlatform, saldoAwalOptions.length])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -129,6 +144,8 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
 
     if (selectedItem) {
       setSelectedPlatform(selectedItem)
+      // Save the selected platform name for future use
+      setLastSelectedPlatform(selectedItem.nama_sumber_dana)
 
       // Update form data with selected platform, its current saldo, and biaya_admin
       setFormData({
@@ -142,6 +159,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       })
     } else {
       setSelectedPlatform(null)
+      // Don't reset lastSelectedPlatform here to maintain persistence
       setFormData({
         ...formData,
         platform: '',
@@ -169,7 +187,6 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     return isValid
   }
 
-  // Our handleSubmit function with modification to ensure modal stays open
   const handleSubmit = () => {
     // Reset all errors
     const newErrors = {
@@ -224,10 +241,9 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     // Update error states
     setErrors(newErrors)
 
-    // If form is not valid, explicitly set modalOpen to true to ensure it stays open
+    // If form is not valid, stop here without closing modal
     if (!isValid) {
-      setModalOpen(true); // Force modal to stay open
-      return false;
+      return false
     }
 
     // Prepare data for submission
@@ -250,7 +266,6 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
 
     // Only close the modal if validation passed
     setModalOpen(false)
-
     return true
   }
 
