@@ -106,18 +106,20 @@ app.whenReady().then(() => {
     `)
     db.run(`
       CREATE TABLE IF NOT EXISTS pindah_saldo (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sumber_dana_id INTEGER NOT NULL,
-        tujuan_dana_id INTEGER NOT NULL,
-        user_pemindah_id INTEGER NOT NULL,
-        nominal REAL NOT NULL,
-        platform TEXT,
-        biaya_admin REAL DEFAULT 0,
-        keterangan TEXT,
-        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
-        FOREIGN KEY (tujuan_dana_id) REFERENCES saldo_awal(id),
-        FOREIGN KEY (user_pemindah_id) REFERENCES users(id)
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sumber_dana_id INTEGER NOT NULL,
+      tujuan_dana_id INTEGER NOT NULL,
+      user_pemindah_id INTEGER NOT NULL,
+      nominal REAL NOT NULL,
+      platform TEXT,
+      biaya_admin REAL DEFAULT 0,
+      saldo_sumber REAL NOT NULL,
+      saldo_tujuan REAL NOT NULL,
+      keterangan TEXT,
+      tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
+      FOREIGN KEY (tujuan_dana_id) REFERENCES saldo_awal(id),
+      FOREIGN KEY (user_pemindah_id) REFERENCES users(id)
       )
     `)
     db.run(`
