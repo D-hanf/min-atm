@@ -4,6 +4,8 @@ import Sidebar from '../../shared/ui/Sidebar'
 import { useTheme } from '../../context/ThemeContext'
 
 const DashboardLayout = () => {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
   const { isDark, colorScheme } = useTheme()
   
   // Determine the background color based on theme and color scheme

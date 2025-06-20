@@ -1,6 +1,7 @@
 import { HiPencilSquare, HiPlus, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
 import React, { useEffect, useState } from 'react'
 
+import AlertDialog from '../components/AlertDialog'
 import ButtonInput from './ButtonInput'
 import SearchField from './SearchField'
 import AlertDialog from './AlertDialog'
@@ -26,7 +27,7 @@ const TableContent = ({
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const itemsPerPage = 6
   const { isDark } = useTheme()
 
   const totalPages = Math.ceil(data.length / itemsPerPage)

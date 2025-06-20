@@ -1,6 +1,35 @@
+import React, { useEffect, useState } from 'react'
+
 const ReceiptView = ({ financialSummary, fundSources, formatRupiah }) => {
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
+  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+  const dayName = days[currentTime.getDay()]
+  const date = currentTime.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  })
+  const time = currentTime.toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+
   return (
     <div className="print-only p-6">
+      <div className="mb-4 text-sm text-gray-700 italic">
+        Dicetak pada: <strong>{dayName}, {date}</strong> pukul <strong>{time}</strong>
+      </div>
+
       <h2 className="text-xl font-bold mb-4">Ringkasan Keuangan</h2>
 
       <div className="mb-4">

@@ -46,7 +46,7 @@
   },
   "build": {
     "productName": "mini-atm-jaya-mart",
-    "icon": "resources/iconNew.jpg",
+    "icon": "resources/logoJayaMart.png",
     "files": [
       "out/**/*",
       "node_modules/**/*",
