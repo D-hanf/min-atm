@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base colors for different themes */
+:root {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f3f4f6;
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #4b5563;
+  --color-accent: #3b82f6;
+}
+
+/* Dark mode colors */
+.dark {
+  --color-bg-primary: #1f2937;
+  --color-bg-secondary: #111827;
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #d1d5db;
+  --color-accent: #60a5fa;
+}
+
+/* Color schemes */
+[data-color-scheme="blue"] {
+  --color-accent: #3b82f6;
+  --color-bg-tint: #eff6ff;
+  --color-bg-tint-dark: #1e3a8a;
+}
+
+[data-color-scheme="green"] {
+  --color-accent: #10b981;
+  --color-bg-tint: #ecfdf5;
+  --color-bg-tint-dark: #064e3b;
+}
+
+[data-color-scheme="purple"] {
+  --color-accent: #8b5cf6;
+  --color-bg-tint: #f5f3ff;
+  --color-bg-tint-dark: #4c1d95;
+}
+
+[data-color-scheme="yellow"] {
+  --color-accent: #f59e0b;
+  --color-bg-tint: #fffbeb;
+  --color-bg-tint-dark: #78350f;
+}
+
+[data-color-scheme="orange"] {
+  --color-accent: #f97316;
+  --color-bg-tint: #fff7ed;
+  --color-bg-tint-dark: #7c2d12;
+}
+
+[data-color-scheme="pink"] {
+  --color-accent: #ec4899;
+  --color-bg-tint: #fdf2f8;
+  --color-bg-tint-dark: #831843;
+}
+
+/* Apply color scheme to main content areas */
+.main-content {
+  background-color: var(--color-bg-tint);
+}
+
+.dark .main-content {
+  background-color: var(--color-bg-tint-dark);
+}

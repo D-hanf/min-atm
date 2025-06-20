@@ -4,8 +4,10 @@ import ButtonInput from '../../../../components/ButtonInput'
 import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const FormLayout = ({ onSubmit }) => {
+  const { isDark } = useTheme()
   const [modalOpen, setModalOpen] = useState(false)
   const [formData, setFormData] = useState({
     source: '',

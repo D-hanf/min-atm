@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
-
+import { useTheme } from '../../../../context/ThemeContext'
 import InputField from '../../../../components/InputField'
 import RupiahInput from '../../../../components/RupiahInput'
 import SelectItems from '../../../../components/SelectItems'
 
-const TarikTunaiForm = ({ formData, onChange,onValidChange }) => {
+const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
+  const { isDark } = useTheme()
   const [nominalError, setNominalError] = useState('')
   const [feeType, setFeeType] = useState('Digital')
   const [sumberDanaList, setSumberDanaList] = useState([])
@@ -73,10 +74,10 @@ const TarikTunaiForm = ({ formData, onChange,onValidChange }) => {
   return (
     <>
       {/* Header Nomor Transaksi */}
-      <div className="bg-gray-50 p-4 rounded-lg mb-4 border-l-4 border-blue-500">
+      <div className={`${isDark ? 'bg-gray-700 border-blue-700' : 'bg-gray-50 border-blue-500'} p-4 rounded-lg mb-4 border-l-4`}>
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-600">Nomor Transaksi:</span>
-          <span className="bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
+          <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Nomor Transaksi:</span>
+          <span className={`${isDark ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'} text-sm font-semibold px-3 py-1 rounded-full`}>
             {formData.no_transaksi || 'Generating...'}
           </span>
         </div>

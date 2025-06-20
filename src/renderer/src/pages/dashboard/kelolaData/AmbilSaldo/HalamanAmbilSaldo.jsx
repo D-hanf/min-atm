@@ -9,8 +9,10 @@ import ModalEdit from '../../../../shared/ui/Modal'
 import SearchField from '../../../../components/SearchField'
 import TableContent from '../../../../components/TableContent'
 import AlertDialog from '../../../../components/AlertDialog'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const HalamanAmbilSaldo = () => {
+  const { isDark } = useTheme()
   const [stores] = useState([
     {
       id: 1,
@@ -386,7 +388,7 @@ const HalamanAmbilSaldo = () => {
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-gray-800 ">Ambil Saldo </h1>
+            <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>Ambil Saldo </h1>
           </div>
           {/* <div className="flex-1 max-w-xs">
             <Dropdown
@@ -434,8 +436,14 @@ const HalamanAmbilSaldo = () => {
       >
         {/* Display the original user's name in edit mode */}
         <div className="col-span-2 mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Petugas Pengambil</label>
-          <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
+          <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            Petugas Pengambil
+          </label>
+          <div className={`p-2 ${
+            isDark 
+              ? 'bg-gray-700 border-gray-600 text-gray-300' 
+              : 'bg-gray-100 border-gray-300 text-gray-700'
+          } border rounded-md`}>
             {(() => {
               // Find the user in the users array
               const user = users.find((user) => user.id === formData.petugas_pengambil_id)
@@ -456,11 +464,15 @@ const HalamanAmbilSaldo = () => {
 
         {/* Platform dropdown */}
         <div className="col-span-2 mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
             Platform/Sumber Dana
           </label>
           <select
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full p-2 border rounded-md ${
+              isDark 
+                ? 'border-gray-600 bg-gray-700 text-white' 
+                : 'border-gray-300 bg-white text-gray-800'
+            } focus:ring-blue-500 focus:border-blue-500`}
             value={formData.platform}
             onChange={(e) => handlePlatformChange(e.target.value)}
             disabled={isLoading || saldoAwalOptions.length === 0}
@@ -482,8 +494,14 @@ const HalamanAmbilSaldo = () => {
         {/* Show current balance field only when platform is selected */}
         {selectedPlatform ? (
           <div className="col-span-2 mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Saldo Platform</label>
-            <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
+            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Saldo Platform
+            </label>
+            <div className={`p-2 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-gray-300' 
+                : 'bg-gray-100 border-gray-300 text-gray-700'
+            } border rounded-md`}>
               {formatRupiah(formData.saldo_platform)}
             </div>
           </div>

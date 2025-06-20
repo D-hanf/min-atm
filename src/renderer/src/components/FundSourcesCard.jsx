@@ -8,74 +8,84 @@ import {
 } from 'react-icons/fa'
 
 import { useState } from 'react'
+import { useTheme } from '../context/ThemeContext'
 
 const FundSourcesCard = ({ totalAssets, fundSources, formatRupiah }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
-// Icon mapping untuk setiap sumber dana
-const getIconBySource = (sourceName) => {
-  const iconMap = {
-    DANA: <FaWallet className="text-blue-500" />,
-    GOPAY: <FaWallet className="text-cyan-500" />,
-    OVO: <FaWallet className="text-purple-600" />,
-    SHOPEEPAY: <FaWallet className="text-orange-500" />,
-    LINKAJA: <FaWallet className="text-red-500" />,
-    FLIP: <FaWallet className="text-pink-500" />,
-    EKGIPOS: <FaMobileAlt className="text-green-500" />,
+  const { isDark, colorScheme } = useTheme()
+  
+  // Icon mapping untuk setiap sumber dana
+  const getIconBySource = (sourceName) => {
+    const iconMap = {
+      DANA: <FaWallet className="text-blue-500" />,
+      GOPAY: <FaWallet className="text-cyan-500" />,
+      OVO: <FaWallet className="text-purple-600" />,
+      SHOPEEPAY: <FaWallet className="text-orange-500" />,
+      LINKAJA: <FaWallet className="text-red-500" />,
+      FLIP: <FaWallet className="text-pink-500" />,
+      EKGIPOS: <FaMobileAlt className="text-green-500" />,
 
-    BCA: <FaUniversity className="text-blue-400" />,
-    BNI: <FaUniversity className="text-orange-600" />,
-    BRI: <FaUniversity className="text-orange-500" />,
-    BTN: <FaUniversity className="text-blue-800" />,
-    MANDIRI: <FaUniversity className="text-yellow-600" />,
-    CIMB: <FaUniversity className="text-red-500" />,
-    PERMATA: <FaUniversity className="text-green-600" />,
-    SEABANK: <FaUniversity className="text-blue-600" />,
-    JAGO: <FaUniversity className="text-purple-500" />,
+      BCA: <FaUniversity className="text-blue-400" />,
+      BNI: <FaUniversity className="text-orange-600" />,
+      BRI: <FaUniversity className="text-orange-500" />,
+      BTN: <FaUniversity className="text-blue-800" />,
+      MANDIRI: <FaUniversity className="text-yellow-600" />,
+      CIMB: <FaUniversity className="text-red-500" />,
+      PERMATA: <FaUniversity className="text-green-600" />,
+      SEABANK: <FaUniversity className="text-blue-600" />,
+      JAGO: <FaUniversity className="text-purple-500" />,
 
-    LACI: <FaCreditCard className="text-gray-600" />,
-    DOMPET: <FaWallet className="text-gray-400" />,
-    KAS: <FaWallet className="text-green-700" />,
-    CASH: <FaWallet className="text-green-700" />,
-    PAYPAL: <FaCreditCard className="text-blue-700" />,
-    WISE: <FaCreditCard className="text-teal-600" />
+      LACI: <FaCreditCard className="text-gray-600" />,
+      DOMPET: <FaWallet className="text-gray-400" />,
+      KAS: <FaWallet className="text-green-700" />,
+      CASH: <FaWallet className="text-green-700" />,
+      PAYPAL: <FaCreditCard className="text-blue-700" />,
+      WISE: <FaCreditCard className="text-teal-600" />
+    }
+
+    return iconMap[sourceName.toUpperCase()] || <FaWallet className="text-gray-500" />
   }
 
-  return iconMap[sourceName.toUpperCase()] || <FaWallet className="text-gray-500" />
-}
+  // Background color mapping untuk setiap sumber dana
+  const getBgColorBySource = (sourceName) => {
+    const sourceKey = sourceName.toUpperCase()
+    
+    // Base color classes without dark mode variations
+    const baseColorMap = {
+      DANA: 'blue',
+      GOPAY: 'cyan',
+      OVO: 'purple',
+      SHOPEEPAY: 'orange',
+      LINKAJA: 'red',
+      FLIP: 'pink',
+      EKGIPOS: 'green',
 
-// Background color mapping untuk setiap sumber dana
-const getBgColorBySource = (sourceName) => {
-  const bgMap = {
-    DANA: 'bg-blue-100',
-    GOPAY: 'bg-cyan-100',
-    OVO: 'bg-purple-100',
-    SHOPEEPAY: 'bg-orange-100',
-    LINKAJA: 'bg-red-100',
-    FLIP: 'bg-pink-100',
-    EKGIPOS: 'bg-green-100',
+      BCA: 'blue',
+      BNI: 'orange',
+      BRI: 'orange',
+      BTN: 'blue',
+      MANDIRI: 'yellow',
+      CIMB: 'red',
+      PERMATA: 'green',
+      SEABANK: 'blue',
+      JAGO: 'purple',
 
-    BCA: 'bg-blue-100',
-    BNI: 'bg-orange-100',
-    BRI: 'bg-orange-100',
-    BTN: 'bg-blue-100',
-    MANDIRI: 'bg-yellow-100',
-    CIMB: 'bg-red-100',
-    PERMATA: 'bg-green-100',
-    SEABANK: 'bg-blue-100',
-    JAGO: 'bg-purple-100',
-
-    LACI: 'bg-gray-100',
-    DOMPET: 'bg-gray-100',
-    KAS: 'bg-green-100',
-    CASH: 'bg-green-100',
-    PAYPAL: 'bg-blue-100',
-    WISE: 'bg-teal-100'
+      LACI: 'gray',
+      DOMPET: 'gray',
+      KAS: 'green',
+      CASH: 'green',
+      PAYPAL: 'blue',
+      WISE: 'teal'
+    }
+    
+    const color = baseColorMap[sourceKey] || 'gray'
+    
+    // Apply dark mode variants
+    return isDark 
+      ? `bg-${color}-800 dark:bg-${color}-900` 
+      : `bg-${color}-100 dark:bg-${color}-800`
   }
-
-  return bgMap[sourceName.toUpperCase()] || 'bg-gray-100'
-}
-
 
   const handleToggleExpanded = () => {
     setIsExpanded(!isExpanded)
@@ -87,18 +97,18 @@ const getBgColorBySource = (sourceName) => {
     <div className="grid gap-4 mb-6">
       {/* Total Aset Card */}
       <div
-        className="mb-6 cursor-pointer transition-all duration-300"
+        className={`mb-6 cursor-pointer transition-all duration-300 ${isDark ? 'hover:bg-gray-800' : 'hover:bg-gray-50'} p-4 rounded-lg`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={handleToggleExpanded}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Total Aset</h2>
+          <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-800'} mb-2`}>Total Aset</h2>
           <div className="mb-2 transition-transform duration-300">
             {shouldShowBanks ? (
               <FaChevronUp className="text-blue-500" />
             ) : (
-              <FaChevronDown className="text-gray-400" />
+              <FaChevronDown className={isDark ? 'text-gray-500' : 'text-gray-400'} />
             )}
           </div>
         </div>
@@ -113,14 +123,11 @@ const getBgColorBySource = (sourceName) => {
             : 'max-h-0 opacity-0 transform -translate-y-4'
         }`}
       >
-        {/* <h3 className="text-lg font-semibold text-gray-700 mb-4">
-          Sumber Dana ({fundSources.length})
-        </h3> */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 p-4 gap-4">
           {fundSources.map((source, index) => (
             <div
               key={index}
-              className={`bg-white shadow rounded-lg p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
+              className={`${isDark ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
                 shouldShowBanks ? 'animate-slideDown' : ''
               }`}
               style={{
@@ -133,8 +140,8 @@ const getBgColorBySource = (sourceName) => {
                 {getIconBySource(source.nama_sumber_dana)}
               </div>
               <div>
-                <p className="text-sm text-gray-500">{source.nama_sumber_dana}</p>
-                <p className="font-bold">{formatRupiah(Number(source.saldo || 0))}</p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{source.nama_sumber_dana}</p>
+                <p className={`font-bold ${isDark ? 'text-white' : ''}`}>{formatRupiah(Number(source.saldo || 0))}</p>
               </div>
             </div>
           ))}

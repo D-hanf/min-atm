@@ -6,8 +6,10 @@ import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
 import { useState } from 'react'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) => {
+  const { isDark } = useTheme()
   const [modalOpen, setModalOpen] = useState(false)
   const [loggedInUser, setLoggedInUser] = useState(null)
   // Add state to persist the previously selected platform
@@ -282,8 +284,14 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={onModalSubmit}>
         {/* Replace ID input field with read-only display of user name */}
         <div className="col-span-2 mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Petugas Pengambil</label>
-          <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
+          <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            Petugas Pengambil
+          </label>
+          <div className={`p-2 ${
+            isDark 
+              ? 'bg-gray-700 border-gray-600 text-gray-300' 
+              : 'bg-gray-100 border-gray-300 text-gray-700'
+          } border rounded-md`}>
             {loggedInUser ? loggedInUser.nama || 'User ID: ' + loggedInUser.id : 'Loading...'}
           </div>
           {/* Hidden input to store the actual user ID */}
@@ -292,11 +300,15 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
 
         {/* Platform dropdown */}
         <div className="col-span-2 mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
             Platform/Sumber Dana
           </label>
           <select
-            className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full p-2 border rounded-md ${
+              isDark 
+                ? 'border-gray-600 bg-gray-700 text-white' 
+                : 'border-gray-300 bg-white text-gray-800'
+            } focus:ring-blue-500 focus:border-blue-500`}
             value={formData.platform}
             onChange={(e) => handlePlatformChange(e.target.value)}
             disabled={isLoading || saldoAwalOptions.length === 0}
@@ -319,11 +331,17 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         {/* Show current balance only when platform is selected */}
         {selectedPlatform && (
           <div className="col-span-2 mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
               Saldo Platform Saat Ini
             </label>
             <div
-              className={`p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700 ${selectedPlatform.saldo === 0 ? 'text-red-500' : ''}`}
+              className={`p-2 ${
+                isDark 
+                  ? 'bg-gray-700 border-gray-600' 
+                  : 'bg-gray-100 border-gray-300'
+              } border rounded-md ${
+                selectedPlatform.saldo === 0 ? 'text-red-500' : isDark ? 'text-gray-300' : 'text-gray-700'
+              }`}
             >
               {selectedPlatform.saldo === 0
                 ? 'Tidak ada Saldo'

@@ -4,7 +4,8 @@ import {
   HiOutlineChevronDoubleLeft,
   HiOutlineCube,
   HiOutlineHome,
-  HiOutlineShoppingBag
+  HiOutlineShoppingBag,
+  HiOutlineSwatch
 } from 'react-icons/hi2'
 import { Link, useLocation } from 'react-router-dom'
 import React, { useEffect, useState } from 'react'
@@ -12,6 +13,7 @@ import React, { useEffect, useState } from 'react'
 import { AiOutlineShop } from 'react-icons/ai'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { useNavigate } from 'react-router-dom'
+import { useTheme } from '../../context/ThemeContext'
 
 const Sidebar = () => {
   const navigate = useNavigate()
@@ -21,6 +23,7 @@ const Sidebar = () => {
   const [hoveringSidebar, setHoveringSidebar] = useState(false)
   const [openSubmenu, setOpenSubmenu] = useState(null)
   const [confirmLogout, setConfirmLogout] = useState(false)
+  const { isDark } = useTheme()
 
   useEffect(() => {
     setIsOpen(hoveringSidebar)
@@ -90,6 +93,11 @@ const Sidebar = () => {
             ]
           : []),
         {
+          label: 'Tema Aplikasi',
+          icon: <HiOutlineSwatch size={18} />,
+          to: '/dashboard/tema'
+        },
+        {
           label: 'Logout',
           icon: <HiOutlineArrowLeftEndOnRectangle size={18} />,
           action: () => setConfirmLogout(true)
@@ -103,18 +111,18 @@ const Sidebar = () => {
       <div
         onMouseEnter={() => setHoveringSidebar(true)}
         onMouseLeave={() => setHoveringSidebar(false)}
-        className={`flex flex-col h-screen bg-white border-r border-zinc-200 
+        className={`flex flex-col h-screen ${isDark ? 'bg-gray-900 border-gray-700' : 'bg-white border-zinc-200'} border-r 
           transition-all duration-300 ease-in-out
           ${isOpen ? 'w-64 opacity-100' : 'w-20 opacity-80'}
           relative`}
         style={{ transform: isOpen ? 'translateX(0)' : 'translateX(-10px)' }}
       >
         <div className="flex items-center justify-between px-4 py-6">
-          {isOpen && <h1 className="text-xl font-bold text-zinc-800 select-none">mini ATM</h1>}
+          {isOpen && <h1 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-zinc-800'} select-none`}>mini ATM</h1>}
         </div>
 
         <div
-          className={`flex items-center gap-3 px-4 py-4 border-t border-b border-zinc-200 cursor-default transition-all duration-300
+          className={`flex items-center gap-3 px-4 py-4 ${isDark ? 'border-gray-700' : 'border-zinc-200'} border-t border-b cursor-default transition-all duration-300
             ${isOpen ? 'w-full' : 'w-12 mx-auto justify-center'}`}
         >
           <div
@@ -134,8 +142,8 @@ const Sidebar = () => {
           </div>
           {isOpen && (
             <div className="select-none">
-              <p className="font-medium text-sm">{user.nama}</p>
-              <p className="text-xs text-zinc-500">{user.role}</p>
+              <p className={`font-medium text-sm ${isDark ? 'text-white' : ''}`}>{user.nama}</p>
+              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-zinc-500'}`}>{user.role}</p>
               {user.role === 'admin' && (
                 <Link
                   to="/dashboard/profile"
@@ -152,7 +160,7 @@ const Sidebar = () => {
           {navigations.map((section, iSection) => (
             <div key={iSection} className={iSection > 0 ? 'mt-6' : ''}>
               {isOpen && (
-                <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4 px-2 select-none">
+                <h3 className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-zinc-500'} uppercase tracking-wider mb-4 px-2 select-none`}>
                   {section.title}
                 </h3>
               )}
@@ -170,10 +178,12 @@ const Sidebar = () => {
                           onClick={() => toggleSubmenu(`${iSection}-${iItem}`)}
                           className={`flex items-center gap-x-3 w-full p-2.5 rounded-md
                           transition-colors duration-200
-                          hover:bg-zinc-50 text-sm text-zinc-700 select-none
-                          ${currentLocation.startsWith(item.to) ? 'bg-zinc-100 font-medium text-zinc-800' : ''}`}
+                          ${isDark 
+                            ? 'hover:bg-gray-700 text-gray-300' 
+                            : 'hover:bg-zinc-100 text-zinc-700'} select-none
+                          ${currentLocation.startsWith(item.to) ? `${isDark ? 'bg-gray-800 text-white' : 'bg-zinc-100 text-zinc-800'} font-medium` : ''}`}
                         >
-                          <span className="text-zinc-600 min-w-[20px]">{item.icon}</span>
+                          <span className={isDark ? 'text-gray-400' : 'text-zinc-600'}>{item.icon}</span>
                           <span
                             className={`transition-all duration-300 ease-in-out
                             ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
@@ -191,8 +201,8 @@ const Sidebar = () => {
                                 className={`block w-full text-left px-2 py-1 rounded text-sm transition-colors
                                 ${
                                   currentLocation === sub.to
-                                    ? 'bg-zinc-100 font-medium text-zinc-800'
-                                    : 'text-zinc-600 hover:bg-zinc-50'
+                                    ? isDark ? 'bg-gray-700 font-medium text-white' : 'bg-zinc-100 font-medium text-zinc-800'
+                                    : isDark ? 'text-gray-400 hover:bg-gray-800' : 'text-zinc-600 hover:bg-zinc-50'
                                 }`}
                               >
                                 {sub.label}
@@ -202,13 +212,13 @@ const Sidebar = () => {
                         )}
 
                         {!isOpen && openSubmenu === `${iSection}-${iItem}` && (
-                          <div className="absolute left-full top-0 ml-2 w-48 bg-white border border-zinc-200 rounded shadow-lg opacity-100 visible transition-opacity duration-200 z-20">
+                          <div className={`absolute left-full top-0 ml-2 w-48 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-zinc-200'} border rounded shadow-lg opacity-100 visible transition-opacity duration-200 z-20`}>
                             <ul className="py-2">
                               {item.submenu.map((sub, subIdx) => (
                                 <li key={subIdx}>
                                   <Link
                                     to={sub.to}
-                                    className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 whitespace-nowrap"
+                                    className={`block px-3 py-2 text-sm ${isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-zinc-700 hover:bg-zinc-50'} whitespace-nowrap`}
                                   >
                                     {sub.label}
                                   </Link>
@@ -222,10 +232,12 @@ const Sidebar = () => {
                       <button
                         onClick={() => (item.action ? item.action() : navigate(item.to))}
                         className={`flex items-center gap-x-3 p-2.5 w-full text-left rounded-md transition-colors duration-200
-                        ${currentLocation === item.to ? 'bg-zinc-100 text-zinc-800 font-medium' : 'text-zinc-600 hover:bg-zinc-50'}
+                        ${currentLocation === item.to 
+                          ? isDark ? 'bg-gray-800 text-white font-medium' : 'bg-zinc-100 text-zinc-800 font-medium' 
+                          : isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-zinc-600 hover:bg-zinc-100'}
                         select-none`}
                       >
-                        <span className="text-zinc-600 min-w-[20px]">{item.icon}</span>
+                        <span className={isDark ? 'text-gray-400' : 'text-zinc-600'}>{item.icon}</span>
                         <span
                           className={`transition-all duration-300 ease-in-out
                           ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}

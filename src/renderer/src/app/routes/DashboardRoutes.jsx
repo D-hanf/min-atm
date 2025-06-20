@@ -4,6 +4,7 @@ import {
   HalamanPindahSaldo,
 } from "../../pages/dashboard/kelolaData";
 import { HalamanDetilToko, HalamanKelolaToko } from "../../pages/dashboard/kelolaToko";
+import { HalamanTema } from "../../pages/dashboard/tema"; // Import the theme page
 
 import { DashboardLayout } from "../layout";
 import { DashboardPage } from "../../pages/dashboard/home";
@@ -29,6 +30,7 @@ const DashboardRoutes = () => {
           <Route path="kelola-toko" element={<KelolaToko />} />
           <Route path="kelola-toko/:id" element={<HalamanDetilToko />} />
           <Route path="profile" element={<HalamanProfile />} />
+          <Route path="tema" element={<HalamanTema />} /> {/* Add the theme route */}
           {/* <Route path="password" element={<ChangePasswordPage />} /> */}
         </Route>
         <Route path="/" element={<LoginForm />}>
