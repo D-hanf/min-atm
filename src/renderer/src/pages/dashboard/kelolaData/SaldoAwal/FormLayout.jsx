@@ -38,27 +38,27 @@ const FormLayout = ({ onSubmit }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    
+
     // For fields that need Rupiah formatting
     if (name === 'biaya_admin' || name === 'saldo') {
       // Remove non-numeric characters for processing
       const numericValue = value.replace(/[^0-9]/g, '')
-      
+
       if (numericValue === '') {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          [name]: formatRupiah(0)  // Show Rp 0 instead of empty
+          [name]: formatRupiah(0) // Show Rp 0 instead of empty
         }))
       } else {
         // Format as Rupiah for display
         const formattedValue = formatRupiah(numericValue)
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           [name]: formattedValue
         }))
       }
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         [name]: value
       }))

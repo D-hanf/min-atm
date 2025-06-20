@@ -2,6 +2,7 @@ import React from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from '../../shared/ui/Sidebar'
 import { useTheme } from '../../context/ThemeContext'
+import { useState } from 'react'
 
 const DashboardLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -37,7 +38,7 @@ const DashboardLayout = () => {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar />
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
       <main className={`flex-1 overflow-y-auto ${getBgColorClass()} transition-colors duration-300`}>
         <div className={`container mx-auto p-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>
           <Outlet />

@@ -16,7 +16,7 @@ const InputHere = ({
   name,
   value,
   placeholder,
-  onChange={onChange},
+  onChange = { onChange },
   showToggle,
   showPassword,
   togglePassword,
@@ -52,17 +52,17 @@ const InputHere = ({
   )
 }
 
-const InputField = ({ 
-  children, 
-  name, 
-  type = 'text', 
-  value, 
-  onChange, 
-  required = true, 
-  className = '', 
-  placeholder = '', 
-  disabled = false, 
-  ...props 
+const InputField = ({
+  children,
+  name,
+  type = 'text',
+  value,
+  onChange,
+  required = true,
+  className = '',
+  placeholder = '',
+  disabled = false,
+  ...props
 }) => {
   const [showPassword, setShowPassword] = useState(false)
 

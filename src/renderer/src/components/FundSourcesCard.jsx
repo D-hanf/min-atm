@@ -14,7 +14,7 @@ const FundSourcesCard = ({ totalAssets, fundSources, formatRupiah }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const { isDark, colorScheme } = useTheme()
-  
+
   // Icon mapping untuk setiap sumber dana
   const getIconBySource = (sourceName) => {
     const iconMap = {
@@ -50,7 +50,7 @@ const FundSourcesCard = ({ totalAssets, fundSources, formatRupiah }) => {
   // Background color mapping untuk setiap sumber dana
   const getBgColorBySource = (sourceName) => {
     const sourceKey = sourceName.toUpperCase()
-    
+
     // Base color classes without dark mode variations
     const baseColorMap = {
       DANA: 'blue',
@@ -78,13 +78,11 @@ const FundSourcesCard = ({ totalAssets, fundSources, formatRupiah }) => {
       PAYPAL: 'blue',
       WISE: 'teal'
     }
-    
+
     const color = baseColorMap[sourceKey] || 'gray'
-    
+
     // Apply dark mode variants
-    return isDark 
-      ? `bg-${color}-800 dark:bg-${color}-900` 
-      : `bg-${color}-100 dark:bg-${color}-800`
+    return isDark ? `bg-${color}-800 dark:bg-${color}-900` : `bg-${color}-100 dark:bg-${color}-800`
   }
 
   const handleToggleExpanded = () => {
@@ -103,7 +101,9 @@ const FundSourcesCard = ({ totalAssets, fundSources, formatRupiah }) => {
         onClick={handleToggleExpanded}
       >
         <div className="flex items-center justify-between">
-          <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-800'} mb-2`}>Total Aset</h2>
+          <h2 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-800'} mb-2`}>
+            Total Aset
+          </h2>
           <div className="mb-2 transition-transform duration-300">
             {shouldShowBanks ? (
               <FaChevronUp className="text-blue-500" />
@@ -140,8 +140,12 @@ const FundSourcesCard = ({ totalAssets, fundSources, formatRupiah }) => {
                 {getIconBySource(source.nama_sumber_dana)}
               </div>
               <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{source.nama_sumber_dana}</p>
-                <p className={`font-bold ${isDark ? 'text-white' : ''}`}>{formatRupiah(Number(source.saldo || 0))}</p>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {source.nama_sumber_dana}
+                </p>
+                <p className={`font-bold ${isDark ? 'text-white' : ''}`}>
+                  {formatRupiah(Number(source.saldo || 0))}
+                </p>
               </div>
             </div>
           ))}

@@ -20,10 +20,10 @@ const Modal = ({
     e.preventDefault()
     const formData = new FormData(e.target)
     const data = Object.fromEntries(formData.entries())
-    
+
     // Call onSubmit and check the result
     const result = onSubmit(data)
-    
+
     // Only close the modal if onSubmit doesn't return false
     if (result !== false) {
       onClose()
@@ -34,10 +34,14 @@ const Modal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-600/25 dark:bg-black/40">
-      <div className={`${isDark ? 'bg-gray-800 text-white' : 'bg-white'} rounded-2xl shadow-lg w-full max-w-lg p-6 relative`}>
+      <div
+        className={`${isDark ? 'bg-gray-800 text-white' : 'bg-white'} rounded-2xl shadow-lg w-full max-w-lg p-6 relative`}
+      >
         {/* Modal Header with optional title */}
         {title && (
-          <div className={`flex justify-center items-center mb-4 pb-4 ${isDark ? 'border-gray-700' : 'border-b'}`}>
+          <div
+            className={`flex justify-center items-center mb-4 pb-4 ${isDark ? 'border-gray-700' : 'border-b'}`}
+          >
             <h3 className="text-lg font-semibold">{title}</h3>
           </div>
         )}
@@ -64,8 +68,12 @@ const Modal = ({
               >
                 Cancel
               </ButtonInput>
-                
-              {!hideSubmit && <ButtonInput disabled={disabled} type="submit" >Simpan</ButtonInput>}
+
+              {!hideSubmit && (
+                <ButtonInput disabled={disabled} type="submit">
+                  Simpan
+                </ButtonInput>
+              )}
             </div>
           </div>
         </form>

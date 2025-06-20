@@ -70,9 +70,7 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
     const admin = parseFloat(formData.biaya_admin || 0)
     const totalPengeluaran = nominal + admin
 
-    const sumberDana = sumberDanaList.find(
-      (item) => item.id === parseInt(formData.sumber_dana_id)
-    )
+    const sumberDana = sumberDanaList.find((item) => item.id === parseInt(formData.sumber_dana_id))
 
     if (sumberDana && totalPengeluaran > sumberDana.saldo) {
       setNominalError(
@@ -93,10 +91,16 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
   return (
     <>
       {/* Header Nomor Transaksi */}
-      <div className={`${isDark ? 'bg-gray-700 border-blue-700' : 'bg-gray-50 border-blue-500'} p-4 rounded-lg mb-4 border-l-4`}>
+      <div
+        className={`${isDark ? 'bg-gray-700 border-blue-700' : 'bg-gray-50 border-blue-500'} p-4 rounded-lg mb-4 border-l-4`}
+      >
         <div className="flex items-center justify-between">
-          <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Nomor Transaksi:</span>
-          <span className={`${isDark ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'} text-sm font-semibold px-3 py-1 rounded-full`}>
+          <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+            Nomor Transaksi:
+          </span>
+          <span
+            className={`${isDark ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'} text-sm font-semibold px-3 py-1 rounded-full`}
+          >
             {formData.no_transaksi || 'Generating...'}
           </span>
         </div>

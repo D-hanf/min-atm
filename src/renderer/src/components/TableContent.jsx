@@ -1,7 +1,7 @@
 import { HiPencilSquare, HiPlus, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
 import React, { useEffect, useState } from 'react'
 
-import AlertDialog from '../components/AlertDialog'
+// import AlertDialog from '../components/AlertDialog'
 import ButtonInput from './ButtonInput'
 import SearchField from './SearchField'
 import AlertDialog from './AlertDialog'

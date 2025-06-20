@@ -332,17 +332,19 @@ const FormLayout = ({
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}>
         {/* Replace input field with display of user name */}
         <div className="col-span-2 mb-4">
-          <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          <label
+            className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+          >
             Petugas Pemindah
           </label>
-          <div className={`p-2 ${
-            isDark 
-              ? 'bg-gray-700 border-gray-600 text-gray-300' 
-              : 'bg-gray-100 border-gray-300 text-gray-700'
-          } border rounded-md`}>
-            {loggedInUser
-              ? loggedInUser.nama || 'User ID: ' + loggedInUser.id
-              : 'Loading...'}
+          <div
+            className={`p-2 ${
+              isDark
+                ? 'bg-gray-700 border-gray-600 text-gray-300'
+                : 'bg-gray-100 border-gray-300 text-gray-700'
+            } border rounded-md`}
+          >
+            {loggedInUser ? loggedInUser.nama || 'User ID: ' + loggedInUser.id : 'Loading...'}
           </div>
           {/* Hidden input to store the user ID */}
           <input type="hidden" name="user_id" value={loggedInUser ? loggedInUser.id : 1} />

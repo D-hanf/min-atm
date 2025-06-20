@@ -284,14 +284,18 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={onModalSubmit}>
         {/* Replace ID input field with read-only display of user name */}
         <div className="col-span-2 mb-4">
-          <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          <label
+            className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+          >
             Petugas Pengambil
           </label>
-          <div className={`p-2 ${
-            isDark 
-              ? 'bg-gray-700 border-gray-600 text-gray-300' 
-              : 'bg-gray-100 border-gray-300 text-gray-700'
-          } border rounded-md`}>
+          <div
+            className={`p-2 ${
+              isDark
+                ? 'bg-gray-700 border-gray-600 text-gray-300'
+                : 'bg-gray-100 border-gray-300 text-gray-700'
+            } border rounded-md`}
+          >
             {loggedInUser ? loggedInUser.nama || 'User ID: ' + loggedInUser.id : 'Loading...'}
           </div>
           {/* Hidden input to store the actual user ID */}
@@ -300,13 +304,15 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
 
         {/* Platform dropdown */}
         <div className="col-span-2 mb-4">
-          <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          <label
+            className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+          >
             Platform/Sumber Dana
           </label>
           <select
             className={`w-full p-2 border rounded-md ${
-              isDark 
-                ? 'border-gray-600 bg-gray-700 text-white' 
+              isDark
+                ? 'border-gray-600 bg-gray-700 text-white'
                 : 'border-gray-300 bg-white text-gray-800'
             } focus:ring-blue-500 focus:border-blue-500`}
             value={formData.platform}
@@ -331,16 +337,20 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         {/* Show current balance only when platform is selected */}
         {selectedPlatform && (
           <div className="col-span-2 mb-4">
-            <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <label
+              className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+            >
               Saldo Platform Saat Ini
             </label>
             <div
               className={`p-2 ${
-                isDark 
-                  ? 'bg-gray-700 border-gray-600' 
-                  : 'bg-gray-100 border-gray-300'
+                isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-300'
               } border rounded-md ${
-                selectedPlatform.saldo === 0 ? 'text-red-500' : isDark ? 'text-gray-300' : 'text-gray-700'
+                selectedPlatform.saldo === 0
+                  ? 'text-red-500'
+                  : isDark
+                    ? 'text-gray-300'
+                    : 'text-gray-700'
               }`}
             >
               {selectedPlatform.saldo === 0

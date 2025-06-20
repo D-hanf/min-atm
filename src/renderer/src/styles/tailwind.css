@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* Base colors for different themes */
 :root {
   --color-bg-primary: #ffffff;
@@ -9,6 +5,7 @@
   --color-text-primary: #1f2937;
   --color-text-secondary: #4b5563;
   --color-accent: #3b82f6;
+  --color-bg-tint: #f9fafb;
 }
 
 /* Dark mode colors */
@@ -18,43 +15,44 @@
   --color-text-primary: #f9fafb;
   --color-text-secondary: #d1d5db;
   --color-accent: #60a5fa;
+  --color-bg-tint-dark: #1f2937;
 }
 
 /* Color schemes */
-[data-color-scheme="blue"] {
-  --color-accent: #3b82f6;
-  --color-bg-tint: #eff6ff;
-  --color-bg-tint-dark: #1e3a8a;
+[data-color-scheme='blue'] {
+  --color-accent: #0ea5e9;
+  --color-bg-tint: #f0f9ff;
+  --color-bg-tint-dark: #075985;
 }
 
-[data-color-scheme="green"] {
+[data-color-scheme='green'] {
   --color-accent: #10b981;
   --color-bg-tint: #ecfdf5;
-  --color-bg-tint-dark: #064e3b;
+  --color-bg-tint-dark: #065f46;
 }
 
-[data-color-scheme="purple"] {
+[data-color-scheme='purple'] {
   --color-accent: #8b5cf6;
   --color-bg-tint: #f5f3ff;
-  --color-bg-tint-dark: #4c1d95;
+  --color-bg-tint-dark: #5b21b6;
 }
 
-[data-color-scheme="yellow"] {
+[data-color-scheme='yellow'] {
   --color-accent: #f59e0b;
   --color-bg-tint: #fffbeb;
-  --color-bg-tint-dark: #78350f;
+  --color-bg-tint-dark: #92400e;
 }
 
-[data-color-scheme="orange"] {
+[data-color-scheme='orange'] {
   --color-accent: #f97316;
   --color-bg-tint: #fff7ed;
-  --color-bg-tint-dark: #7c2d12;
+  --color-bg-tint-dark: #9a3412;
 }
 
-[data-color-scheme="pink"] {
+[data-color-scheme='pink'] {
   --color-accent: #ec4899;
   --color-bg-tint: #fdf2f8;
-  --color-bg-tint-dark: #831843;
+  --color-bg-tint-dark: #9d174d;
 }
 
 /* Apply color scheme to main content areas */
@@ -64,4 +62,24 @@
 
 .dark .main-content {
   background-color: var(--color-bg-tint-dark);
+}
+
+/* Custom button colors */
+.btn-primary {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+/* Accent text color */
+.text-accent {
+  color: var(--color-accent);
+}
+
+/* Accent background color */
+.bg-accent {
+  background-color: var(--color-accent);
 }

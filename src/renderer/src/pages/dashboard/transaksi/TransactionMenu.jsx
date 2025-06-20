@@ -3,35 +3,35 @@ import { useTheme } from '../../../context/ThemeContext'
 
 const TransactionMenu = ({ onSelectTransaction }) => {
   const { isDark } = useTheme()
-  
+
   const menuItems = [
     {
       id: 'tarik-tunai',
       name: 'Tarik Tunai',
       icon: '💰',
-      bgColor: isDark ? 'bg-blue-900' : 'bg-blue-100',
-      hoverColor: isDark ? 'hover:bg-blue-800' : 'hover:bg-blue-200'
+      bgColor: isDark ? 'bg-sky-800' : 'bg-sky-100',
+      hoverColor: isDark ? 'hover:bg-sky-700' : 'hover:bg-sky-200'
     },
     {
       id: 'transfer',
       name: 'Transfer',
       icon: '🔄',
-      bgColor: isDark ? 'bg-green-900' : 'bg-green-100',
-      hoverColor: isDark ? 'hover:bg-green-800' : 'hover:bg-green-200'
+      bgColor: isDark ? 'bg-emerald-800' : 'bg-emerald-100',
+      hoverColor: isDark ? 'hover:bg-emerald-700' : 'hover:bg-emerald-200'
     },
     {
       id: 'jasa-transfer',
       name: 'Jasa Transfer',
       icon: '🏦',
-      bgColor: isDark ? 'bg-yellow-900' : 'bg-yellow-100',
-      hoverColor: isDark ? 'hover:bg-yellow-800' : 'hover:bg-yellow-200'
+      bgColor: isDark ? 'bg-amber-800' : 'bg-amber-100',
+      hoverColor: isDark ? 'hover:bg-amber-700' : 'hover:bg-amber-200'
     },
     {
       id: 'mode-pulsa',
       name: 'Mode Pulsa',
       icon: '📱',
-      bgColor: isDark ? 'bg-purple-900' : 'bg-purple-100',
-      hoverColor: isDark ? 'hover:bg-purple-800' : 'hover:bg-purple-200'
+      bgColor: isDark ? 'bg-violet-800' : 'bg-violet-100',
+      hoverColor: isDark ? 'hover:bg-violet-700' : 'hover:bg-violet-200'
     }
   ]
 

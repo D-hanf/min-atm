@@ -53,8 +53,6 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
     }
   }, [formData.nominal_transaksi, manualFee])
 
-
-
   // Validasi saldo cukup
   useEffect(() => {
     const nominal = parseFloat(formData.nominal_transaksi || 0)
@@ -74,10 +72,16 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
   return (
     <>
       {/* Header Nomor Transaksi */}
-      <div className={`${isDark ? 'bg-gray-700 border-blue-700' : 'bg-gray-50 border-blue-500'} p-4 rounded-lg mb-4 border-l-4`}>
+      <div
+        className={`${isDark ? 'bg-gray-700 border-blue-700' : 'bg-gray-50 border-blue-500'} p-4 rounded-lg mb-4 border-l-4`}
+      >
         <div className="flex items-center justify-between">
-          <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Nomor Transaksi:</span>
-          <span className={`${isDark ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'} text-sm font-semibold px-3 py-1 rounded-full`}>
+          <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+            Nomor Transaksi:
+          </span>
+          <span
+            className={`${isDark ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'} text-sm font-semibold px-3 py-1 rounded-full`}
+          >
             {formData.no_transaksi || 'Generating...'}
           </span>
         </div>
@@ -152,9 +156,7 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
       >
         Fee
       </InputField>
-      
 
-        
       <InputField
         name="keterangan"
         type="text"

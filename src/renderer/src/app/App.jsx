@@ -1,7 +1,7 @@
-import { HashRouter, Route, Routes } from "react-router-dom";
-import { ThemeProvider } from "../context/ThemeContext";
-import { DashboardRoutes } from "./routes";
-import React from "react";
+import { HashRouter, Route, Routes } from 'react-router-dom'
+import { ThemeProvider } from '../context/ThemeContext'
+import { DashboardRoutes } from './routes'
+import React from 'react'
 
 // import ScrollToTop from "@/shared/lib/ScrollToTop";
 // import { useAuth } from "./contexts/AuthContext";
@@ -21,7 +21,7 @@ const App = () => {
         </Routes>
       </HashRouter>
     </ThemeProvider>
-  );
-};
+  )
+}
 
-export default App;
+export default App

@@ -119,7 +119,13 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   `}
       >
         <div className="flex items-center justify-between px-4 py-6">
-          {isOpen && <h1 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-zinc-800'} select-none`}>mini ATM</h1>}
+          {isOpen && (
+            <h1
+              className={`text-xl font-bold ${isDark ? 'text-white' : 'text-zinc-800'} select-none`}
+            >
+              mini ATM
+            </h1>
+          )}
         </div>
 
         <div
@@ -161,7 +167,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           {navigations.map((section, iSection) => (
             <div key={iSection} className={iSection > 0 ? 'mt-6' : ''}>
               {isOpen && (
-                <h3 className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-zinc-500'} uppercase tracking-wider mb-4 px-2 select-none`}>
+                <h3
+                  className={`text-xs font-semibold ${isDark ? 'text-gray-400' : 'text-zinc-500'} uppercase tracking-wider mb-4 px-2 select-none`}
+                >
                   {section.title}
                 </h3>
               )}
@@ -179,12 +187,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                           onClick={() => toggleSubmenu(`${iSection}-${iItem}`)}
                           className={`flex items-center gap-x-3 w-full p-2.5 rounded-md
                           transition-colors duration-200
-                          ${isDark 
-                            ? 'hover:bg-gray-700 text-gray-300' 
-                            : 'hover:bg-zinc-100 text-zinc-700'} select-none
+                          ${
+                            isDark
+                              ? 'hover:bg-gray-700 text-gray-300'
+                              : 'hover:bg-zinc-100 text-zinc-700'
+                          } select-none
                           ${currentLocation.startsWith(item.to) ? `${isDark ? 'bg-gray-800 text-white' : 'bg-zinc-100 text-zinc-800'} font-medium` : ''}`}
                         >
-                          <span className={isDark ? 'text-gray-400' : 'text-zinc-600'}>{item.icon}</span>
+                          <span className={isDark ? 'text-gray-400' : 'text-zinc-600'}>
+                            {item.icon}
+                          </span>
                           <span
                             className={`transition-all duration-300 ease-in-out
                             ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
@@ -202,8 +214,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                                 className={`block w-full text-left px-2 py-1 rounded text-sm transition-colors
                                 ${
                                   currentLocation === sub.to
-                                    ? isDark ? 'bg-gray-700 font-medium text-white' : 'bg-zinc-100 font-medium text-zinc-800'
-                                    : isDark ? 'text-gray-400 hover:bg-gray-800' : 'text-zinc-600 hover:bg-zinc-50'
+                                    ? isDark
+                                      ? 'bg-gray-700 font-medium text-white'
+                                      : 'bg-zinc-100 font-medium text-zinc-800'
+                                    : isDark
+                                      ? 'text-gray-400 hover:bg-gray-800'
+                                      : 'text-zinc-600 hover:bg-zinc-50'
                                 }`}
                               >
                                 {sub.label}
@@ -213,7 +229,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                         )}
 
                         {!isOpen && openSubmenu === `${iSection}-${iItem}` && (
-                          <div className={`absolute left-full top-0 ml-2 w-48 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-zinc-200'} border rounded shadow-lg opacity-100 visible transition-opacity duration-200 z-20`}>
+                          <div
+                            className={`absolute left-full top-0 ml-2 w-48 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-zinc-200'} border rounded shadow-lg opacity-100 visible transition-opacity duration-200 z-20`}
+                          >
                             <ul className="py-2">
                               {item.submenu.map((sub, subIdx) => (
                                 <li key={subIdx}>
@@ -233,12 +251,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                       <button
                         onClick={() => (item.action ? item.action() : navigate(item.to))}
                         className={`flex items-center gap-x-3 p-2.5 w-full text-left rounded-md transition-colors duration-200
-                        ${currentLocation === item.to 
-                          ? isDark ? 'bg-gray-800 text-white font-medium' : 'bg-zinc-100 text-zinc-800 font-medium' 
-                          : isDark ? 'text-gray-300 hover:bg-gray-700' : 'text-zinc-600 hover:bg-zinc-100'}
+                        ${
+                          currentLocation === item.to
+                            ? isDark
+                              ? 'bg-gray-800 text-white font-medium'
+                              : 'bg-zinc-100 text-zinc-800 font-medium'
+                            : isDark
+                              ? 'text-gray-300 hover:bg-gray-700'
+                              : 'text-zinc-600 hover:bg-zinc-100'
+                        }
                         select-none`}
                       >
-                        <span className={isDark ? 'text-gray-400' : 'text-zinc-600'}>{item.icon}</span>
+                        <span className={isDark ? 'text-gray-400' : 'text-zinc-600'}>
+                          {item.icon}
+                        </span>
                         <span
                           className={`transition-all duration-300 ease-in-out
                           ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
