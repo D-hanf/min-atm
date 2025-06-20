@@ -9,10 +9,10 @@ import FormLayout from './FormLayout'
 import FundSourcesCard from '../../../components/FundSourcesCard'
 import { IoMdPrint } from 'react-icons/io'
 import ModalEdit from '../../../shared/ui/Modal'
+import PageContainer from '../../../components/PageContainer'
 import ReceiptView from './ReceiptView'
 import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
-import PageContainer from '../../../components/PageContainer'
 import { useTheme } from '../../../context/ThemeContext'
 
 const HalamanTransaksi = () => {
@@ -88,7 +88,7 @@ const HalamanTransaksi = () => {
       }))
 
       // 🔍 Cek yang saldonya 0
-      const kosong = result.filter((item) => Number(item.saldo) === 0)
+      const kosong = result.filter((item) => Number(item.saldo) < 1000000 || Number(item.saldo) === 1000000)
       setEmptyBalances(kosong)
     } catch (error) {
       console.error('❌ Gagal ambil data saldo:', error)
@@ -406,7 +406,7 @@ const HalamanTransaksi = () => {
 
       {emptyBalances.length > 0 && (
         <div className={`${isDark ? 'bg-yellow-900 border-yellow-800 text-yellow-200' : 'bg-yellow-100 border-yellow-300 text-yellow-800'} border px-4 py-3 rounded mb-4 mx-4`}>
-          <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya kosong:
+          <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya hampir habis/kosong:
           <ul className="list-disc list-inside ml-4 mt-1">
             {emptyBalances.map((item) => (
               <li key={item.id}>{item.nama_sumber_dana}</li>
