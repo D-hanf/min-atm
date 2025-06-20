@@ -17,13 +17,15 @@ const FormLayout = ({
   initialData = {},
   isEdit = false,
   editData = null,
-  onClose = null
+  onClose = null,
+  onValidChange
 }) => {
   const [modalOpen, setModalOpen] = useState(isEdit)
   const [formData, setFormData] = useState(initialData)
   const [showMenu, setShowMenu] = useState(true)
   const [selectedTransactionType, setSelectedTransactionType] = useState('')
   const [selectedTransactionId, setSelectedTransactionId] = useState('')
+  const [formValid, setFormValid] = useState(true)
 
   const getTransactionId = (transactionType) => {
     const typeMap = {
@@ -57,7 +59,9 @@ const FormLayout = ({
     if (modalOpen && formType === 'transaction' && !isEdit && !formData.no_transaksi) {
       const today = new Date()
       const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
-      const randomStr = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
+      const randomStr = Math.floor(Math.random() * 10000)
+        .toString()
+        .padStart(4, '0')
       const transactionNumber = `TRX-${dateStr}${randomStr}`
 
       setFormData((prev) => ({
@@ -124,7 +128,8 @@ const FormLayout = ({
   const renderTransactionForm = () => {
     const formProps = {
       formData,
-      onChange: handleInputChange
+      onChange: handleInputChange,
+      onValidChange: setFormValid
     }
 
     switch (selectedTransactionId) {
@@ -153,6 +158,7 @@ const FormLayout = ({
       )}
       <Modal
         isOpen={modalOpen}
+        disabled={!formValid && !showMenu && !isEdit}
         onClose={handleModalClose}
         onSubmit={handleSubmit}
         hideSubmit={formType === 'transaction' && showMenu && !isEdit}

@@ -7,7 +7,7 @@ import Dropdown from '../../../components/Dropdown'
 import FinancialSummaryCards from '../../../components/FinancialSummaryCards'
 import FormLayout from './FormLayout'
 import FundSourcesCard from '../../../components/FundSourcesCard'
-import { IoMdPrint } from "react-icons/io";
+import { IoMdPrint } from 'react-icons/io'
 import ModalEdit from '../../../shared/ui/Modal'
 import ReceiptView from './ReceiptView'
 import SearchField from '../../../components/SearchField'
@@ -15,7 +15,8 @@ import TableContent from '../../../components/TableContent'
 
 const HalamanTransaksi = () => {
   const [stores, setStore] = useState([])
-
+  const [emptyBalances, setEmptyBalances] = useState([])
+  const [formValid, setFormValid] = useState(true)
   const [saldo, setSaldo] = useState([])
   const [transactions, setTransactions] = useState([]) // Awalnya kosong, akan diisi dari DB
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -82,10 +83,15 @@ const HalamanTransaksi = () => {
         ...prev,
         totalAssets: total
       }))
+
+      // 🔍 Cek yang saldonya 0
+      const kosong = result.filter((item) => Number(item.saldo) === 0)
+      setEmptyBalances(kosong)
     } catch (error) {
       console.error('❌ Gagal ambil data saldo:', error)
     }
   }
+
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -176,9 +182,11 @@ const HalamanTransaksi = () => {
           tanggal: item.tanggal,
           no_transaksi: item.no_transaksi,
           sumber_dana: item.sumber_dana,
+          terima_dana_nama: item.terima_dana_nama || '-',
           jenis_transaksi: item.jenis_transaksi || '-',
           tipe_transaksi: item.tipe_transaksi || '-',
           saldo_awal: formatRupiah(saldoAwal),
+          terima_dana_id: item.terima_dana_id || '-',
           nominal_transaksi: formatRupiah(nominal),
           fee: formatRupiah(fee),
           biaya_admin_bank: formatRupiah(adminBank),
@@ -210,6 +218,7 @@ const HalamanTransaksi = () => {
     { key: 'fee', label: 'Fee' },
     { key: 'biaya_admin_bank', label: 'Adm Bank' },
     { key: 'saldo_akhir', label: 'Saldo Akhir' },
+    { key: 'terima_dana_nama', label: 'Terima Dana' },
     { key: 'keterangan', label: 'Keterangan' }
   ]
 
@@ -371,9 +380,9 @@ const HalamanTransaksi = () => {
               color={'gray'}
             /> */}
             <ButtonInput size="xs" color={'indigo'} onClick={printSummaryOnly}>
-            <IoMdPrint size={20}/>
-            Print
-          </ButtonInput>
+              <IoMdPrint size={20} />
+              Print
+            </ButtonInput>
           </div>
         </div>
       </div>
@@ -398,6 +407,17 @@ const HalamanTransaksi = () => {
         formatRupiah={formatRupiah}
       />
 
+      {emptyBalances.length > 0 && (
+        <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 rounded mb-4 mx-4">
+          <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya kosong:
+          <ul className="list-disc list-inside ml-4 mt-1">
+            {emptyBalances.map((item) => (
+              <li key={item.id}>{item.nama_sumber_dana}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <TableContent
         data={filteredData}
         columns={transactionColumns}
@@ -409,6 +429,7 @@ const HalamanTransaksi = () => {
         onEdit={handleTransactionEdit}
         onAdd={
           <FormLayout
+            onValidChange={setFormValid}
             onSubmit={submitTransaction}
             buttonText="Tambah Transaksi"
             formType="transaction"
@@ -427,6 +448,7 @@ const HalamanTransaksi = () => {
             formType="transaction"
             isEdit={true}
             editData={editingTransaction}
+            onValidChange={setFormValid}
           />
         </div>
       )}

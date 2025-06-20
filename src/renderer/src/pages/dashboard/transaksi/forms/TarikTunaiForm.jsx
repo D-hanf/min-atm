@@ -4,7 +4,7 @@ import InputField from '../../../../components/InputField'
 import RupiahInput from '../../../../components/RupiahInput'
 import SelectItems from '../../../../components/SelectItems'
 
-const TarikTunaiForm = ({ formData, onChange }) => {
+const TarikTunaiForm = ({ formData, onChange,onValidChange }) => {
   const [nominalError, setNominalError] = useState('')
   const [feeType, setFeeType] = useState('Digital')
   const [sumberDanaList, setSumberDanaList] = useState([])
@@ -60,9 +60,13 @@ const TarikTunaiForm = ({ formData, onChange }) => {
     const sumberDana = sumberDanaList.find((item) => item.id === parseInt(formData.sumber_dana_id))
 
     if (sumberDana && nominal > sumberDana.saldo) {
-      setNominalError(`Saldo tidak cukup. Saldo tersedia: Rp ${sumberDana.saldo.toLocaleString('id-ID')}`)
+      setNominalError(
+        `Saldo tidak cukup. Saldo tersedia: Rp ${sumberDana.saldo.toLocaleString('id-ID')}`
+      )
+      onValidChange?.(false)
     } else {
       setNominalError('')
+      onValidChange?.(true)
     }
   }, [formData.sumber_dana_id, formData.nominal_transaksi, sumberDanaList])
 
@@ -100,10 +104,12 @@ const TarikTunaiForm = ({ formData, onChange }) => {
         required
       />
       <SelectItems
-        options={sumberDanaList.map((item) => ({
-          label: item.nama_sumber_dana,
-          value: item.id
-        }))}
+        options={sumberDanaList
+          .filter((item) => item.nama_sumber_dana !== 'Laci' && item.nama_sumber_dana !== 'Cash')
+          .map((item) => ({
+            label: item.nama_sumber_dana,
+            value: item.id
+          }))}
         label="Terima Dana"
         name="terima_dana_id"
         value={formData.terima_dana_id || ''}

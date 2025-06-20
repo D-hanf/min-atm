@@ -4,11 +4,12 @@ import InputField from '../../../../components/InputField'
 import RupiahInput from '../../../../components/RupiahInput'
 import SelectItems from '../../../../components/SelectItems'
 
-const ModePulsaForm = ({ formData, onChange }) => {
+const ModePulsaForm = ({ formData, onChange,onValidChange}) => {
   const [sumberDanaList, setSumberDanaList] = useState([])
   const [manualFee, setManualFee] = useState(false)
   const [manualAdmin, setManualAdmin] = useState(false)
-
+  const [nominalError, setNominalError] = useState('')
+  
   useEffect(() => {
     const fetchSaldo = async () => {
       try {
@@ -27,9 +28,7 @@ const ModePulsaForm = ({ formData, onChange }) => {
   }, [formData.sumber_dana_id])
 
   useEffect(() => {
-    const sumberDana = sumberDanaList.find(
-      (item) => item.id === parseInt(formData.sumber_dana_id)
-    )
+    const sumberDana = sumberDanaList.find((item) => item.id === parseInt(formData.sumber_dana_id))
     if (sumberDana && !manualAdmin) {
       onChange({ target: { name: 'biaya_admin', value: sumberDana.biaya_admin || 0 } })
     }
@@ -57,6 +56,33 @@ const ModePulsaForm = ({ formData, onChange }) => {
       }
     }
   }, [formData.nominal_transaksi, manualFee])
+  
+  // Validasi saldo cukup
+// Validasi saldo cukup
+useEffect(() => {
+  const nominal = parseFloat(formData.nominal_transaksi || 0)
+  const admin = parseFloat(formData.biaya_admin || 0)
+  const totalPengeluaran = nominal + admin
+
+  const sumberDana = sumberDanaList.find(
+    (item) => item.id === parseInt(formData.sumber_dana_id)
+  )
+
+  if (sumberDana && totalPengeluaran > sumberDana.saldo) {
+    setNominalError(
+      `Saldo tidak cukup. Saldo tersedia: Rp ${sumberDana.saldo.toLocaleString('id-ID')}`
+    )
+    onValidChange?.(false)
+  } else {
+    setNominalError('')
+    onValidChange?.(true)
+  }
+}, [
+  formData.sumber_dana_id,
+  formData.nominal_transaksi,
+  formData.biaya_admin, // ✅ tambahkan dependency-nya juga
+  sumberDanaList
+])
 
   return (
     <>
@@ -107,6 +133,7 @@ const ModePulsaForm = ({ formData, onChange }) => {
         value={formData.nominal_transaksi}
         onChange={onChange}
         label="Nominal"
+        error={nominalError}
         required
       />
 
