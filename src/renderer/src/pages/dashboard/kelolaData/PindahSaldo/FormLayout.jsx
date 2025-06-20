@@ -26,6 +26,14 @@ const FormLayout = ({
   const [selectedSourceSaldo, setSelectedSourceSaldo] = useState(null)
   const [selectedDestSaldo, setSelectedDestSaldo] = useState(null)
 
+  // Add error state variables
+  const [errors, setErrors] = useState({
+    platformSource: '',
+    platformDestination: '',
+    amount: '',
+    balance: ''
+  })
+
   // Fetch logged in user from localStorage
   useEffect(() => {
     const userString = localStorage.getItem('user')
@@ -35,19 +43,38 @@ const FormLayout = ({
     }
   }, [])
 
-  // Format currency
-  const formatRupiah = (value) => {
-    if (!value) return ''
+  // Format currency with special handling for zero balance - only used for displaying account balances
+  const formatBalanceDisplay = (value) => {
+    if (value === null || value === undefined) return 'Tidak ada Saldo'
 
-    // Remove all non-numeric characters
-    const numeric = value.toString().replace(/[^0-9]/g, '')
+    // Convert to number and check if it's zero
+    const numericValue = Number(value)
+    if (numericValue === 0) return 'Tidak ada Saldo'
 
     // Format as currency
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
       minimumFractionDigits: 0
-    }).format(numeric)
+    }).format(numericValue)
+  }
+
+  // Format currency for input values - always show the amount, even if zero
+  const formatRupiah = (value) => {
+    if (value === null || value === undefined) return 'Rp 0'
+
+    // Remove all non-numeric characters
+    const numeric = value.toString().replace(/[^0-9]/g, '')
+
+    // Convert to number - even if it's zero, we'll display it
+    const numericValue = Number(numeric)
+
+    // Format as currency
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0
+    }).format(numericValue)
   }
 
   // Extract numeric value from formatted string
@@ -105,7 +132,7 @@ const FormLayout = ({
           ...prev,
           senderBalance: matchingSaldo.nama_sumber_dana,
           senderBalanceId: matchingSaldo.id,
-          operational: formatRupiah(biayaAdmin),
+          operational: formatRupiah(biayaAdmin), // Always format as Rupiah, even if zero
           operationalRaw: biayaAdmin.toString()
         }))
       }
@@ -147,6 +174,15 @@ const FormLayout = ({
     }
   }, [platformDestinationOptions, saldoData])
 
+  // Reset errors when platforms change
+  useEffect(() => {
+    setErrors({ ...errors, platformSource: '', balance: '' })
+  }, [platformSourceOptions])
+
+  useEffect(() => {
+    setErrors({ ...errors, platformDestination: '' })
+  }, [platformDestinationOptions])
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
 
@@ -155,15 +191,72 @@ const FormLayout = ({
       const numericValue = extractNumeric(value)
       setFormData({
         ...formData,
-        [name]: formatRupiah(numericValue),
+        [name]: formatRupiah(numericValue), // Always format as Rupiah, even if zero
         [`${name}Raw`]: numericValue // Store raw value for submission
       })
+
+      // Clear error when user types in the field
+      if (name === 'amount') {
+        setErrors({ ...errors, amount: '' })
+      }
     } else {
       setFormData({ ...formData, [name]: value })
     }
   }
 
+  // Handle form submission with validation
   const handleSubmit = () => {
+    // Reset errors
+    const newErrors = {
+      platformSource: '',
+      platformDestination: '',
+      amount: '',
+      balance: ''
+    }
+
+    let isValid = true
+
+    // Validate source platform
+    if (!selectedSourceSaldo) {
+      newErrors.platformSource = 'Pilih platform sumber terlebih dahulu'
+      isValid = false
+    }
+
+    // Validate destination platform
+    if (!selectedDestSaldo) {
+      newErrors.platformDestination = 'Pilih platform tujuan terlebih dahulu'
+      isValid = false
+    }
+
+    // Validate amount
+    if (!formData.amount || formData.amountRaw === '0') {
+      newErrors.amount = 'Masukkan nominal transfer yang valid'
+      isValid = false
+    }
+
+    // Check if source has sufficient balance
+    if (selectedSourceSaldo) {
+      const amountValue = parseInt(formData.amountRaw || extractNumeric(formData.amount), 10)
+      const operationalValue = parseInt(
+        formData.operationalRaw || extractNumeric(formData.operational),
+        10
+      )
+      const totalNeeded = amountValue + operationalValue
+
+      if (selectedSourceSaldo.saldo < totalNeeded) {
+        newErrors.balance = `Saldo ${selectedSourceSaldo.nama_sumber_dana} tidak mencukupi untuk transfer sebesar ${formatRupiah(amountValue)} + biaya admin ${formatRupiah(operationalValue)}.`
+        isValid = false
+      }
+    }
+
+    // Update error states
+    setErrors(newErrors)
+
+    // If form is not valid, stop here and don't proceed with submission
+    if (!isValid) {
+      return false // Return false to indicate validation failed
+    }
+
     // Prepare data for submission - extract raw values from formatted currency
     const submissionData = {
       ...formData,
@@ -176,7 +269,10 @@ const FormLayout = ({
       user_id: loggedInUser ? loggedInUser.id : 1 // Ensure user ID is sent to backend
     }
 
+    // Submit the data
     onSubmit(submissionData)
+
+    // Close modal and reset form after successful submission
     setModalOpen(false)
 
     // Reset form data after submission
@@ -194,6 +290,8 @@ const FormLayout = ({
     setPlatformDestinationOptions('')
     setSelectedSourceSaldo(null)
     setSelectedDestSaldo(null)
+
+    return true // Return true to indicate successful validation and submission
   }
 
   // Extract unique platforms from saldo data for select options
@@ -229,7 +327,12 @@ const FormLayout = ({
           {buttonText}
         </ButtonInput>
       </div>
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}>
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSubmit={() => handleSubmit()}
+        preventCloseOnSubmit={true} // Add this prop if your Modal component supports it
+      >
         {/* Replace input field with display of user name */}
         <div className="col-span-2 mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">Petugas Pemindah</label>
@@ -255,6 +358,9 @@ const FormLayout = ({
               value={platformSourceOptions}
               options={getPlatformOptions()}
             ></SelectItems>
+            {errors.platformSource && (
+              <p className="text-red-500 text-xs mt-1">{errors.platformSource}</p>
+            )}
           </div>
 
           {/* Right side - Platform Destination */}
@@ -268,6 +374,9 @@ const FormLayout = ({
               value={platformDestinationOptions}
               options={getPlatformOptions()}
             ></SelectItems>
+            {errors.platformDestination && (
+              <p className="text-red-500 text-xs mt-1">{errors.platformDestination}</p>
+            )}
           </div>
         </div>
 
@@ -278,12 +387,16 @@ const FormLayout = ({
             <InputField
               name="senderBalance"
               type="text"
-              value={selectedSourceSaldo ? `${formatRupiah(selectedSourceSaldo.saldo)}` : '-'}
+              value={selectedSourceSaldo ? formatBalanceDisplay(selectedSourceSaldo.saldo) : '-'}
               onChange={() => {}} // No change handler needed as it's disabled
               disabled={true}
+              className={
+                selectedSourceSaldo && selectedSourceSaldo.saldo === 0 ? 'text-red-500' : ''
+              }
             >
               Saldo Pengirim
             </InputField>
+            {errors.balance && <p className="text-red-500 text-xs mt-1">{errors.balance}</p>}
           </div>
 
           {/* Right side - Receiver Balance */}
@@ -291,9 +404,10 @@ const FormLayout = ({
             <InputField
               name="receiverBalance"
               type="text"
-              value={selectedDestSaldo ? `${formatRupiah(selectedDestSaldo.saldo)}` : '-'}
+              value={selectedDestSaldo ? formatBalanceDisplay(selectedDestSaldo.saldo) : '-'}
               onChange={() => {}} // No change handler needed as it's disabled
               disabled={true}
+              className={selectedDestSaldo && selectedDestSaldo.saldo === 0 ? 'text-red-500' : ''}
             >
               Saldo Penerima
             </InputField>
@@ -309,6 +423,7 @@ const FormLayout = ({
         >
           Nominal
         </InputField>
+        {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
 
         <InputField
           name="operational"

@@ -127,6 +127,25 @@ const HalamanPindahSaldo = () => {
     }).format(value)
   }
 
+  // New function for displaying account balances
+  const formatBalanceDisplay = (value) => {
+    if (value === null || value === undefined) return 'Tidak ada Saldo'
+
+    // Convert to number and check if it's zero
+    const numericValue = Number(value)
+    if (numericValue === 0) return 'Tidak ada Saldo'
+
+    return formatRupiah(numericValue)
+  }
+
+  const formatInputRupiah = (value) => {
+    const cleaned = value.replace(/[^0-9]/g, '')
+    const number = parseInt(cleaned, 10)
+    // Return 'Rp 0' for zero values instead of empty string
+    if (isNaN(number)) return 'Rp 0'
+    return 'Rp' + number.toLocaleString('id-ID')
+  }
+
   const handleAddTransfer = async (formData) => {
     try {
       const cleanedAmount = parseInt(String(formData.amount).replace(/[^0-9]/g, ''), 10)
@@ -144,6 +163,16 @@ const HalamanPindahSaldo = () => {
 
       if (!sourceSaldo || !destSaldo) {
         console.error('Saldo source or destination not found')
+        return
+      }
+
+      // Check if source has sufficient balance
+      const totalNeeded = cleanedAmount + cleanedOperational
+      if (sourceSaldo.saldo < totalNeeded) {
+        setAlertMessage(
+          `Saldo ${sourceSaldo.nama_sumber_dana} tidak mencukupi untuk transfer sebesar ${formatRupiah(cleanedAmount)} + biaya admin ${formatRupiah(cleanedOperational)}.`
+        )
+        setShowAlertDialog(true)
         return
       }
 
@@ -201,6 +230,8 @@ const HalamanPindahSaldo = () => {
       }
     } catch (error) {
       console.error('Error creating transfer:', error)
+      setAlertMessage(`Gagal melakukan pemindahan saldo: ${error.message || 'Unknown error'}`)
+      setShowAlertDialog(true)
     }
   }
 
@@ -364,13 +395,6 @@ const HalamanPindahSaldo = () => {
       formattedOperational: formatRupiah(item.operational)
     }))
 
-  const formatInputRupiah = (value) => {
-    const cleaned = value.replace(/[^0-9]/g, '')
-    const number = parseInt(cleaned, 10)
-    if (isNaN(number)) return ''
-    return 'Rp' + number.toLocaleString('id-ID')
-  }
-
   const handleSubmitEdit = async (updatedData) => {
     try {
       const cleanedAmount = parseInt(String(updatedData.amount).replace(/[^0-9]/g, ''), 10)
@@ -384,7 +408,8 @@ const HalamanPindahSaldo = () => {
 
       if (!id) {
         console.error('Error: Missing ID for update operation')
-        alert('Error: Cannot update record - missing ID')
+        setAlertMessage('Error: Tidak dapat mengupdate data - ID tidak ditemukan')
+        setShowAlertDialog(true)
         return
       }
 
@@ -400,6 +425,8 @@ const HalamanPindahSaldo = () => {
       // Find the source and destination saldo by IDs from selected saldo objects
       if (!selectedSourceSaldo || !selectedDestSaldo) {
         console.error('Source or destination saldo not selected')
+        setAlertMessage('Sumber dana atau tujuan dana tidak dipilih')
+        setShowAlertDialog(true)
         return
       }
 
@@ -412,6 +439,33 @@ const HalamanPindahSaldo = () => {
 
       if (!latestSourceSaldo || !latestDestSaldo) {
         console.error('Failed to get latest saldo data')
+        setAlertMessage('Gagal mendapatkan data saldo terbaru')
+        setShowAlertDialog(true)
+        return
+      }
+
+      // Check if source has sufficient balance (only check for new amount - original amount + admin fee)
+      // Get original transfer data
+      const originalTransfer = transfers.find((t) => t.id === id)
+      if (originalTransfer) {
+        // Calculate the difference in amounts
+        const originalTotal = originalTransfer.amount + originalTransfer.operational
+        const newTotal = cleanedAmount + cleanedOperational
+
+        // If new amount is greater, check if we have enough balance
+        if (newTotal > originalTotal && latestSourceSaldo.saldo + originalTotal < newTotal) {
+          setAlertMessage(
+            `Saldo ${latestSourceSaldo.nama_sumber_dana} tidak mencukupi untuk menambah nominal transfer.`
+          )
+          setShowAlertDialog(true)
+          return
+        }
+      } else if (latestSourceSaldo.saldo < cleanedAmount + cleanedOperational) {
+        // If we can't find original transfer, do a simple balance check
+        setAlertMessage(
+          `Saldo ${latestSourceSaldo.nama_sumber_dana} tidak mencukupi untuk transfer.`
+        )
+        setShowAlertDialog(true)
         return
       }
 
@@ -471,7 +525,8 @@ const HalamanPindahSaldo = () => {
       }
     } catch (error) {
       console.error('Error updating transfer:', error)
-      alert(`Error updating transfer: ${error.message || 'Unknown error'}`)
+      setAlertMessage(`Error updating transfer: ${error.message || 'Unknown error'}`)
+      setShowAlertDialog(true)
     } finally {
       // Reset form and selected values
       setSelectedSourceSaldo(null)
@@ -638,9 +693,12 @@ const HalamanPindahSaldo = () => {
             <InputField
               name="senderBalance"
               type="text"
-              value={selectedSourceSaldo ? `${formatRupiah(selectedSourceSaldo.saldo)}` : '-'}
+              value={selectedSourceSaldo ? formatBalanceDisplay(selectedSourceSaldo.saldo) : '-'}
               onChange={() => {}} // No change handler needed as it's disabled
               disabled={true}
+              className={
+                selectedSourceSaldo && selectedSourceSaldo.saldo === 0 ? 'text-red-500' : ''
+              }
             >
               Saldo Pengirim
             </InputField>
@@ -650,9 +708,10 @@ const HalamanPindahSaldo = () => {
             <InputField
               name="receiverBalance"
               type="text"
-              value={selectedDestSaldo ? `${formatRupiah(selectedDestSaldo.saldo)}` : '-'}
+              value={selectedDestSaldo ? formatBalanceDisplay(selectedDestSaldo.saldo) : '-'}
               onChange={() => {}} // No change handler needed as it's disabled
               disabled={true}
+              className={selectedDestSaldo && selectedDestSaldo.saldo === 0 ? 'text-red-500' : ''}
             >
               Saldo Penerima
             </InputField>
