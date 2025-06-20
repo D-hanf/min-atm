@@ -19,8 +19,14 @@ const Modal = ({
     e.preventDefault()
     const formData = new FormData(e.target)
     const data = Object.fromEntries(formData.entries())
-    onSubmit(data)
-    onClose()
+    
+    // Call onSubmit and check the result
+    const result = onSubmit(data)
+    
+    // Only close the modal if onSubmit doesn't return false
+    if (result !== false) {
+      onClose()
+    }
   }
 
   return (

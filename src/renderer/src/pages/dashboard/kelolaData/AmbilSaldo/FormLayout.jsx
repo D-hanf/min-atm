@@ -104,18 +104,18 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         withdrawalDate: new Date().toISOString().split('T')[0],
         description: ''
       })
-      
+
       // If we have a last selected platform, reselect it when the options are loaded
       if (lastSelectedPlatform) {
         // We need to wait for saldoAwalOptions to be populated
         setTimeout(() => {
-          const platform = saldoAwalOptions.find(p => p.nama_sumber_dana === lastSelectedPlatform);
+          const platform = saldoAwalOptions.find((p) => p.nama_sumber_dana === lastSelectedPlatform)
           if (platform) {
-            handlePlatformChange(lastSelectedPlatform);
+            handlePlatformChange(lastSelectedPlatform)
           }
-        }, 300); // Small delay to ensure saldoAwalOptions is populated
+        }, 300) // Small delay to ensure saldoAwalOptions is populated
       } else {
-        setSelectedPlatform(null);
+        setSelectedPlatform(null)
       }
     }
   }, [modalOpen, loggedInUser, lastSelectedPlatform, saldoAwalOptions.length])
@@ -267,7 +267,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
 
     // Only close the modal if validation passed
     setModalOpen(false)
-    
+
     // Don't reset lastSelectedPlatform after successful submission
     // This preserves the selection for next time
 
