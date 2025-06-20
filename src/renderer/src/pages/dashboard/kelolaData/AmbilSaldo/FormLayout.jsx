@@ -187,7 +187,6 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     return isValid
   }
 
-  // Our handleSubmit function stays mostly the same but we don't close the modal here
   const handleSubmit = () => {
     // Reset all errors
     const newErrors = {
@@ -267,10 +266,6 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
 
     // Only close the modal if validation passed
     setModalOpen(false)
-
-    // Don't reset lastSelectedPlatform after successful submission
-    // This preserves the selection for next time
-
     return true
   }
 
