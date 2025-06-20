@@ -75,17 +75,6 @@ const InputField = ({
   placeholder = '',
   disabled = false,
   ...props
-const InputField = ({
-  children,
-  name,
-  type = 'text',
-  value,
-  onChange,
-  required = true,
-  className = '',
-  placeholder = '',
-  disabled = false,
-  ...props
 }) => {
   const [showPassword, setShowPassword] = useState(false)
   const togglePassword = () => setShowPassword((prev) => !prev)
