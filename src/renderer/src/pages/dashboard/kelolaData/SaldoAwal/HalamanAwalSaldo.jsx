@@ -274,6 +274,7 @@ const HalamanAwalSaldo = () => {
           className="col-span-2"
           type="text"
           value={formData.description}
+          required={false}
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
         >
           Keterangan

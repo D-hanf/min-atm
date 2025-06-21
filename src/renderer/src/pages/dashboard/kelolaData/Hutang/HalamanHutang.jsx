@@ -47,6 +47,7 @@ function HalamanHutang() {
     { key: 'saldo_platform', label: 'Saldo Platform' },
     { key: 'jenis_transaksi', label: 'Jenis Transaksi' },
     { key: 'nominal_transaksi', label: 'Nominal Transaksi' },
+    { key: 'biaya_admin', label: 'Biaya Admin' },
     { key: 'tanggal_transaksi', label: 'Tanggal Transaksi' },
     { key: 'keterangan', label: 'Keterangan' }
   ]
@@ -343,18 +344,19 @@ function HalamanHutang() {
             <p>Loading...</p>
           </div>
         ) : (
-      <TableContent
-        title={'Hutang'}
-        columns={columns}
-        data={filteredData}
-        onAdd={<FormLayout onSubmit={handleAddAmbilSaldo} buttonText="Transaksi Hutang" />}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        currentPage={1}
-        totalPages={1}
-        rowsPerPage={10}
-        className={isDark ? 'dark' : ''}
-      />
+          <TableContent
+            title={'Hutang'}
+            columns={columns}
+            data={filteredData}
+            onAdd={<FormLayout onSubmit={handleAddAmbilSaldo} buttonText="Transaksi Hutang" />}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            btnSize={'xs'}
+            currentPage={1}
+            totalPages={1}
+            rowsPerPage={10}
+            className={isDark ? 'dark' : ''}
+          />
         )}
       </div>
 
@@ -485,7 +487,16 @@ function HalamanHutang() {
         >
           Nominal Transaksi
         </InputField>
-
+        <InputField
+          name="biaya_admin"
+          type="text"
+          value={formData.biaya_admin || ''}
+          onChange={(e) => handleCurrencyInputChange(e, 'biaya_admin')}
+          placeholder="Rp 0"
+        >
+          Biaya Admin
+        </InputField>
+        
         <InputField
           name="tanggal_transaksi"
           type="date"

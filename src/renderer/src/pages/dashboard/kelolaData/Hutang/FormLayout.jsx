@@ -383,7 +383,22 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
           Nominal Transaksi
         </InputField>
         {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
-
+        
+        <InputField
+          name="biaya_admin"
+          type="text"
+          value={formData.biaya_admin || ''}
+          onChange={(e) => {
+            const value = e.target.value.replace(/[^0-9]/g, '')
+            const formatted = formatRupiah(value)
+            setFormData({ ...formData, biaya_admin: formatted })
+          }}
+          placeholder="Rp 0"
+          required={false}
+        >
+          Biaya Admin
+        </InputField>
+        
         <InputField
           name="tanggal"
           type="date"

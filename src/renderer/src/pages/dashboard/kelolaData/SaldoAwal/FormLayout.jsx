@@ -134,6 +134,7 @@ const FormLayout = ({ onSubmit }) => {
           type="text"
           value={formData.description}
           onChange={handleChange}
+          required={false}
           placeholder="Tambahkan keterangan (opsional)"
         >
           Keterangan

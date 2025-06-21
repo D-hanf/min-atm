@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { useTheme } from '../../../../context/ThemeContext'
+
 import InputField from '../../../../components/InputField'
 import SelectItems from '../../../../components/SelectItems'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const JasaTransferForm = ({ formData, onChange }) => {
   const { isDark } = useTheme()
@@ -132,7 +133,7 @@ const JasaTransferForm = ({ formData, onChange }) => {
         type="text"
         value={formData.description || ''}
         onChange={onChange}
-      >
+        required={false}      >
         Keterangan
       </InputField>
     </>

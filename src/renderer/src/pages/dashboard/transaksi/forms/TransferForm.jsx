@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { useTheme } from '../../../../context/ThemeContext'
+
 import InputField from '../../../../components/InputField'
 import RupiahInput from '../../../../components/RupiahInput'
 import SelectItems from '../../../../components/SelectItems'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const TransferForm = ({ formData, onChange, onValidChange }) => {
   const { isDark } = useTheme()
@@ -208,6 +209,7 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
         type="text"
         value={formData.keterangan || ''}
         onChange={onChange}
+        required={false}
       >
         Keterangan
       </InputField>
