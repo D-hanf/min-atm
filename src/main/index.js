@@ -390,10 +390,15 @@ app.whenReady().then(() => {
                 const isAddingToSaldo = data.jenis_transaksi === 'Ambil Hutang'
                 const operation = isAddingToSaldo ? '+' : '-'
 
-                // STEP 1: Update the saldo_awal table - add for Ambil Hutang, subtract for Bayar Hutang
+                // Calculate total amount including admin fee
+                const totalAmount = isAddingToSaldo
+                  ? parseFloat(data.nominal_transaksi)
+                  : parseFloat(data.nominal_transaksi) + parseFloat(data.biaya_admin || 0)
+
+                // STEP 1: Update the saldo_awal table - add or subtract the total amount (transaction + admin fee)
                 db.run(
                   `UPDATE saldo_awal SET saldo = saldo ${operation} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
-                  [data.nominal_transaksi, data.platform_id],
+                  [totalAmount, data.platform_id],
                   function (err) {
                     if (err) {
                       db.run('ROLLBACK')
@@ -403,8 +408,8 @@ app.whenReady().then(() => {
 
                     // STEP 2: Insert the record into hutang table
                     const newSaldo = isAddingToSaldo
-                      ? platform.saldo + data.nominal_transaksi
-                      : platform.saldo - data.nominal_transaksi
+                      ? platform.saldo + totalAmount
+                      : platform.saldo - totalAmount
 
                     db.run(
                       `INSERT INTO hutang (
@@ -462,7 +467,7 @@ app.whenReady().then(() => {
       return new Promise((resolve, reject) => {
         // First get the original record to calculate saldo changes
         db.get(
-          'SELECT id, platform_id, nominal_transaksi, jenis_transaksi FROM hutang WHERE id = ?',
+          'SELECT id, platform_id, nominal_transaksi, biaya_admin, jenis_transaksi FROM hutang WHERE id = ?',
           [data.id],
           (err, originalRecord) => {
             if (err) {
@@ -498,10 +503,15 @@ app.whenReady().then(() => {
                     const originalWasAddition = originalRecord.jenis_transaksi === 'Ambil Hutang'
                     const reverseOperation = originalWasAddition ? '-' : '+'
 
+                    // Calculate original total amount (transaction + admin fee)
+                    const originalTotalAmount =
+                      parseFloat(originalRecord.nominal_transaksi) +
+                      parseFloat(originalRecord.biaya_admin || 0)
+
                     // Reverse the original transaction
                     db.run(
                       `UPDATE saldo_awal SET saldo = saldo ${reverseOperation} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
-                      [originalRecord.nominal_transaksi, originalRecord.platform_id],
+                      [originalTotalAmount, originalRecord.platform_id],
                       function (err) {
                         if (err) {
                           db.run('ROLLBACK')
@@ -513,10 +523,14 @@ app.whenReady().then(() => {
                         const newIsAddition = data.jenis_transaksi === 'Ambil Hutang'
                         const newOperation = newIsAddition ? '+' : '-'
 
+                        // Calculate new total amount (transaction + admin fee)
+                        const newTotalAmount =
+                          parseFloat(data.nominal_transaksi) + parseFloat(data.biaya_admin || 0)
+
                         // Apply new transaction
                         db.run(
                           `UPDATE saldo_awal SET saldo = saldo ${newOperation} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
-                          [data.nominal_transaksi, data.platform_id],
+                          [newTotalAmount, data.platform_id],
                           function (err) {
                             if (err) {
                               db.run('ROLLBACK')
@@ -525,12 +539,21 @@ app.whenReady().then(() => {
                             }
 
                             // Calculate the new saldo
-                            const adjustedSaldo =
-                              platform.saldo +
-                              (originalWasAddition
-                                ? -originalRecord.nominal_transaksi
-                                : originalRecord.nominal_transaksi) +
-                              (newIsAddition ? data.nominal_transaksi : -data.nominal_transaksi)
+                            let adjustedSaldo = platform.saldo
+
+                            // Undo the original transaction effect
+                            if (originalWasAddition) {
+                              adjustedSaldo -= originalTotalAmount
+                            } else {
+                              adjustedSaldo += originalTotalAmount
+                            }
+
+                            // Apply the new transaction effect
+                            if (newIsAddition) {
+                              adjustedSaldo += newTotalAmount
+                            } else {
+                              adjustedSaldo -= newTotalAmount
+                            }
 
                             // Update the hutang record
                             db.run(
@@ -594,7 +617,7 @@ app.whenReady().then(() => {
       return new Promise((resolve, reject) => {
         // First get the record to be deleted so we can adjust the saldo
         db.get(
-          'SELECT platform_id, nominal_transaksi, jenis_transaksi FROM hutang WHERE id = ?',
+          'SELECT platform_id, nominal_transaksi, biaya_admin, jenis_transaksi FROM hutang WHERE id = ?',
           [id],
           (err, record) => {
             if (err) {
@@ -615,9 +638,14 @@ app.whenReady().then(() => {
                 const wasAddition = record.jenis_transaksi === 'Ambil Hutang'
                 const reverseOperation = wasAddition ? '-' : '+'
 
+                // Calculate total amount (transaction + admin fee)
+                const totalAmount = wasAddition
+                  ? parseFloat(record.nominal_transaksi)
+                  : parseFloat(record.nominal_transaksi) + parseFloat(record.biaya_admin || 0)
+
                 db.run(
                   `UPDATE saldo_awal SET saldo = saldo ${reverseOperation} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
-                  [record.nominal_transaksi, record.platform_id],
+                  [totalAmount, record.platform_id],
                   function (err) {
                     if (err) {
                       db.run('ROLLBACK')

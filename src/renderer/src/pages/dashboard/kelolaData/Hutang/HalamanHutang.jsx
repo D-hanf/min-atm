@@ -34,7 +34,7 @@ function HalamanHutang() {
     saldo_platform: '',
     nominal_transaksi: '',
     jenis_transaksi: 'Ambil Hutang', // Default to "Ambil Hutang"
-    biaya_admin: 0,
+    biaya_admin: '0',
     tanggal_transaksi: new Date().toISOString().split('T')[0],
     keterangan: ''
   })
@@ -298,7 +298,7 @@ function HalamanHutang() {
         saldo_platform: parseFloat(formData.saldo_platform) || 0,
         nominal_transaksi: parseFloat(numericNominalTransaksi) || 0,
         jenis_transaksi: formData.jenis_transaksi, // Add jenis_transaksi field
-        biaya_admin: 0, // Set biaya_admin to 0 as it's no longer in the form
+        biaya_admin: parseFloat(extractNumeric(formData.biaya_admin) || 0), // Parse biaya_admin properly
         tanggal_transaksi: formattedDate, // Use the properly formatted date
         keterangan: formData.keterangan
       }
@@ -487,6 +487,7 @@ function HalamanHutang() {
         >
           Nominal Transaksi
         </InputField>
+
         <InputField
           name="biaya_admin"
           type="text"
@@ -496,7 +497,7 @@ function HalamanHutang() {
         >
           Biaya Admin
         </InputField>
-        
+
         <InputField
           name="tanggal_transaksi"
           type="date"

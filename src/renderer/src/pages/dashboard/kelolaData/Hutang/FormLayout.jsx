@@ -122,12 +122,17 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
     const { name, value } = e.target
 
     // Special handling for currency fields
-    if (name === 'amount') {
+    if (name === 'amount' || name === 'fee') {
       const numericValue = extractNumeric(value)
+
+      // Map fee to biaya_admin for consistency
+      const fieldName = name === 'fee' ? 'biaya_admin' : name
+      const rawFieldName = name === 'fee' ? 'biaya_adminRaw' : `${name}Raw`
+
       setFormData({
         ...formData,
-        [name]: formatRupiah(numericValue),
-        [`${name}Raw`]: numericValue // Store raw value for submission
+        [fieldName]: formatRupiah(numericValue),
+        [rawFieldName]: numericValue // Store raw value for submission
       })
     } else {
       setFormData({ ...formData, [name]: value })
@@ -151,7 +156,8 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
         platform: selectedItem.nama_sumber_dana,
         platformId: selectedItem.id, // Store the actual platform ID
         currentBalance: formatRupiah(selectedItem.saldo),
-        currentBalanceRaw: selectedItem.saldo.toString()
+        currentBalanceRaw: selectedItem.saldo.toString(),
+        biaya_admin: formatRupiah(selectedItem.biaya_admin || 0) // Add biaya_admin from platform
       })
     } else {
       setSelectedPlatform(null)
@@ -231,12 +237,14 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
       platform_id: parseInt(formData.platformId, 10),
       saldo_platform: parseFloat(formData.currentBalanceRaw || 0),
       nominal_transaksi: parseFloat(formData.amountRaw || extractNumeric(formData.amount) || 0),
-      biaya_admin: 0, // Default to 0 since fee was removed
+      biaya_admin: parseFloat(extractNumeric(formData.biaya_admin) || 0), // Include biaya_admin field
       tanggal_transaksi: formData.tanggal,
       keterangan: formData.description,
       // Add the transaction type
       jenis_transaksi: formData.transactionType
     }
+
+    console.log(submissionData)
 
     // Submit the data
     onSubmit(submissionData)
@@ -383,22 +391,21 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
           Nominal Transaksi
         </InputField>
         {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
-        
+
         <InputField
-          name="biaya_admin"
+          name="fee"
           type="text"
           value={formData.biaya_admin || ''}
-          onChange={(e) => {
-            const value = e.target.value.replace(/[^0-9]/g, '')
-            const formatted = formatRupiah(value)
-            setFormData({ ...formData, biaya_admin: formatted })
-          }}
+          onChange={handleInputChange}
           placeholder="Rp 0"
-          required={false}
+          className={selectedPlatform ? 'border-yellow-500' : ''}
         >
-          Biaya Admin
+          Biaya Admin{' '}
+          {selectedPlatform && (
+            <span className="text-xs text-yellow-600">(dari platform, dapat diedit)</span>
+          )}
         </InputField>
-        
+
         <InputField
           name="tanggal"
           type="date"
