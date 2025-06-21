@@ -4,8 +4,10 @@ import ButtonInput from '../../../../components/ButtonInput'
 import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const FormLayout = ({ onSubmit }) => {
+  const { isDark } = useTheme()
   const [modalOpen, setModalOpen] = useState(false)
   const [formData, setFormData] = useState({
     source: '',
@@ -36,27 +38,27 @@ const FormLayout = ({ onSubmit }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    
+
     // For fields that need Rupiah formatting
     if (name === 'biaya_admin' || name === 'saldo') {
       // Remove non-numeric characters for processing
       const numericValue = value.replace(/[^0-9]/g, '')
-      
+
       if (numericValue === '') {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
-          [name]: formatRupiah(0)  // Show Rp 0 instead of empty
+          [name]: formatRupiah(0) // Show Rp 0 instead of empty
         }))
       } else {
         // Format as Rupiah for display
         const formattedValue = formatRupiah(numericValue)
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           [name]: formattedValue
         }))
       }
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         [name]: value
       }))
@@ -120,6 +122,7 @@ const FormLayout = ({ onSubmit }) => {
           name="biaya_admin"
           type="text"
           value={formData.biaya_admin}
+           required={false}
           onChange={handleChange}
           placeholder="Rp 0"
         >
@@ -132,6 +135,7 @@ const FormLayout = ({ onSubmit }) => {
           type="text"
           value={formData.description}
           onChange={handleChange}
+          required={false}
           placeholder="Tambahkan keterangan (opsional)"
         >
           Keterangan

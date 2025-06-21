@@ -1,11 +1,9 @@
-import { HashRouter, Route, Routes } from "react-router-dom";
-
-import { DashboardRoutes } from "./routes";
-import React from "react";
+import { HashRouter, Route, Routes } from 'react-router-dom'
+import { ThemeProvider } from '../context/ThemeContext'
+import { DashboardRoutes } from './routes'
+import React from 'react'
 
 // import ScrollToTop from "@/shared/lib/ScrollToTop";
-
-// import { LoginPage } from "@/pages/auth";
 // import { useAuth } from "./contexts/AuthContext";
 
 const App = () => {
@@ -13,15 +11,17 @@ const App = () => {
   // if (loading) return;
 
   return (
-    <HashRouter>
-      {/* <ScrollToTop /> */}
-      <Routes>
-        {/* {MainRoutes()} */}
-        {DashboardRoutes()}
-        {/* <Route path="/login" element={<LoginPage />} /> */}
-      </Routes>
-    </HashRouter>
-  );
-};
+    <ThemeProvider>
+      <HashRouter>
+        {/* <ScrollToTop /> */}
+        <Routes>
+          {/* {MainRoutes()} */}
+          {DashboardRoutes()}
+          {/* <Route path="/login" element={<LoginPage />} /> */}
+        </Routes>
+      </HashRouter>
+    </ThemeProvider>
+  )
+}
 
-export default App;
+export default App

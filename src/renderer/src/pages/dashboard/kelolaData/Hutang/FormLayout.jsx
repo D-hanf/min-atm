@@ -8,7 +8,7 @@ import Modal from '../../../../shared/ui/Modal'
 import { useState } from 'react'
 import { useTheme } from '../../../../context/ThemeContext'
 
-const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) => {
+const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {} }) => {
   const { isDark } = useTheme()
   const [modalOpen, setModalOpen] = useState(false)
   const [loggedInUser, setLoggedInUser] = useState(null)
@@ -17,12 +17,11 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
   const [formData, setFormData] = useState({
     user_id: 1, // Will be replaced with current user ID
     platform: '',
+    platformId: null, // Store the platform ID for the database
     currentBalance: '',
     amount: '',
-    fee: '',
-    withdrawalMethod: '',
-    withdrawalAccount: '',
-    withdrawalDate: new Date().toISOString().split('T')[0],
+    transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
+    tanggal: new Date().toISOString().split('T')[0],
     description: ''
   })
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
@@ -33,9 +32,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
   const [errors, setErrors] = useState({
     platform: '',
     amount: '',
-    balance: '',
-    withdrawalMethod: '',
-    withdrawalAccount: ''
+    balance: ''
   })
 
   // Format currency
@@ -98,12 +95,11 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         user_id: loggedInUser?.id || 1, // Use logged in user ID
         // Use the last selected platform if available
         platform: lastSelectedPlatform || '',
+        platformId: null,
         currentBalance: '',
         amount: '',
-        fee: '',
-        withdrawalMethod: '',
-        withdrawalAccount: '',
-        withdrawalDate: new Date().toISOString().split('T')[0],
+        transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
+        tanggal: new Date().toISOString().split('T')[0],
         description: ''
       })
 
@@ -128,10 +124,15 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     // Special handling for currency fields
     if (name === 'amount' || name === 'fee') {
       const numericValue = extractNumeric(value)
+
+      // Map fee to biaya_admin for consistency
+      const fieldName = name === 'fee' ? 'biaya_admin' : name
+      const rawFieldName = name === 'fee' ? 'biaya_adminRaw' : `${name}Raw`
+
       setFormData({
         ...formData,
-        [name]: formatRupiah(numericValue),
-        [`${name}Raw`]: numericValue // Store raw value for submission
+        [fieldName]: formatRupiah(numericValue),
+        [rawFieldName]: numericValue // Store raw value for submission
       })
     } else {
       setFormData({ ...formData, [name]: value })
@@ -153,11 +154,10 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       setFormData({
         ...formData,
         platform: selectedItem.nama_sumber_dana,
-        platformId: selectedItem.id,
+        platformId: selectedItem.id, // Store the actual platform ID
         currentBalance: formatRupiah(selectedItem.saldo),
         currentBalanceRaw: selectedItem.saldo.toString(),
-        fee: formatRupiah(selectedItem.biaya_admin), // Auto-populate fee field
-        feeRaw: selectedItem.biaya_admin.toString() // Store raw value for submission
+        biaya_admin: formatRupiah(selectedItem.biaya_admin || 0) // Add biaya_admin from platform
       })
     } else {
       setSelectedPlatform(null)
@@ -167,9 +167,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         platform: '',
         platformId: null,
         currentBalance: '',
-        currentBalanceRaw: '',
-        fee: '',
-        feeRaw: ''
+        currentBalanceRaw: ''
       })
     }
   }
@@ -194,48 +192,32 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     const newErrors = {
       platform: '',
       amount: '',
-      balance: '',
-      withdrawalMethod: '',
-      withdrawalAccount: ''
+      balance: ''
     }
 
     let isValid = true
 
     // Validate platform selection
-    if (!selectedPlatform || !formData.platform) {
+    if (!selectedPlatform || !formData.platform || !formData.platformId) {
       newErrors.platform = 'Pilih platform/sumber dana terlebih dahulu'
       isValid = false
     }
 
-    // Validate withdrawal amount
+    // Validate transaction amount
     if (!formData.amount || formData.amountRaw === '0') {
-      newErrors.amount = 'Masukkan nominal pengambilan yang valid'
+      newErrors.amount = 'Masukkan nominal transaksi yang valid'
       isValid = false
     }
 
-    // Validate withdrawal method
-    if (!formData.withdrawalMethod) {
-      newErrors.withdrawalMethod = 'Masukkan metode pengambilan'
-      isValid = false
-    }
-
-    // Validate withdrawal account
-    if (!formData.withdrawalAccount) {
-      newErrors.withdrawalAccount = 'Masukkan tujuan pengambilan'
-      isValid = false
-    }
-
-    // Validate withdrawal amount doesn't exceed current balance
-    if (selectedPlatform && formData.amount) {
+    // Validate withdrawal amount doesn't exceed current balance for Bayar Hutang type
+    if (selectedPlatform && formData.amount && formData.transactionType === 'Bayar Hutang') {
       const currentBalance = parseFloat(formData.currentBalanceRaw || 0)
-      const withdrawalAmount = parseFloat(
+      const transactionAmount = parseFloat(
         formData.amountRaw || extractNumeric(formData.amount) || 0
       )
-      const adminFee = parseFloat(formData.feeRaw || extractNumeric(formData.fee) || 0)
-      const totalWithdrawal = withdrawalAmount + adminFee
 
-      if (totalWithdrawal > currentBalance) {
-        newErrors.balance = `Saldo ${selectedPlatform.nama_sumber_dana} tidak mencukupi untuk pengambilan sebesar ${formatRupiah(withdrawalAmount)} + biaya admin ${formatRupiah(adminFee)}.`
+      if (transactionAmount > currentBalance) {
+        newErrors.balance = `Saldo ${selectedPlatform.nama_sumber_dana} tidak mencukupi untuk pembayaran hutang sebesar ${formatRupiah(transactionAmount)}.`
         isValid = false
       }
     }
@@ -250,18 +232,19 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
 
     // Prepare data for submission
     const submissionData = {
-      ...formData,
       // Map form fields to database fields
-      petugas_pengambil_id: parseInt(formData.user_id, 10) || 1,
-      platform: formData.platform,
+      petugas_id: parseInt(formData.user_id, 10) || 1,
+      platform_id: parseInt(formData.platformId, 10),
       saldo_platform: parseFloat(formData.currentBalanceRaw || 0),
-      nominal_pengambilan: parseFloat(formData.amountRaw || extractNumeric(formData.amount) || 0),
-      biaya_admin: parseFloat(formData.feeRaw || extractNumeric(formData.fee) || 0),
-      metode_pengambilan: formData.withdrawalMethod,
-      tujuan_pengambilan: formData.withdrawalAccount,
-      tanggal_pengambilan: formData.withdrawalDate,
-      keterangan: formData.description
+      nominal_transaksi: parseFloat(formData.amountRaw || extractNumeric(formData.amount) || 0),
+      biaya_admin: parseFloat(extractNumeric(formData.biaya_admin) || 0), // Include biaya_admin field
+      tanggal_transaksi: formData.tanggal,
+      keterangan: formData.description,
+      // Add the transaction type
+      jenis_transaksi: formData.transactionType
     }
+
+    // console.log(submissionData)
 
     // Submit the data
     onSubmit(submissionData)
@@ -287,7 +270,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
           <label
             className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
           >
-            Petugas Pengambil
+            Petugas
           </label>
           <div
             className={`p-2 ${
@@ -361,6 +344,43 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
           </div>
         )}
 
+        {/* Transaction Type Radio Buttons */}
+        <div className="col-span-2 mb-4">
+          <label
+            className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+          >
+            Jenis Transaksi
+          </label>
+          <div className="flex gap-4">
+            <label
+              className={`inline-flex items-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+            >
+              <input
+                type="radio"
+                name="transactionType"
+                value="Ambil Hutang"
+                checked={formData.transactionType === 'Ambil Hutang'}
+                onChange={handleInputChange}
+                className="form-radio h-4 w-4 text-blue-600"
+              />
+              <span className="ml-2">Ambil Hutang</span>
+            </label>
+            <label
+              className={`inline-flex items-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+            >
+              <input
+                type="radio"
+                name="transactionType"
+                value="Bayar Hutang"
+                checked={formData.transactionType === 'Bayar Hutang'}
+                onChange={handleInputChange}
+                className="form-radio h-4 w-4 text-blue-600"
+              />
+              <span className="ml-2">Bayar Hutang</span>
+            </label>
+          </div>
+        </div>
+
         <InputField
           name="amount"
           type="text"
@@ -368,17 +388,17 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
           onChange={handleInputChange}
           placeholder="Rp 0"
         >
-          Nominal Pengambilan
+          Nominal Transaksi
         </InputField>
         {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
 
         <InputField
           name="fee"
           type="text"
-          value={formData.fee || ''}
+          value={formData.biaya_admin || ''}
           onChange={handleInputChange}
-          required={false}
           placeholder="Rp 0"
+          required={false}
           className={selectedPlatform ? 'border-yellow-500' : ''}
         >
           Biaya Admin{' '}
@@ -388,38 +408,12 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         </InputField>
 
         <InputField
-          name="withdrawalMethod"
-          type="text"
-          value={formData.withdrawalMethod || ''}
-          onChange={handleInputChange}
-          placeholder="Transfer Bank/Tunai/dll"
-        >
-          Metode Pengambilan
-        </InputField>
-        {errors.withdrawalMethod && (
-          <p className="text-red-500 text-xs mt-1">{errors.withdrawalMethod}</p>
-        )}
-
-        <InputField
-          name="withdrawalAccount"
-          type="text"
-          value={formData.withdrawalAccount || ''}
-          onChange={handleInputChange}
-          placeholder="No. Rekening/Nama Penerima"
-        >
-          Tujuan Pengambilan
-        </InputField>
-        {errors.withdrawalAccount && (
-          <p className="text-red-500 text-xs mt-1">{errors.withdrawalAccount}</p>
-        )}
-
-        <InputField
-          name="withdrawalDate"
+          name="tanggal"
           type="date"
-          value={formData.withdrawalDate || new Date().toISOString().split('T')[0]}
+          value={formData.tanggal || new Date().toISOString().split('T')[0]}
           onChange={handleInputChange}
         >
-          Tanggal Pengambilan
+          Tanggal Transaksi
         </InputField>
 
         <InputField
@@ -427,7 +421,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
           className="col-span-2"
           value={formData.description || ''}
           onChange={handleInputChange}
-          placeholder="Tambahan informasi pengambilan saldo"
+          placeholder="Tambahan informasi transaksi hutang"
           required={false}
         >
           Keterangan

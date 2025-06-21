@@ -208,42 +208,83 @@ export function deleteTransaksi(_event, id) {
       db.get(`SELECT * FROM transaksi WHERE id = ?`, [id], (err, trx) => {
         if (err || !trx) return reject(err || new Error('Transaksi tidak ditemukan'))
 
-        db.get(`SELECT * FROM history_transaksi WHERE transaksi_id = ?`, [id], (err2, history) => {
-          if (err2 || !history) return reject(err2 || new Error('History tidak ditemukan'))
+        // MULAI TRANSAKSI
+        db.run('BEGIN TRANSACTION', (beginErr) => {
+          if (beginErr) return reject(beginErr)
 
-          // MULAI TRANSAKSI
-          db.run('BEGIN TRANSACTION', (beginErr) => {
-            if (beginErr) return reject(beginErr)
+          const nominal = parseFloat(trx.nominal_transaksi) || 0
+          const fee = parseFloat(trx.fee) || 0
+          const biaya_admin = parseFloat(trx.biaya_admin_bank) || 0
 
-            // UPDATE saldo sumber
-            db.run(
-              `UPDATE saldo_awal SET saldo = ? WHERE id = ?`,
-              [history.sumber_dana_saldo_sebelum, history.sumber_dana_id],
-              (err3) => {
-                if (err3) return rollback(err3)
+          let perubahan_sumber = 0
+          let perubahan_terima = 0
 
-                // Kalau ada saldo terima, update juga
-                if (history.terima_dana_id) {
-                  db.run(
-                    `UPDATE saldo_awal SET saldo = ? WHERE id = ?`,
-                    [history.terima_dana_saldo_sebelum, history.terima_dana_id],
-                    (err4) => {
-                      if (err4) return rollback(err4)
-                      deleteTransaksi()
-                    }
-                  )
-                } else {
-                  deleteTransaksi()
-                }
+          switch (trx.jenis_transaksi) {
+            case 'Tarik Tunai':
+              perubahan_sumber = nominal
+              if (trx.metode_pembayaran === 'cash') {
+                perubahan_sumber -= fee
+              } else {
+                perubahan_terima = -1 * (nominal + fee)
               }
+              break
+
+            case 'Transfer':
+              perubahan_sumber = nominal + biaya_admin
+              perubahan_terima = -1 * (nominal + fee)
+              break
+
+            case 'Jasa Transfer':
+              perubahan_terima = -1 * fee
+              break
+
+            case 'Mode Pulsa':
+              perubahan_sumber = nominal + biaya_admin
+              perubahan_terima = -1 * (nominal + fee)
+              break
+          }
+
+          const updateQueries = []
+
+          if (trx.sumber_dana_id && perubahan_sumber !== 0) {
+            updateQueries.push(
+              new Promise((res, rej) => {
+                db.run(
+                  `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
+                  [perubahan_sumber, trx.sumber_dana_id],
+                  (err2) => {
+                    if (err2) return rej(err2)
+                    console.log(`✅ [DELETE] saldo sumber_dana + ${perubahan_sumber}`)
+                    res()
+                  }
+                )
+              })
             )
+          }
 
-            function deleteTransaksi() {
-              db.run(`DELETE FROM transaksi WHERE id = ?`, [id], (err5) => {
-                if (err5) return rollback(err5)
+          if (trx.terima_dana_id && perubahan_terima !== 0) {
+            updateQueries.push(
+              new Promise((res, rej) => {
+                db.run(
+                  `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
+                  [perubahan_terima, trx.terima_dana_id],
+                  (err3) => {
+                    if (err3) return rej(err3)
+                    console.log(`✅ [DELETE] saldo terima_dana + ${perubahan_terima}`)
+                    res()
+                  }
+                )
+              })
+            )
+          }
 
-                db.run(`DELETE FROM history_transaksi WHERE transaksi_id = ?`, [id], (err6) => {
-                  if (err6) return rollback(err6)
+          Promise.all(updateQueries)
+            .then(() => {
+              db.run(`DELETE FROM transaksi WHERE id = ?`, [id], (err4) => {
+                if (err4) return rollback(err4)
+
+                db.run(`DELETE FROM history_transaksi WHERE transaksi_id = ?`, [id], (err5) => {
+                  if (err5) return rollback(err5)
 
                   db.run('COMMIT', (commitErr) => {
                     if (commitErr) return rollback(commitErr)
@@ -251,14 +292,14 @@ export function deleteTransaksi(_event, id) {
                   })
                 })
               })
-            }
+            })
+            .catch(rollback)
 
-            function rollback(error) {
-              db.run('ROLLBACK', () => {
-                reject(error)
-              })
-            }
-          })
+          function rollback(error) {
+            db.run('ROLLBACK', () => {
+              reject(error)
+            })
+          }
         })
       })
     })

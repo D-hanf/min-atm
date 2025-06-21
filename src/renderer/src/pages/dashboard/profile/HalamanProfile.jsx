@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 import ButtonInput from '../../../components/ButtonInput'
 import InputField from '../../../components/InputField'
 import { useNavigate } from 'react-router-dom'
+import { useTheme } from '../../../context/ThemeContext'
 
 const HalamanEditProfilAdmin = () => {
   const navigate = useNavigate()
@@ -14,6 +15,7 @@ const HalamanEditProfilAdmin = () => {
     phone: '',
     role: ''
   })
+  const { isDark } = useTheme()
 
   const [message, setMessage] = useState(null)
 
@@ -48,14 +50,12 @@ const HalamanEditProfilAdmin = () => {
         role: formData.role
       }
 
-      // hanya tambahkan password kalau diisi
       if (formData.password && formData.password.trim() !== '') {
         updateData.password = formData.password
       }
 
       await window.api.updateKaryawan(updateData)
 
-      // Update localStorage (tanpa password)
       const updatedUser = {
         id: formData.id,
         nama: formData.name,
@@ -74,13 +74,24 @@ const HalamanEditProfilAdmin = () => {
   }
 
   return (
-    <div className="max-w-xl mx-auto p-6 bg-white shadow-md rounded-lg mt-6">
+    <div
+      className={`
+        max-w-xl mx-auto p-6 rounded-lg mt-6 shadow-md
+        ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'}
+      `}
+    >
       <h2 className="text-xl font-semibold mb-4">Edit Profil Admin</h2>
 
       {message && (
         <div
           className={`mb-4 text-sm px-3 py-2 rounded ${
-            message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-700'
+            message.type === 'success'
+              ? isDark
+                ? 'bg-green-900 text-green-200'
+                : 'bg-green-100 text-green-800'
+              : isDark
+              ? 'bg-red-900 text-red-200'
+              : 'bg-red-100 text-red-700'
           }`}
         >
           {message.text}
