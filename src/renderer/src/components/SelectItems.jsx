@@ -1,14 +1,14 @@
 import React from 'react'
 import { useTheme } from '../context/ThemeContext'
 
-const SelectItems = ({ label, name, value, onChange, options = [], required = true }) => {
+const SelectItems = ({ label, name, value, onChange, options = [], required = true, hidden = false }) => {
   const { isDark } = useTheme()
 
   return (
     <div className="mb-4">
       <label
         htmlFor={name}
-        className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+        className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'} ${hidden ? 'hidden' : ''}`}
       >
         {label} {required && <span className="text-red-500">*</span>}
       </label>
@@ -18,7 +18,7 @@ const SelectItems = ({ label, name, value, onChange, options = [], required = tr
         value={value}
         onChange={onChange}
         required={required}
-        className={`w-full px-3 py-2 border ${
+        className={`${hidden  ? 'hidden' : ''} w-full px-3 py-2 border ${
           isDark
             ? 'border-gray-600 bg-gray-700 text-white'
             : 'border-gray-300 bg-white text-gray-800'

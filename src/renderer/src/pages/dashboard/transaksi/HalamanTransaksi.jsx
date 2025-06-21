@@ -164,7 +164,6 @@ const HalamanTransaksi = () => {
 
           case 'transfer':
             final -= nominal + adminBank
-            final += nominal + fee
             break
 
           case 'jasa transfer':
@@ -173,7 +172,6 @@ const HalamanTransaksi = () => {
 
           case 'mode pulsa':
             final -= nominal + adminBank
-            final += nominal + fee
             break
 
           default:

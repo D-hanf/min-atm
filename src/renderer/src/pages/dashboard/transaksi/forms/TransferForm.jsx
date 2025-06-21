@@ -182,6 +182,7 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
 
       <InputField
         name="biaya_admin"
+         required={false}
         type="text"
         value={
           formData.biaya_admin

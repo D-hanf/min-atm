@@ -377,6 +377,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
           type="text"
           value={formData.fee || ''}
           onChange={handleInputChange}
+          required={false}
           placeholder="Rp 0"
           className={selectedPlatform ? 'border-yellow-500' : ''}
         >

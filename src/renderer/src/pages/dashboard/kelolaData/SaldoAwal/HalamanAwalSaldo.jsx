@@ -264,6 +264,7 @@ const HalamanAwalSaldo = () => {
         <InputField
           name="biaya_admin"
           type="text"
+           required={false}
           value={formData.biaya_admin}
           onChange={handleRupiahInput}
         >

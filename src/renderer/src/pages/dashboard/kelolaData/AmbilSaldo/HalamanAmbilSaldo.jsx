@@ -540,6 +540,7 @@ const HalamanAmbilSaldo = () => {
 
         <InputField
           name="biaya_admin"
+          required={false}
           type="text"
           value={formData.biaya_admin || ''}
           onChange={(e) => handleCurrencyInputChange(e, 'biaya_admin')}

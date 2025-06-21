@@ -42,14 +42,12 @@ const JasaTransferForm = ({ formData, onChange }) => {
   }, [])
 
   useEffect(() => {
-    if (
-      sumberDanaList.length > 0 &&
-      !formData.sumber_dana_id // jika belum dipilih
-    ) {
+    const laci = sumberDanaList.find((item) => item.nama_sumber_dana.toLowerCase() === 'laci')
+    if (laci && !formData.sumber_dana_id) {
       onChange({
         target: {
           name: 'sumber_dana_id',
-          value: sumberDanaList[0].id
+          value: laci.id
         }
       })
     }
@@ -82,16 +80,19 @@ const JasaTransferForm = ({ formData, onChange }) => {
         Tanggal
       </InputField>
       <SelectItems
-        className="hidden"
-        options={sumberDanaList.map((item) => ({
-          label: item.nama_sumber_dana,
-          value: item.id
-        }))}
+        hidden={true}
+        options={sumberDanaList
+          .filter((item) => item.nama_sumber_dana.toLowerCase() === 'laci')
+          .map((item) => ({
+            label: item.nama_sumber_dana,
+            value: item.id
+          }))}
         label=""
         name="sumber_dana_id"
         value={formData.sumber_dana_id || ''}
         onChange={onChange}
       />
+
       <SelectItems
         options={sumberDanaList.map((item) => ({
           label: item.nama_sumber_dana,
@@ -133,7 +134,8 @@ const JasaTransferForm = ({ formData, onChange }) => {
         type="text"
         value={formData.description || ''}
         onChange={onChange}
-        required={false}      >
+        required={false}
+      >
         Keterangan
       </InputField>
     </>

@@ -122,6 +122,7 @@ const FormLayout = ({ onSubmit }) => {
           name="biaya_admin"
           type="text"
           value={formData.biaya_admin}
+           required={false}
           onChange={handleChange}
           placeholder="Rp 0"
         >
