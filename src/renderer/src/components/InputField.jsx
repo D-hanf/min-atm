@@ -1,9 +1,15 @@
 import { HiEye, HiEyeSlash } from 'react-icons/hi2'
 import React, { useState } from 'react'
 
+import { useTheme } from '../context/ThemeContext'
+
 const LabelInput = ({ id, children }) => {
+  const { isDark } = useTheme()
   return (
-    <label htmlFor={id} className="block text-sm/6 font-medium text-gray-900">
+    <label
+      htmlFor={id}
+      className={`block text-sm/6 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}
+    >
       {children}
     </label>
   )
@@ -15,12 +21,15 @@ const InputHere = ({
   name,
   value,
   placeholder,
-  onChange={onChange},
+  onChange = { onChange },
   showToggle,
   showPassword,
   togglePassword,
+  disabled = false,
   ...props
 }) => {
+  const { isDark } = useTheme()
+
   return (
     <div className="relative mt-2">
       <input
@@ -31,14 +40,22 @@ const InputHere = ({
         placeholder={placeholder}
         value={value}
         onChange={onChange}
+        disabled={disabled}
         {...props}
-        className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-sky-600 sm:text-sm/6"
+        className={`
+          block w-full rounded-md px-3 py-1.5 text-base 
+          placeholder:text-gray-400 sm:text-sm/6 outline-1 focus:outline-2 
+          ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white text-gray-900 border-gray-300'}
+          ${showPassword ? 'border-blue-500' : ''}
+          ${showToggle ? 'pr-10' : ''}
+          ${disabled ? 'opacity-60 cursor-not-allowed' : ''}
+        `}
       />
       {showToggle && (
         <button
           type="button"
           onClick={togglePassword}
-          className="absolute inset-y-0 right-3 flex items-center text-gray-500 focus:outline-none"
+          className="absolute inset-y-0 right-3 flex items-center text-gray-400 focus:outline-none"
         >
           {showPassword ? <HiEyeSlash /> : <HiEye />}
         </button>
@@ -49,29 +66,27 @@ const InputHere = ({
 
 const InputField = ({
   children,
-  id,
-  type = 'text',
   name,
-  placeholder,
+  type = 'text',
   value,
   onChange,
-  required,
-  className,
+  required = true,
+  className = '',
+  placeholder = '',
+  disabled = false,
   ...props
 }) => {
   const [showPassword, setShowPassword] = useState(false)
-
   const togglePassword = () => setShowPassword((prev) => !prev)
-
   const isPasswordField = type === 'password'
 
   return (
-    <div className={className}>
+    <div className={`mb-4 ${className}`}>
       <div className="flex items-center justify-between">
-        <LabelInput id={id}>{children}</LabelInput>
+        <LabelInput id={name}>{children}</LabelInput>
       </div>
       <InputHere
-        id={id}
+        id={name}
         type={type}
         name={name}
         placeholder={placeholder}
@@ -81,6 +96,7 @@ const InputField = ({
         showToggle={isPasswordField}
         showPassword={showPassword}
         togglePassword={togglePassword}
+        disabled={disabled}
         {...props}
       />
     </div>

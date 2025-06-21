@@ -3,8 +3,10 @@ import React, { useEffect, useState } from 'react'
 import InputField from '../../../../components/InputField'
 import RupiahInput from '../../../../components/RupiahInput'
 import SelectItems from '../../../../components/SelectItems'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const TransferForm = ({ formData, onChange, onValidChange }) => {
+  const { isDark } = useTheme()
   const [nominalError, setNominalError] = useState('')
   const [feeType, setFeeType] = useState('Digital')
   const [sumberDanaList, setSumberDanaList] = useState([])
@@ -64,39 +66,42 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
   }, [formData.nominal_transaksi, manualFee])
 
   // Validasi saldo cukup
-// Validasi saldo cukup
-useEffect(() => {
-  const nominal = parseFloat(formData.nominal_transaksi || 0)
-  const admin = parseFloat(formData.biaya_admin || 0)
-  const totalPengeluaran = nominal + admin
+  useEffect(() => {
+    const nominal = parseFloat(formData.nominal_transaksi || 0)
+    const admin = parseFloat(formData.biaya_admin || 0)
+    const totalPengeluaran = nominal + admin
 
-  const sumberDana = sumberDanaList.find(
-    (item) => item.id === parseInt(formData.sumber_dana_id)
-  )
+    const sumberDana = sumberDanaList.find((item) => item.id === parseInt(formData.sumber_dana_id))
 
-  if (sumberDana && totalPengeluaran > sumberDana.saldo) {
-    setNominalError(
-      `Saldo tidak cukup. Saldo tersedia: Rp ${sumberDana.saldo.toLocaleString('id-ID')}`
-    )
-    onValidChange?.(false)
-  } else {
-    setNominalError('')
-    onValidChange?.(true)
-  }
-}, [
-  formData.sumber_dana_id,
-  formData.nominal_transaksi,
-  formData.biaya_admin, // ✅ tambahkan dependency-nya juga
-  sumberDanaList
-])
+    if (sumberDana && totalPengeluaran > sumberDana.saldo) {
+      setNominalError(
+        `Saldo tidak cukup. Saldo tersedia: Rp ${sumberDana.saldo.toLocaleString('id-ID')}`
+      )
+      onValidChange?.(false)
+    } else {
+      setNominalError('')
+      onValidChange?.(true)
+    }
+  }, [
+    formData.sumber_dana_id,
+    formData.nominal_transaksi,
+    formData.biaya_admin, // ✅ tambahkan dependency-nya juga
+    sumberDanaList
+  ])
 
   return (
     <>
       {/* Header Nomor Transaksi */}
-      <div className="bg-gray-50 p-4 rounded-lg mb-4 border-l-4 border-blue-500">
+      <div
+        className={`${isDark ? 'bg-gray-700 border-blue-700' : 'bg-gray-50 border-blue-500'} p-4 rounded-lg mb-4 border-l-4`}
+      >
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-600">Nomor Transaksi:</span>
-          <span className="bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
+          <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+            Nomor Transaksi:
+          </span>
+          <span
+            className={`${isDark ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'} text-sm font-semibold px-3 py-1 rounded-full`}
+          >
             {formData.no_transaksi || 'Generating...'}
           </span>
         </div>
@@ -177,6 +182,7 @@ useEffect(() => {
 
       <InputField
         name="biaya_admin"
+         required={false}
         type="text"
         value={
           formData.biaya_admin
@@ -204,6 +210,7 @@ useEffect(() => {
         type="text"
         value={formData.keterangan || ''}
         onChange={onChange}
+        required={false}
       >
         Keterangan
       </InputField>

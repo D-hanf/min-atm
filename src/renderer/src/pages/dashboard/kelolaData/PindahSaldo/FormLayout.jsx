@@ -6,6 +6,7 @@ import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
 import SelectItems from '../../../../components/SelectItems'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const FormLayout = ({
   onSubmit,
@@ -13,6 +14,7 @@ const FormLayout = ({
   initialData = {},
   saldoOptions = []
 }) => {
+  const { isDark } = useTheme()
   const [modalOpen, setModalOpen] = useState(false)
   const [formData, setFormData] = useState(initialData)
   const [saldoData, setSaldoData] = useState([])
@@ -327,19 +329,22 @@ const FormLayout = ({
           {buttonText}
         </ButtonInput>
       </div>
-      <Modal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={() => handleSubmit()}
-        preventCloseOnSubmit={true} // Add this prop if your Modal component supports it
-      >
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}>
         {/* Replace input field with display of user name */}
         <div className="col-span-2 mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Petugas Pemindah</label>
-          <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
-            {loggedInUser
-              ? loggedInUser.nama || 'User ID: ' + loggedInUser.id
-              : 'Loading...'}
+          <label
+            className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+          >
+            Petugas Pemindah
+          </label>
+          <div
+            className={`p-2 ${
+              isDark
+                ? 'bg-gray-700 border-gray-600 text-gray-300'
+                : 'bg-gray-100 border-gray-300 text-gray-700'
+            } border rounded-md`}
+          >
+            {loggedInUser ? loggedInUser.nama || 'User ID: ' + loggedInUser.id : 'Loading...'}
           </div>
           {/* Hidden input to store the user ID */}
           <input type="hidden" name="user_id" value={loggedInUser ? loggedInUser.id : 1} />

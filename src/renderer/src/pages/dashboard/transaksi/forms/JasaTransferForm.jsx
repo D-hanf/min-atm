@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react'
 
 import InputField from '../../../../components/InputField'
 import SelectItems from '../../../../components/SelectItems'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const JasaTransferForm = ({ formData, onChange }) => {
+  const { isDark } = useTheme()
   const [sumberDanaList, setSumberDanaList] = useState([])
   const [manualFee, setManualFee] = useState(false)
 
@@ -40,26 +42,30 @@ const JasaTransferForm = ({ formData, onChange }) => {
   }, [])
 
   useEffect(() => {
-  if (
-    sumberDanaList.length > 0 &&
-    !formData.sumber_dana_id // jika belum dipilih
-  ) {
-    onChange({
-      target: {
-        name: 'sumber_dana_id',
-        value: sumberDanaList[0].id
-      }
-    })
-  }
-}, [sumberDanaList])
+    const laci = sumberDanaList.find((item) => item.nama_sumber_dana.toLowerCase() === 'laci')
+    if (laci && !formData.sumber_dana_id) {
+      onChange({
+        target: {
+          name: 'sumber_dana_id',
+          value: laci.id
+        }
+      })
+    }
+  }, [sumberDanaList])
 
   return (
     <>
       {/* Header Nomor Transaksi */}
-      <div className="bg-gray-50 p-4 rounded-lg mb-4 border-l-4 border-blue-500">
+      <div
+        className={`${isDark ? 'bg-gray-700 border-blue-700' : 'bg-gray-50 border-blue-500'} p-4 rounded-lg mb-4 border-l-4`}
+      >
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-600">Nomor Transaksi:</span>
-          <span className="bg-blue-100 text-blue-800 text-sm font-semibold px-3 py-1 rounded-full">
+          <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+            Nomor Transaksi:
+          </span>
+          <span
+            className={`${isDark ? 'bg-blue-900 text-blue-100' : 'bg-blue-100 text-blue-800'} text-sm font-semibold px-3 py-1 rounded-full`}
+          >
             {formData.transactionNumber || 'Generating...'}
           </span>
         </div>
@@ -73,16 +79,20 @@ const JasaTransferForm = ({ formData, onChange }) => {
       >
         Tanggal
       </InputField>
-      <SelectItems className="hidden"
-        options={sumberDanaList.map((item) => ({
-          label: item.nama_sumber_dana,
-          value: item.id
-        }))}
+      <SelectItems
+        hidden={true}
+        options={sumberDanaList
+          .filter((item) => item.nama_sumber_dana.toLowerCase() === 'laci')
+          .map((item) => ({
+            label: item.nama_sumber_dana,
+            value: item.id
+          }))}
         label=""
         name="sumber_dana_id"
         value={formData.sumber_dana_id || ''}
         onChange={onChange}
       />
+
       <SelectItems
         options={sumberDanaList.map((item) => ({
           label: item.nama_sumber_dana,
@@ -124,6 +134,7 @@ const JasaTransferForm = ({ formData, onChange }) => {
         type="text"
         value={formData.description || ''}
         onChange={onChange}
+        required={false}
       >
         Keterangan
       </InputField>

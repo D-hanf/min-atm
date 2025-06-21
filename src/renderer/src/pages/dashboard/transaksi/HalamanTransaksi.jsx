@@ -9,11 +9,14 @@ import FormLayout from './FormLayout'
 import FundSourcesCard from '../../../components/FundSourcesCard'
 import { IoMdPrint } from 'react-icons/io'
 import ModalEdit from '../../../shared/ui/Modal'
+import PageContainer from '../../../components/PageContainer'
 import ReceiptView from './ReceiptView'
 import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
+import { useTheme } from '../../../context/ThemeContext'
 
 const HalamanTransaksi = () => {
+  const { isDark } = useTheme()
   const [stores, setStore] = useState([])
   const [emptyBalances, setEmptyBalances] = useState([])
   const [formValid, setFormValid] = useState(true)
@@ -85,7 +88,7 @@ const HalamanTransaksi = () => {
       }))
 
       // 🔍 Cek yang saldonya 0
-      const kosong = result.filter((item) => Number(item.saldo) === 0)
+      const kosong = result.filter((item) => Number(item.saldo) < 1000000 || Number(item.saldo) === 1000000)
       setEmptyBalances(kosong)
     } catch (error) {
       console.error('❌ Gagal ambil data saldo:', error)
@@ -161,7 +164,6 @@ const HalamanTransaksi = () => {
 
           case 'transfer':
             final -= nominal + adminBank
-            final += nominal + fee
             break
 
           case 'jasa transfer':
@@ -170,7 +172,6 @@ const HalamanTransaksi = () => {
 
           case 'mode pulsa':
             final -= nominal + adminBank
-            final += nominal + fee
             break
 
           default:
@@ -366,19 +367,15 @@ const HalamanTransaksi = () => {
   }
 
   return (
-    <div className="flex flex-col justify-end h-full">
+    <PageContainer title="Transaksi">
       <div className="flex w-full gap-4 items-center mb-6">
-        <div className="flex w-full gap-4 items-center  p-4">
+        <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-gray-800 ">Transaksi</h1>
+            <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              Transaksi
+            </h1>
           </div>
           <div className="flex gap-6 max-w-xs">
-            {/* <Dropdown
-              className="w-full"
-              label="Pindah Toko"
-              items={stores.map((store) => ({ id: store.id, name: store.nama_toko }))} // ✅ object
-              color={'gray'}
-            /> */}
             <ButtonInput size="xs" color={'indigo'} onClick={printSummaryOnly}>
               <IoMdPrint size={20} />
               Print
@@ -408,8 +405,10 @@ const HalamanTransaksi = () => {
       />
 
       {emptyBalances.length > 0 && (
-        <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 px-4 py-3 rounded mb-4 mx-4">
-          <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya kosong:
+        <div
+          className={`${isDark ? 'bg-yellow-900 border-yellow-800 text-yellow-200' : 'bg-yellow-100 border-yellow-300 text-yellow-800'} border px-4 py-3 rounded mb-4 mx-4`}
+        >
+          <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya hampir habis/kosong:
           <ul className="list-disc list-inside ml-4 mt-1">
             {emptyBalances.map((item) => (
               <li key={item.id}>{item.nama_sumber_dana}</li>
@@ -475,7 +474,7 @@ const HalamanTransaksi = () => {
           setFormData({ source: '', saldo: '', dateCreated: '', dateUpdated: '', description: '' })
         }}
       />
-    </div>
+    </PageContainer>
   )
 }
 

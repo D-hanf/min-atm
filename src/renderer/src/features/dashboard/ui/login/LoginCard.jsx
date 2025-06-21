@@ -3,12 +3,14 @@ import React, { useState } from 'react'
 import ButtonInput from '../../../../components/ButtonInput'
 import InputField from '../../../../components/InputField'
 import { useNavigate } from 'react-router-dom'
+import { useTheme } from '../../../../context/ThemeContext'
 
 const LoginCard = () => {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const { isDark } = useTheme()
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -38,11 +40,10 @@ const LoginCard = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+    <div className={`${isDark ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100'} min-h-screen flex items-center justify-center px-4`}>
+      <div className={`${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} rounded-2xl shadow-2xl p-8 w-full max-w-md`}>
         {/* Logo and App Name */}
         <div className="text-center mb-8">
-          {/* Logo Icon */}
           <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
             <svg
               className="w-8 h-8 text-white"
@@ -59,58 +60,54 @@ const LoginCard = () => {
             </svg>
           </div>
 
-          {/* App Name */}
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">MINI ATM</h1>
-          <p className="text-gray-600 text-sm">Sistem Kasir Digital</p>
+          <h1 className="text-3xl font-bold mb-2">MINI ATM</h1>
+          <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'} text-sm`}>Sistem Kasir Digital</p>
         </div>
 
         {/* Login Form */}
         <form className="space-y-6" onSubmit={handleLogin}>
-          <div>
-            <InputField
-              id="username"
-              name="username"
-              value={username}
-              type="text"
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            >
-              Username
-            </InputField>
-          </div>
+          <InputField
+            id="username"
+            name="username"
+            value={username}
+            type="text"
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          >
+            Username
+          </InputField>
 
-          <div>
-            <InputField
-              id="password"
-              name="password"
-              value={password}
-              type="password"
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            >
-              Password
-            </InputField>
-          </div>
+          <InputField
+            id="password"
+            name="password"
+            value={password}
+            type="password"
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          >
+            Password
+          </InputField>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-600 text-center">{error}</p>
+            <div className="bg-red-50 border border-red-200 dark:bg-red-900 dark:border-red-700 rounded-lg p-3">
+              <p className="text-sm text-red-600 dark:text-red-300 text-center">{error}</p>
             </div>
           )}
 
           <div>
             <ButtonInput
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200"
+              className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 transform hover:scale-105 transition-all duration-200 text-white"
             >
               Sign in
             </ButtonInput>
           </div>
         </form>
 
-        {/* Footer */}
         <div className="mt-8 text-center">
-          <p className="text-xs text-gray-500">© 2025 Mini ATM. All rights reserved.</p>
+          <p className={`${isDark ? 'text-gray-500' : 'text-gray-500'} text-xs`}>
+            © 2025 Mini ATM. All rights reserved.
+          </p>
         </div>
       </div>
     </div>
