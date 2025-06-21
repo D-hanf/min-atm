@@ -244,7 +244,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
       jenis_transaksi: formData.transactionType
     }
 
-    console.log(submissionData)
+    // console.log(submissionData)
 
     // Submit the data
     onSubmit(submissionData)
