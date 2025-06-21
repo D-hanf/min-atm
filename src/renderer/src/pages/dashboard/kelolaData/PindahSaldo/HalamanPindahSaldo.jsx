@@ -14,7 +14,7 @@ import { useTheme } from '../../../../context/ThemeContext'
 
 const HalamanPindahSaldo = () => {
   const [stores, setStores] = useState([])
-    const { isDark } = useTheme()
+  const { isDark } = useTheme()
   const [selectedStore, setSelectedStore] = useState(null)
   const [transfers, setTransfers] = useState([])
   const [saldoData, setSaldoData] = useState([])
@@ -250,13 +250,7 @@ const HalamanPindahSaldo = () => {
     setDeleteId(id)
 
     // Set confirmation message with amount details
-    const confirmMessage = transferToDelete
-      ? `Apakah Anda yakin ingin menghapus data pemindahan saldo ini? 
-      \nNominal ${formatRupiah(transferToDelete.amount)} dan biaya admin ${formatRupiah(
-        transferToDelete.operational
-      )} 
-      akan dikembalikan ke saldo ${transferToDelete.senderBalance}.`
-      : 'Apakah Anda yakin ingin menghapus data pemindahan saldo ini?'
+    const confirmMessage = 'Apakah Anda yakin ingin menghapus data pemindahan saldo ini?'
 
     setConfirmMessage(confirmMessage)
     setShowConfirmDialog(true)
@@ -542,7 +536,9 @@ const HalamanPindahSaldo = () => {
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
-            <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`} >Pindah Saldo</h1>
+            <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              Pindah Saldo
+            </h1>
           </div>
           {/* <div className="flex-1 max-w-xs">
             <Dropdown
@@ -597,8 +593,18 @@ const HalamanPindahSaldo = () => {
       >
         {/* Replace input field with display of user name */}
         <div className="col-span-2 mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">User Pemindah</label>
-          <div className="p-2 bg-gray-100 border border-gray-300 rounded-md text-gray-700">
+          <label
+            className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+          >
+            User Pemindah
+          </label>
+          <div
+            className={`p-2 border rounded-md ${
+              isDark
+                ? 'bg-gray-700 border-gray-600 text-gray-200'
+                : 'bg-gray-100 border-gray-300 text-gray-700'
+            }`}
+          >
             {formData.user ||
               (loggedInUser
                 ? loggedInUser.username || loggedInUser.nama || 'User ID: ' + loggedInUser.id
