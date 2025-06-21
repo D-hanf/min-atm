@@ -398,6 +398,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
           value={formData.biaya_admin || ''}
           onChange={handleInputChange}
           placeholder="Rp 0"
+          required={false}
           className={selectedPlatform ? 'border-yellow-500' : ''}
         >
           Biaya Admin{' '}

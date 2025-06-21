@@ -494,6 +494,7 @@ function HalamanHutang() {
           value={formData.biaya_admin || ''}
           onChange={(e) => handleCurrencyInputChange(e, 'biaya_admin')}
           placeholder="Rp 0"
+          required={false}
         >
           Biaya Admin
         </InputField>
