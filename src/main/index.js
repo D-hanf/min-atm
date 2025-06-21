@@ -149,6 +149,20 @@ app.whenReady().then(() => {
       FOREIGN KEY (terima_dana_id) REFERENCES saldo_awal(id)
     )
   `)
+    db.run(`CREATE TABLE IF NOT EXISTS hutang (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    petugas_id INTEGER NOT NULL,
+    platform_id TEXT NOT NULL,
+    saldo_platform REAL NOT NULL,
+    jenis_transaksi TEXT NOT NULL, -- 'Ambil Hutang' or 'Bayar Hutang'
+    nominal_transaksi REAL NOT NULL,
+    biaya_admin REAL DEFAULT 0,
+    tanggal_transaksi DATETIME DEFAULT CURRENT_TIMESTAMP,
+    keterangan TEXT,
+    FOREIGN KEY (petugas_id) REFERENCES users(id),
+    FOREIGN KEY (platform_id) REFERENCES saldo_awal(id)
+  )
+    `)
     // db.run(`ALTER TABLE users ADD COLUMN toko_id INTEGER`) =>  untuk menambahkan kolom toko_id&no_telepon di table users
     // Insert toko
     // Cek dulu apakah toko "Toko Alpha" sudah ada
@@ -330,6 +344,319 @@ app.whenReady().then(() => {
     })
 
     // ============================= end saldo awal handler =============================
+
+    // ============================= Hutang handler =============================
+
+    ipcMain.handle('get-hutang', () => {
+      return new Promise((resolve, reject) => {
+        db.all(
+          'SELECT h.*, s.nama_sumber_dana as platform_name FROM hutang h LEFT JOIN saldo_awal s ON h.platform_id = s.id',
+          [],
+          (err, rows) => {
+            if (err) {
+              console.error('❌ Error getting hutang data:', err)
+              reject(err)
+            } else {
+              console.log('✅ Successfully retrieved hutang data, count:', rows.length)
+              resolve(rows)
+            }
+          }
+        )
+      })
+    })
+
+    ipcMain.handle('create-hutang', (event, data) => {
+      return new Promise((resolve, reject) => {
+        // First get the platform to validate and get current saldo
+        db.get(
+          'SELECT id, saldo FROM saldo_awal WHERE id = ?',
+          [data.platform_id],
+          (err, platform) => {
+            if (err) {
+              console.error('❌ Error finding platform in create-hutang:', err)
+              return reject(err)
+            }
+
+            if (!platform) {
+              return reject(new Error(`Platform with ID ${data.platform_id} not found`))
+            }
+
+            try {
+              db.serialize(() => {
+                // Start transaction
+                db.run('BEGIN TRANSACTION')
+
+                // Determine if we should add or subtract based on jenis_transaksi
+                const isAddingToSaldo = data.jenis_transaksi === 'Ambil Hutang'
+                const operation = isAddingToSaldo ? '+' : '-'
+
+                // STEP 1: Update the saldo_awal table - add for Ambil Hutang, subtract for Bayar Hutang
+                db.run(
+                  `UPDATE saldo_awal SET saldo = saldo ${operation} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
+                  [data.nominal_transaksi, data.platform_id],
+                  function (err) {
+                    if (err) {
+                      db.run('ROLLBACK')
+                      console.error(`❌ Error updating saldo_awal in create-hutang:`, err)
+                      return reject(err)
+                    }
+
+                    // STEP 2: Insert the record into hutang table
+                    const newSaldo = isAddingToSaldo
+                      ? platform.saldo + data.nominal_transaksi
+                      : platform.saldo - data.nominal_transaksi
+
+                    db.run(
+                      `INSERT INTO hutang (
+                      petugas_id, 
+                      platform_id, 
+                      saldo_platform, 
+                      jenis_transaksi,
+                      nominal_transaksi, 
+                      biaya_admin, 
+                      tanggal_transaksi, 
+                      keterangan
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                      [
+                        data.petugas_id,
+                        data.platform_id,
+                        newSaldo,
+                        data.jenis_transaksi,
+                        data.nominal_transaksi,
+                        data.biaya_admin || 0,
+                        data.tanggal_transaksi || new Date().toISOString(),
+                        data.keterangan || ''
+                      ],
+                      function (err) {
+                        if (err) {
+                          db.run('ROLLBACK')
+                          console.error('❌ Error inserting into hutang:', err)
+                          return reject(err)
+                        }
+
+                        // Commit transaction
+                        db.run('COMMIT', (err) => {
+                          if (err) {
+                            console.error('❌ Error committing transaction:', err)
+                            return reject(err)
+                          }
+
+                          console.log('✅ Hutang created successfully')
+                          resolve({ id: this.lastID })
+                        })
+                      }
+                    )
+                  }
+                )
+              })
+            } catch (error) {
+              console.error('❌ Transaction error in create-hutang:', error)
+              reject(error)
+            }
+          }
+        )
+      })
+    })
+
+    ipcMain.handle('update-hutang', (event, data) => {
+      return new Promise((resolve, reject) => {
+        // First get the original record to calculate saldo changes
+        db.get(
+          'SELECT id, platform_id, nominal_transaksi, jenis_transaksi FROM hutang WHERE id = ?',
+          [data.id],
+          (err, originalRecord) => {
+            if (err) {
+              console.error('❌ Error getting original hutang record:', err)
+              return reject(err)
+            }
+
+            if (!originalRecord) {
+              return reject(new Error(`Hutang record with ID ${data.id} not found`))
+            }
+
+            // Get the platform's current saldo
+            db.get(
+              'SELECT id, saldo FROM saldo_awal WHERE id = ?',
+              [data.platform_id],
+              (err, platform) => {
+                if (err) {
+                  console.error('❌ Error getting platform saldo:', err)
+                  return reject(err)
+                }
+
+                if (!platform) {
+                  return reject(new Error(`Platform with ID ${data.platform_id} not found`))
+                }
+
+                try {
+                  db.serialize(() => {
+                    // Start transaction
+                    db.run('BEGIN TRANSACTION')
+
+                    // Calculate saldo adjustments
+                    // First, reverse the original transaction effect on saldo
+                    const originalWasAddition = originalRecord.jenis_transaksi === 'Ambil Hutang'
+                    const reverseOperation = originalWasAddition ? '-' : '+'
+
+                    // Reverse the original transaction
+                    db.run(
+                      `UPDATE saldo_awal SET saldo = saldo ${reverseOperation} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
+                      [originalRecord.nominal_transaksi, originalRecord.platform_id],
+                      function (err) {
+                        if (err) {
+                          db.run('ROLLBACK')
+                          console.error('❌ Error reversing original transaction:', err)
+                          return reject(err)
+                        }
+
+                        // Now apply the new transaction
+                        const newIsAddition = data.jenis_transaksi === 'Ambil Hutang'
+                        const newOperation = newIsAddition ? '+' : '-'
+
+                        // Apply new transaction
+                        db.run(
+                          `UPDATE saldo_awal SET saldo = saldo ${newOperation} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
+                          [data.nominal_transaksi, data.platform_id],
+                          function (err) {
+                            if (err) {
+                              db.run('ROLLBACK')
+                              console.error('❌ Error applying new transaction:', err)
+                              return reject(err)
+                            }
+
+                            // Calculate the new saldo
+                            const adjustedSaldo =
+                              platform.saldo +
+                              (originalWasAddition
+                                ? -originalRecord.nominal_transaksi
+                                : originalRecord.nominal_transaksi) +
+                              (newIsAddition ? data.nominal_transaksi : -data.nominal_transaksi)
+
+                            // Update the hutang record
+                            db.run(
+                              `UPDATE hutang SET 
+                                petugas_id = ?, 
+                                platform_id = ?, 
+                                saldo_platform = ?, 
+                                jenis_transaksi = ?,
+                                nominal_transaksi = ?, 
+                                biaya_admin = ?, 
+                                tanggal_transaksi = ?, 
+                                keterangan = ?
+                              WHERE id = ?`,
+                              [
+                                data.petugas_id,
+                                data.platform_id,
+                                adjustedSaldo,
+                                data.jenis_transaksi,
+                                data.nominal_transaksi,
+                                data.biaya_admin || 0,
+                                data.tanggal_transaksi || new Date().toISOString(),
+                                data.keterangan || '',
+                                data.id
+                              ],
+                              function (err) {
+                                if (err) {
+                                  db.run('ROLLBACK')
+                                  console.error('❌ Error updating hutang record:', err)
+                                  return reject(err)
+                                }
+
+                                // Commit transaction
+                                db.run('COMMIT', (err) => {
+                                  if (err) {
+                                    console.error('❌ Error committing transaction:', err)
+                                    return reject(err)
+                                  }
+
+                                  console.log('✅ Hutang updated successfully')
+                                  resolve({ changes: this.changes })
+                                })
+                              }
+                            )
+                          }
+                        )
+                      }
+                    )
+                  })
+                } catch (error) {
+                  console.error('❌ Transaction error in update-hutang:', error)
+                  reject(error)
+                }
+              }
+            )
+          }
+        )
+      })
+    })
+
+    ipcMain.handle('delete-hutang', (event, id) => {
+      return new Promise((resolve, reject) => {
+        // First get the record to be deleted so we can adjust the saldo
+        db.get(
+          'SELECT platform_id, nominal_transaksi, jenis_transaksi FROM hutang WHERE id = ?',
+          [id],
+          (err, record) => {
+            if (err) {
+              console.error('❌ Error getting hutang record for deletion:', err)
+              return reject(err)
+            }
+
+            if (!record) {
+              return reject(new Error(`Hutang record with ID ${id} not found`))
+            }
+
+            try {
+              db.serialize(() => {
+                // Start transaction
+                db.run('BEGIN TRANSACTION')
+
+                // Reverse the effect on saldo based on the transaction type
+                const wasAddition = record.jenis_transaksi === 'Ambil Hutang'
+                const reverseOperation = wasAddition ? '-' : '+'
+
+                db.run(
+                  `UPDATE saldo_awal SET saldo = saldo ${reverseOperation} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
+                  [record.nominal_transaksi, record.platform_id],
+                  function (err) {
+                    if (err) {
+                      db.run('ROLLBACK')
+                      console.error('❌ Error reversing saldo effect:', err)
+                      return reject(err)
+                    }
+
+                    // Delete the hutang record
+                    db.run('DELETE FROM hutang WHERE id = ?', [id], function (err) {
+                      if (err) {
+                        db.run('ROLLBACK')
+                        console.error('❌ Error deleting hutang record:', err)
+                        return reject(err)
+                      }
+
+                      // Commit transaction
+                      db.run('COMMIT', (err) => {
+                        if (err) {
+                          console.error('❌ Error committing transaction:', err)
+                          return reject(err)
+                        }
+
+                        console.log('✅ Hutang deleted successfully and saldo adjusted')
+                        resolve({ changes: this.changes })
+                      })
+                    })
+                  }
+                )
+              })
+            } catch (error) {
+              console.error('❌ Transaction error in delete-hutang:', error)
+              reject(error)
+            }
+          }
+        )
+      })
+    })
+
+    // ============================= end Hutang handler =============================
 
     // ============================= pindah saldo handler =============================
 

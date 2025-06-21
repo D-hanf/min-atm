@@ -11,12 +11,18 @@ const api = {
   updateUser: (user) => ipcRenderer.invoke('update-user', user),
   deleteUser: (userId) => ipcRenderer.invoke('delete-user', userId),
   getUserRole: (username) => ipcRenderer.invoke('get-user-role', username),
-  
+
   // saldo awal
   getSaldoAwal: () => ipcRenderer.invoke('get-saldo-awal'),
   createSaldoAwal: (data) => ipcRenderer.invoke('create-saldo-awal', data),
   updateSaldoAwal: (data) => ipcRenderer.invoke('update-saldo-awal', data),
   deleteSaldoAwal: (id) => ipcRenderer.invoke('delete-saldo-awal', id),
+
+  // hutang
+  getHutang: () => ipcRenderer.invoke('get-hutang'),
+  createHutang: (data) => ipcRenderer.invoke('create-hutang', data),
+  updateHutang: (data) => ipcRenderer.invoke('update-hutang', data),
+  deleteHutang: (id) => ipcRenderer.invoke('delete-hutang', id),
 
   // pindah saldo
   getPindahSaldo: () => ipcRenderer.invoke('get-pindah-saldo'),
@@ -44,7 +50,7 @@ const api = {
   updateKaryawan: (data) => ipcRenderer.invoke('update-karyawan', data),
   deleteKaryawan: (id) => ipcRenderer.invoke('delete-karyawan', id),
   countKaryawan: () => ipcRenderer.invoke('count-karyawan'),
-  
+
   // login
   loginUser: (credentials) => ipcRenderer.invoke('login-user', credentials),
 
@@ -52,8 +58,7 @@ const api = {
   getTransaksi: () => ipcRenderer.invoke('get-transaksi'),
   createTransaksi: (data) => ipcRenderer.invoke('create-transaksi', data),
   editTransaksi: (data) => ipcRenderer.invoke('edit-transaksi', data),
-  deleteTransaksi: (id) => ipcRenderer.invoke('delete-transaksi', id),
- 
+  deleteTransaksi: (id) => ipcRenderer.invoke('delete-transaksi', id)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

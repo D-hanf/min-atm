@@ -74,6 +74,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           submenu: [
             { label: 'Pindah Saldo', to: '/dashboard/pindah-saldo' },
             { label: 'Ambil Saldo', to: '/dashboard/ambil-saldo' },
+            { label: 'Hutang', to: '/dashboard/hutang' },
             ...(isAdmin ? [{ label: 'Saldo Awal', to: '/dashboard/saldo-awal' }] : [])
           ]
         }
