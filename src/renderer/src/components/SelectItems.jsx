@@ -24,7 +24,7 @@ const SelectItems = ({ label, name, value, onChange, options = [], required = tr
             : 'border-gray-300 bg-white text-gray-800'
         } rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
       >
-        <option value="">{`-- Pilih ${label} --`}</option>
+        <option value="" disabled>{`-- Pilih ${label} --`}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}

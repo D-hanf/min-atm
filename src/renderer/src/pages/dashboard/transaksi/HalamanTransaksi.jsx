@@ -46,6 +46,7 @@ const HalamanTransaksi = () => {
     saldo_awal: 0,
     nominal_transaksi: 0,
     fee: 0,
+    metode_pembayaran: '',
     biaya_admin_bank: 0,
     saldo_akhir: 0,
     keterangan: ''
@@ -71,6 +72,7 @@ const HalamanTransaksi = () => {
 
   useEffect(() => {
     fetchToko()
+    fetchFundSources()
   }, [])
 
   const [fundSources, setFundSources] = useState([])
@@ -88,7 +90,9 @@ const HalamanTransaksi = () => {
       }))
 
       // 🔍 Cek yang saldonya 0
-      const kosong = result.filter((item) => Number(item.saldo) < 1000000 || Number(item.saldo) === 1000000)
+      const kosong = result.filter(
+        (item) => Number(item.saldo) < 1000000 || Number(item.saldo) === 1000000
+      )
       setEmptyBalances(kosong)
     } catch (error) {
       console.error('❌ Gagal ambil data saldo:', error)
@@ -138,6 +142,13 @@ const HalamanTransaksi = () => {
     }))
   }
 
+  const getNamaSumberDanaById = (id) => {
+    const numericId = Number(id)
+    const found = fundSources.find((item) => item.id === numericId)
+    console.log('🔍 Mencari sumber dana:', id, '→ Casted:', numericId, '→ Ditemukan:', found)
+    return found ? found.nama_sumber_dana : '-'
+  }
+
   // ✅ Tambahan ambil data transaksi dari DB
   const fetchTransaksi = async () => {
     try {
@@ -150,32 +161,32 @@ const HalamanTransaksi = () => {
         const saldoAwal = Number(item.saldo_awal || 0)
         const jenis = item.jenis_transaksi?.toLowerCase() || ''
         const metode = item.tipe_transaksi?.toLowerCase() || ''
+
         let final = saldoAwal
+
+        // Hitung hanya jika sumber ≠ terima
+        const sumberSamaDenganTerima = Number(item.sumber_dana_id) === Number(item.terima_dana_id)
 
         switch (jenis) {
           case 'tarik tunai':
             final -= nominal
-            if (metode === 'digital') {
-              final += nominal + fee
-            } else if (metode === 'cash') {
-              final += fee
-            }
             break
 
           case 'transfer':
+          case 'mode pulsa':
             final -= nominal + adminBank
+            if (sumberSamaDenganTerima) {
+              final += nominal // 🔁 Netralisir karena nominal masuk dan keluar di akun yang sama
+            }
             break
 
           case 'jasa transfer':
-            final += fee
             break
+        }
 
-          case 'mode pulsa':
-            final -= nominal + adminBank
-            break
-
-          default:
-            break
+        // Tambahkan fee kalau fee dibayar dari sumber
+        if (Number(item.sumber_dana_id) === Number(item.metode_pembayaran)) {
+          final += fee
         }
 
         return {
@@ -190,6 +201,8 @@ const HalamanTransaksi = () => {
           terima_dana_id: item.terima_dana_id || '-',
           nominal_transaksi: formatRupiah(nominal),
           fee: formatRupiah(fee),
+          metode_pembayaran: Number(item.metode_pembayaran) || null,
+          metode_pembayaran_nama: getNamaSumberDanaById(item.metode_pembayaran) || '-', // untuk tampilan
           biaya_admin_bank: formatRupiah(adminBank),
           saldo_akhir: formatRupiah(final),
           keterangan: item.keterangan || '-'
@@ -205,9 +218,11 @@ const HalamanTransaksi = () => {
   }
 
   useEffect(() => {
-    fetchFundSources()
-    fetchTransaksi()
-  }, [])
+    if (fundSources.length > 0) {
+      fetchTransaksi()
+    }
+  }, [fundSources])
+
   const transactionColumns = [
     { key: 'tanggal', label: 'Tanggal' },
     { key: 'no_transaksi', label: 'No Transaksi' },
@@ -220,6 +235,7 @@ const HalamanTransaksi = () => {
     { key: 'biaya_admin_bank', label: 'Adm Bank' },
     { key: 'saldo_akhir', label: 'Saldo Akhir' },
     { key: 'terima_dana_nama', label: 'Terima Dana' },
+    { key: 'metode_pembayaran_nama', label: 'Pembayaran Fee' },
     { key: 'keterangan', label: 'Keterangan' }
   ]
 
@@ -292,7 +308,8 @@ const HalamanTransaksi = () => {
         nominal_transaksi: parseRupiah(transactionToEdit.nominal_transaksi),
         fee: parseRupiah(transactionToEdit.fee),
         biaya_admin_bank: parseRupiah(transactionToEdit.biaya_admin_bank),
-        saldo_akhir: parseRupiah(transactionToEdit.saldo_akhir)
+        saldo_akhir: parseRupiah(transactionToEdit.saldo_akhir),
+        metode_pembayaran: transactionToEdit.metode_pembayaran || ''
       }
 
       setEditingTransaction(cleanedData)
@@ -408,7 +425,8 @@ const HalamanTransaksi = () => {
         <div
           className={`${isDark ? 'bg-yellow-900 border-yellow-800 text-yellow-200' : 'bg-yellow-100 border-yellow-300 text-yellow-800'} border px-4 py-3 rounded mb-4 mx-4`}
         >
-          <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya hampir habis/kosong:
+          <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya hampir
+          habis/kosong:
           <ul className="list-disc list-inside ml-4 mt-1">
             {emptyBalances.map((item) => (
               <li key={item.id}>{item.nama_sumber_dana}</li>

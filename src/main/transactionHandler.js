@@ -24,7 +24,7 @@ export function getTransaksi() {
 
 export function createTransaksi(_event, data) {
   return new Promise((resolve, reject) => {
-    const {
+    let {
       tanggal,
       sumber_dana_id,
       jenis_transaksi,
@@ -35,33 +35,31 @@ export function createTransaksi(_event, data) {
       metode_pembayaran = '',
       keterangan = '',
       biaya_admin
-    } = data;
+    } = data
+    metode_pembayaran = Number(metode_pembayaran) || null
 
-    const nominal = parseFloat(nominal_transaksi) || 0;
-    const feeTransaksi = parseFloat(fee) || 0;
-    const biayaAdminFinal = parseFloat(biaya_admin) || 0;
+    const nominal = parseFloat(nominal_transaksi) || 0
+    const feeTransaksi = parseFloat(fee) || 0
+    const biayaAdminFinal = parseFloat(biaya_admin) || 0
 
-    console.log('📥 Incoming Data:', data);
-    console.log('📦 Parsed => Nominal:', nominal, '| Fee:', feeTransaksi, '| Biaya Admin (final):', biayaAdminFinal);
-
-    const randomSuffix = Math.floor(10000 + Math.random() * 9000);
-    const datetimePart = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
-    const no_transaksi = `TRX-${datetimePart}${randomSuffix}`;
+    const randomSuffix = Math.floor(10000 + Math.random() * 9000)
+    const datetimePart = new Date()
+      .toISOString()
+      .replace(/[-:.TZ]/g, '')
+      .slice(0, 14)
+    const no_transaksi = `TRX-${datetimePart}${randomSuffix}`
 
     db.get(`SELECT saldo FROM saldo_awal WHERE id = ?`, [sumber_dana_id], (err1, sumberRow) => {
-      if (err1 || !sumberRow) {
-        return reject(err1 || new Error('Sumber dana tidak ditemukan'));
-      }
+      if (err1 || !sumberRow) return reject(err1 || new Error('Sumber dana tidak ditemukan'))
 
-      const sumber_saldo = parseFloat(sumberRow.saldo) || 0;
-      console.log('💰 Saldo awal sumber:', sumber_saldo);
+      const sumber_saldo = parseFloat(sumberRow.saldo) || 0
 
       const stmt = `
         INSERT INTO transaksi (
           tanggal, no_transaksi, sumber_dana_id, jenis_transaksi, tipe_transaksi, 
           nominal_transaksi, terima_dana_id, biaya_admin_bank, fee, metode_pembayaran, keterangan
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
+      `
 
       db.run(
         stmt,
@@ -79,13 +77,9 @@ export function createTransaksi(_event, data) {
           keterangan
         ],
         function (err2) {
-          if (err2) {
-            console.error('❌ Gagal insert transaksi:', err2);
-            return reject(err2);
-          }
+          if (err2) return reject(err2)
 
-          const transaksi_id = this.lastID;
-          console.log('✅ Transaksi berhasil di-insert, ID:', transaksi_id);
+          const transaksi_id = this.lastID
 
           const simpanHistory = (terima_saldo = 0) => {
             db.run(
@@ -94,65 +88,51 @@ export function createTransaksi(_event, data) {
               ) VALUES (?, ?, ?, ?, ?)`,
               [transaksi_id, sumber_dana_id, sumber_saldo, terima_dana_id, terima_saldo],
               (err4) => {
-                if (err4) return reject(err4);
-                updateSaldo(biayaAdminFinal);
+                if (err4) return reject(err4)
+                updateSaldo(biayaAdminFinal)
               }
-            );
-          };
+            )
+          }
 
           if (terima_dana_id) {
-            db.get(`SELECT saldo FROM saldo_awal WHERE id = ?`, [terima_dana_id], (err3, terimaRow) => {
-              if (err3) return reject(err3);
-              const terima_saldo = parseFloat(terimaRow?.saldo) || 0;
-              console.log('💰 Saldo awal terima:', terima_saldo);
-              simpanHistory(terima_saldo);
-            });
-          } else {
-            db.run(
-              `INSERT INTO history_transaksi (
-                transaksi_id, sumber_dana_id, sumber_dana_saldo_sebelum
-              ) VALUES (?, ?, ?)`,
-              [transaksi_id, sumber_dana_id, sumber_saldo],
-              (err5) => {
-                if (err5) return reject(err5);
-                updateSaldo(biayaAdminFinal);
+            db.get(
+              `SELECT saldo FROM saldo_awal WHERE id = ?`,
+              [terima_dana_id],
+              (err3, terimaRow) => {
+                if (err3) return reject(err3)
+                const terima_saldo = parseFloat(terimaRow?.saldo) || 0
+                simpanHistory(terima_saldo)
               }
-            );
+            )
+          } else {
+            simpanHistory()
           }
 
           function updateSaldo(biaya_admin_fix) {
-            let perubahan_sumber = 0;
-            let perubahan_terima = 0;
+            let perubahan_sumber = 0
+            let perubahan_terima = 0
 
             switch (jenis_transaksi) {
               case 'Tarik Tunai':
-                perubahan_sumber = -1 * nominal;
-                if (metode_pembayaran === 'cash') {
-                  perubahan_sumber += feeTransaksi;
-                } else {
-                  perubahan_terima = nominal + feeTransaksi;
-                }
-                break;
+                perubahan_sumber = -nominal
+                perubahan_terima = nominal
+                break
 
               case 'Transfer':
-                perubahan_sumber = -1 * (nominal + biaya_admin_fix);
-                perubahan_terima = nominal + feeTransaksi;
-                break;
+                perubahan_sumber = -1 * (nominal + biaya_admin_fix)
+                perubahan_terima = nominal
+                break
 
               case 'Jasa Transfer':
-                perubahan_terima = feeTransaksi;
-                break;
+                break
 
               case 'Mode Pulsa':
-                perubahan_sumber = -1 * (nominal + biaya_admin_fix);
-                perubahan_terima = nominal + feeTransaksi;
-                break;
+                perubahan_sumber = -1 * (nominal + biaya_admin_fix)
+                perubahan_terima = nominal
+                break
             }
 
-            console.log('🧮 perubahan_sumber:', perubahan_sumber);
-            console.log('🧮 perubahan_terima:', perubahan_terima);
-
-            const updateQueries = [];
+            const updateQueries = []
 
             if (sumber_dana_id && perubahan_sumber !== 0) {
               updateQueries.push(
@@ -160,14 +140,10 @@ export function createTransaksi(_event, data) {
                   db.run(
                     `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
                     [perubahan_sumber, sumber_dana_id],
-                    function (err) {
-                      if (err) return rej(err);
-                      console.log(`🔄 Update saldo sumber_dana_id ${sumber_dana_id} = ${perubahan_sumber}`);
-                      res();
-                    }
-                  );
+                    (err) => (err ? rej(err) : res())
+                  )
                 })
-              );
+              )
             }
 
             if (terima_dana_id && perubahan_terima !== 0) {
@@ -176,39 +152,40 @@ export function createTransaksi(_event, data) {
                   db.run(
                     `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
                     [perubahan_terima, terima_dana_id],
-                    function (err) {
-                      if (err) return rej(err);
-                      console.log(`🔄 Update saldo terima_dana_id ${terima_dana_id} = ${perubahan_terima}`);
-                      res();
-                    }
-                  );
+                    (err) => (err ? rej(err) : res())
+                  )
                 })
-              );
+              )
+            }
+
+            if (metode_pembayaran && feeTransaksi > 0) {
+              updateQueries.push(
+                new Promise((res, rej) => {
+                  db.run(
+                    `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
+                    [feeTransaksi, metode_pembayaran],
+                    (err) => (err ? rej(err) : res())
+                  )
+                })
+              )
             }
 
             Promise.all(updateQueries)
-              .then(() => {
-                db.all(`SELECT * FROM saldo_awal`, (err, rows) => {
-                  if (!err) {
-                    console.log('📊 Saldo akhir:', rows);
-                  }
-                  resolve({ id: transaksi_id, no_transaksi });
-                });
-              })
-              .catch(reject);
+              .then(() => resolve({ id: transaksi_id, no_transaksi }))
+              .catch(reject)
           }
         }
-      );
-    });
-  });
+      )
+    })
+  })
 }
+
 export function deleteTransaksi(_event, id) {
   return new Promise((resolve, reject) => {
     db.serialize(() => {
       db.get(`SELECT * FROM transaksi WHERE id = ?`, [id], (err, trx) => {
         if (err || !trx) return reject(err || new Error('Transaksi tidak ditemukan'))
 
-        // MULAI TRANSAKSI
         db.run('BEGIN TRANSACTION', (beginErr) => {
           if (beginErr) return reject(beginErr)
 
@@ -222,25 +199,20 @@ export function deleteTransaksi(_event, id) {
           switch (trx.jenis_transaksi) {
             case 'Tarik Tunai':
               perubahan_sumber = nominal
-              if (trx.metode_pembayaran === 'cash') {
-                perubahan_sumber -= fee
-              } else {
-                perubahan_terima = -1 * (nominal + fee)
-              }
+              perubahan_terima = -nominal
               break
 
             case 'Transfer':
               perubahan_sumber = nominal + biaya_admin
-              perubahan_terima = -1 * (nominal + fee)
+              perubahan_terima = -nominal
               break
 
             case 'Jasa Transfer':
-              perubahan_terima = -1 * fee
               break
 
             case 'Mode Pulsa':
               perubahan_sumber = nominal + biaya_admin
-              perubahan_terima = -1 * (nominal + fee)
+              perubahan_terima = -nominal
               break
           }
 
@@ -252,11 +224,7 @@ export function deleteTransaksi(_event, id) {
                 db.run(
                   `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
                   [perubahan_sumber, trx.sumber_dana_id],
-                  (err2) => {
-                    if (err2) return rej(err2)
-                    console.log(`✅ [DELETE] saldo sumber_dana + ${perubahan_sumber}`)
-                    res()
-                  }
+                  (err) => (err ? rej(err) : res())
                 )
               })
             )
@@ -268,11 +236,19 @@ export function deleteTransaksi(_event, id) {
                 db.run(
                   `UPDATE saldo_awal SET saldo = saldo + ? WHERE id = ?`,
                   [perubahan_terima, trx.terima_dana_id],
-                  (err3) => {
-                    if (err3) return rej(err3)
-                    console.log(`✅ [DELETE] saldo terima_dana + ${perubahan_terima}`)
-                    res()
-                  }
+                  (err) => (err ? rej(err) : res())
+                )
+              })
+            )
+          }
+
+          if (trx.metode_pembayaran && fee > 0) {
+            updateQueries.push(
+              new Promise((res, rej) => {
+                db.run(
+                  `UPDATE saldo_awal SET saldo = saldo - ? WHERE id = ?`,
+                  [fee, trx.metode_pembayaran],
+                  (err) => (err ? rej(err) : res())
                 )
               })
             )
@@ -296,9 +272,7 @@ export function deleteTransaksi(_event, id) {
             .catch(rollback)
 
           function rollback(error) {
-            db.run('ROLLBACK', () => {
-              reject(error)
-            })
+            db.run('ROLLBACK', () => reject(error))
           }
         })
       })

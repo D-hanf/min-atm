@@ -1691,6 +1691,7 @@ app.whenReady().then(() => {
       try {
         // Hapus transaksi lama + rollback saldo
         await deleteTransaksi(_event, id)
+        console.log('📦 metode_pembayaran dikirim ke createTransaksi:', data.metode_pembayaran)
 
         // Tambahkan transaksi baru (dengan ID berbeda dan saldo baru)
         const result = await createTransaksi(_event, data)

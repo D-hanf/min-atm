@@ -23,15 +23,6 @@ const JasaTransferForm = ({ formData, onChange }) => {
     fetchSaldo()
   }, [])
 
-  // Set default sumber_dana_id ke 1
-  useEffect(() => {
-    if (!formData.sumber_dana_id) {
-      onChange({
-        target: { name: 'sumber_dana_id', value: 1 }
-      })
-    }
-  }, [])
-
   // Set default fee sekali saat load
   useEffect(() => {
     if (!formData.fee) {
@@ -41,6 +32,7 @@ const JasaTransferForm = ({ formData, onChange }) => {
     }
   }, [])
 
+  // Set default sumber_dana_id ke laci (kalau belum ada)
   useEffect(() => {
     const laci = sumberDanaList.find((item) => item.nama_sumber_dana.toLowerCase() === 'laci')
     if (laci && !formData.sumber_dana_id) {
@@ -52,6 +44,18 @@ const JasaTransferForm = ({ formData, onChange }) => {
       })
     }
   }, [sumberDanaList])
+
+  // Sinkronisasi metode_pembayaran ke sumber_dana_id dan terima_dana_id
+  useEffect(() => {
+    if (formData.metode_pembayaran) {
+      onChange({
+        target: { name: 'sumber_dana_id', value: formData.metode_pembayaran }
+      })
+      onChange({
+        target: { name: 'terima_dana_id', value: formData.metode_pembayaran }
+      })
+    }
+  }, [formData.metode_pembayaran])
 
   return (
     <>
@@ -79,33 +83,34 @@ const JasaTransferForm = ({ formData, onChange }) => {
       >
         Tanggal
       </InputField>
+
+      {/* Hidden: Sumber Dana */}
       <SelectItems
         hidden={true}
-        options={sumberDanaList
-          .filter((item) => item.nama_sumber_dana.toLowerCase() === 'laci')
-          .map((item) => ({
-            label: item.nama_sumber_dana,
-            value: item.id
-          }))}
+        options={sumberDanaList.map((item) => ({
+          label: item.nama_sumber_dana,
+          value: item.id
+        }))}
         label=""
         name="sumber_dana_id"
         value={formData.sumber_dana_id || ''}
         onChange={onChange}
       />
-      
+
+      {/* Hidden: Terima Dana */}
       <SelectItems
-        options={sumberDanaList
-          .map((item) => ({
-            label: item.nama_sumber_dana,
-            value: item.id
-          }))}
-        label="Terima Dana"
+        hidden={true}
+        options={sumberDanaList.map((item) => ({
+          label: item.nama_sumber_dana,
+          value: item.id
+        }))}
+        label=""
         name="terima_dana_id"
         value={formData.terima_dana_id || ''}
         onChange={onChange}
-        required
       />
 
+      {/* Input Fee */}
       <InputField
         name="fee"
         type="text"
@@ -127,9 +132,23 @@ const JasaTransferForm = ({ formData, onChange }) => {
           })
         }}
       >
-        Fee
+        Biaya jasa
       </InputField>
 
+      {/* Metode Pembayaran (Fee masuk ke mana) */}
+      <SelectItems
+        options={sumberDanaList.map((item) => ({
+          label: item.nama_sumber_dana,
+          value: item.id
+        }))}
+        label="Metode Pembayaran (Fee Masuk ke)"
+        name="metode_pembayaran"
+        value={formData.metode_pembayaran || ''}
+        onChange={onChange}
+        required
+      />
+
+      {/* Keterangan */}
       <InputField
         name="description"
         type="text"

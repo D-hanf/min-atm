@@ -42,21 +42,6 @@ const ModePulsaForm = ({ formData, onChange, onValidChange }) => {
     if (!formData.nominal_transaksi) {
       setManualFee(false)
     }
-
-    if (!isNaN(nominal) && !manualFee) {
-      let fee = 5000
-      if (nominal > 3000000 && nominal <= 5000000) {
-        fee = 10000
-      } else if (nominal >= 5000000) {
-        fee = Math.round((nominal / 1000000) * 2000)
-      }
-
-      if (formData.fee !== fee) {
-        onChange({
-          target: { name: 'fee', value: fee }
-        })
-      }
-    }
   }, [formData.nominal_transaksi, manualFee])
 
   // Validasi saldo cukup
@@ -164,8 +149,20 @@ const ModePulsaForm = ({ formData, onChange, onValidChange }) => {
           })
         }}
       >
-        Fee
+        Biaya Jasa
       </InputField>
+      
+      <SelectItems
+        options={sumberDanaList.map((item) => ({
+          label: item.nama_sumber_dana,
+          value: item.id
+        }))}
+        label="Metode Pembayaran (Fee Masuk ke)"
+        name="metode_pembayaran"
+        value={formData.metode_pembayaran || ''}
+        onChange={onChange}
+        required
+      />
 
       <InputField
         name="biaya_admin"
