@@ -98,7 +98,10 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
       </InputField>
       <SelectItems
         options={sumberDanaList
-          .filter((item) => item.nama_sumber_dana === 'Laci' || item.nama_sumber_dana === 'Cash')
+          .filter((item) => {
+            const nama = item.nama_sumber_dana.toLowerCase()
+            return nama === 'laci' || nama === 'cash'
+          })
           .map((item) => ({
             label: item.nama_sumber_dana,
             value: item.id
@@ -109,9 +112,13 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
         onChange={onChange}
         required
       />
+
       <SelectItems
         options={sumberDanaList
-          .filter((item) => item.nama_sumber_dana !== 'Laci' && item.nama_sumber_dana !== 'Cash')
+          .filter((item) => {
+            const nama = item.nama_sumber_dana.toLowerCase()
+            return nama !== 'laci' && nama !== 'cash'
+          })
           .map((item) => ({
             label: item.nama_sumber_dana,
             value: item.id

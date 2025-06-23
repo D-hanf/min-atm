@@ -121,7 +121,6 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
 
       <SelectItems
         options={sumberDanaList
-          .filter((item) => item.nama_sumber_dana !== 'Laci' && item.nama_sumber_dana !== 'Cash')
           .map((item) => ({
             label: item.nama_sumber_dana,
             value: item.id
@@ -134,10 +133,11 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
       />
 
       <SelectItems
-        options={sumberDanaList.map((item) => ({
-          label: item.nama_sumber_dana,
-          value: item.id
-        }))}
+        options={sumberDanaList
+          .map((item) => ({
+            label: item.nama_sumber_dana,
+            value: item.id
+          }))}
         label="Terima Dana"
         name="terima_dana_id"
         value={formData.terima_dana_id || ''}
@@ -182,7 +182,7 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
 
       <InputField
         name="biaya_admin"
-         required={false}
+        required={false}
         type="text"
         value={
           formData.biaya_admin

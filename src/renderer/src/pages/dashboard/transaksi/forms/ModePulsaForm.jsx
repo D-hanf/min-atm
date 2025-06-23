@@ -187,7 +187,7 @@ const ModePulsaForm = ({ formData, onChange, onValidChange }) => {
             target: { name: 'biaya_admin', value: numericAdmin }
           })
         }}
-         required={false}
+        required={false}
       >
         Biaya Admin
       </InputField>

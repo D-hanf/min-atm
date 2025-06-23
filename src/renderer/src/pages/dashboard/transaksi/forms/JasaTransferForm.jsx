@@ -92,12 +92,13 @@ const JasaTransferForm = ({ formData, onChange }) => {
         value={formData.sumber_dana_id || ''}
         onChange={onChange}
       />
-
+      
       <SelectItems
-        options={sumberDanaList.map((item) => ({
-          label: item.nama_sumber_dana,
-          value: item.id
-        }))}
+        options={sumberDanaList
+          .map((item) => ({
+            label: item.nama_sumber_dana,
+            value: item.id
+          }))}
         label="Terima Dana"
         name="terima_dana_id"
         value={formData.terima_dana_id || ''}
