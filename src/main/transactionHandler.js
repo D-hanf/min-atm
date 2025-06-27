@@ -1,7 +1,10 @@
+import dayjs from 'dayjs'
 import db from './db'
 
-export function getTransaksi() {
+export function getTransaksi(role) {
   return new Promise((resolve, reject) => {
+    const today = new Date().toISOString().split('T')[0]
+
     const query = `
       SELECT 
         t.*,
@@ -13,9 +16,13 @@ export function getTransaksi() {
       LEFT JOIN history_transaksi h ON t.id = h.transaksi_id
       LEFT JOIN saldo_awal s1 ON h.sumber_dana_id = s1.id
       LEFT JOIN saldo_awal s2 ON h.terima_dana_id = s2.id
-      ORDER BY t.tanggal DESC
+      ${role === 'kasir' ? 'WHERE t.tanggal = ?' : ''}
+      ORDER BY t.tanggal ASC
     `
-    db.all(query, [], (err, rows) => {
+
+    const params = role === 'kasir' ? [today] : []
+
+    db.all(query, params, (err, rows) => {
       if (err) return reject(err)
       resolve(rows)
     })
@@ -34,7 +41,9 @@ export function createTransaksi(_event, data) {
       fee = 0,
       metode_pembayaran = '',
       keterangan = '',
-      biaya_admin
+      biaya_admin,
+      nama_pelanggan = '',
+      nomor_tujuan = ''
     } = data
     metode_pembayaran = Number(metode_pembayaran) || null
 
@@ -57,8 +66,9 @@ export function createTransaksi(_event, data) {
       const stmt = `
         INSERT INTO transaksi (
           tanggal, no_transaksi, sumber_dana_id, jenis_transaksi, tipe_transaksi, 
-          nominal_transaksi, terima_dana_id, biaya_admin_bank, fee, metode_pembayaran, keterangan
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          nominal_transaksi, terima_dana_id, biaya_admin_bank, fee, metode_pembayaran, 
+          keterangan, nama_pelanggan, nomor_tujuan
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
 
       db.run(
@@ -74,7 +84,9 @@ export function createTransaksi(_event, data) {
           biayaAdminFinal,
           feeTransaksi,
           metode_pembayaran,
-          keterangan
+          keterangan,
+          nama_pelanggan,
+          nomor_tujuan
         ],
         function (err2) {
           if (err2) return reject(err2)
@@ -278,4 +290,54 @@ export function deleteTransaksi(_event, id) {
       })
     })
   })
+}
+
+export async function getTransaksiSummary(role) {
+  const today = dayjs().format('YYYY-MM-DD')
+  let query = `SELECT jenis_transaksi, nominal_transaksi, fee, biaya_admin_bank, tanggal FROM transaksi`
+  const params = []
+
+  if (role !== 'admin') {
+    query += ` WHERE DATE(tanggal) = ?`
+    params.push(today)
+  }
+
+  const rows = await new Promise((resolve, reject) => {
+    db.all(query, params, (err, rows) => {
+      if (err) return reject(err)
+      resolve(rows)
+    })
+  })
+
+  let tarikTunai = 0
+  let transfer = 0
+  let pulsa = 0
+  let biayaAdmin = 0
+  let profit = 0
+
+  for (const row of rows) {
+    const jenis = row.jenis_transaksi?.toLowerCase()
+    const nominal = Number(row.nominal_transaksi || 0)
+    const admin = Number(row.biaya_admin_bank || 0)
+    const fee = Number(row.fee || 0)
+
+    if (jenis === 'tarik tunai') {
+      tarikTunai += nominal
+    } else if (jenis === 'transfer') {
+      transfer += nominal
+    } else if (jenis === 'mode pulsa') {
+      pulsa += nominal
+    }
+
+    biayaAdmin += admin
+    if (role === 'admin') profit += fee
+  }
+
+  return {
+    cashWithdrawal: tarikTunai,
+    transfer,
+    modePulsa: pulsa,
+    bankAdmin: biayaAdmin,
+    ...(role === 'admin' && { profit }) // hanya dikembalikan jika admin
+  }
 }

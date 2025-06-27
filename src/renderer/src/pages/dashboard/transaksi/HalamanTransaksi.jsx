@@ -25,7 +25,11 @@ const HalamanTransaksi = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [userRole, setUserRole] = useState('admin')
+  const [userRole, setUserRole] = useState(() => {
+    const storedUser = JSON.parse(localStorage.getItem('user'))
+    return storedUser?.role || 'kasir'
+  })
+
   const [formData, setFormData] = useState({
     source: '',
     saldo: '',
@@ -40,7 +44,7 @@ const HalamanTransaksi = () => {
     tanggal: new Date().toISOString().split('T')[0],
     no_transaksi: '',
     sumber_dana: '',
-    terima_dana_id: '', // tambahkan jika diperlukan
+    terima_dana_id: '',
     jenis_transaksi: '',
     tipe_transaksi: '',
     saldo_awal: 0,
@@ -49,7 +53,9 @@ const HalamanTransaksi = () => {
     metode_pembayaran: '',
     biaya_admin_bank: 0,
     saldo_akhir: 0,
-    keterangan: ''
+    keterangan: '',
+    nama_pelanggan: '',
+    nomor_tujuan: ''
   })
 
   const [financialSummary, setFinancialSummary] = useState({
@@ -64,7 +70,7 @@ const HalamanTransaksi = () => {
     try {
       const result = await window.api.getToko()
       setStore(result)
-      console.log('🔥 Toko:', result)
+      // console.log('🔥 Toko:', result)
     } catch (error) {
       console.error('❌ Gagal ambil data toko:', error)
     }
@@ -80,7 +86,7 @@ const HalamanTransaksi = () => {
   const fetchFundSources = async () => {
     try {
       const result = await window.api.getSaldoAwal()
-      console.log('🔥 Saldo Awal:', result)
+      // console.log('🔥 Saldo Awal:', result)
       setFundSources(result)
 
       const total = result.reduce((sum, item) => sum + Number(item.saldo || 0), 0)
@@ -107,52 +113,34 @@ const HalamanTransaksi = () => {
     }).format(value)
   }
 
-  const calculateFinancialSummary = (data) => {
-    let tarikTunai = 0
-    let transfer = 0
-    let modePulsa = 0
-    let bankAdmin = 0
-    let profit = 0
-
-    data.forEach((item) => {
-      const jenis = item.jenis_transaksi?.toLowerCase()
-      const nominal = Number(item.nominal_transaksi || 0)
-      const fee = Number(item.fee || 0)
-      const admin = Number(item.biaya_admin_bank || 0)
-
-      if (jenis === 'tarik tunai') {
-        tarikTunai += nominal
-      } else if (jenis === 'transfer') {
-        transfer += nominal
-      } else if (jenis === 'mode pulsa') {
-        modePulsa += nominal
+  const fetchFinancialSummary = async () => {
+    try {
+      const res = await window.api.getTransaksiSummary(userRole)
+      if (res.success) {
+        setFinancialSummary((prev) => ({
+          ...prev,
+          ...res.data
+        }))
+      } else {
+        console.error('❌ Gagal ambil ringkasan keuangan:', res.error)
       }
-
-      bankAdmin += admin
-      profit += fee
-    })
-
-    setFinancialSummary((prev) => ({
-      ...prev,
-      cashWithdrawal: tarikTunai,
-      transfer: transfer,
-      modePulsa: modePulsa,
-      bankAdmin: bankAdmin,
-      profit: profit
-    }))
+    } catch (err) {
+      console.error('❌ Gagal fetch summary:', err)
+    }
   }
 
   const getNamaSumberDanaById = (id) => {
     const numericId = Number(id)
     const found = fundSources.find((item) => item.id === numericId)
-    console.log('🔍 Mencari sumber dana:', id, '→ Casted:', numericId, '→ Ditemukan:', found)
+    // console.log('🔍 Mencari sumber dana:', id, '→ Casted:', numericId, '→ Ditemukan:', found)
     return found ? found.nama_sumber_dana : '-'
   }
 
   // ✅ Tambahan ambil data transaksi dari DB
   const fetchTransaksi = async () => {
     try {
-      const data = await window.api.getTransaksi()
+      const user = JSON.parse(localStorage.getItem('user'))
+      const data = await window.api.getTransaksi(user.role) // ⬅️ kirim role ke IPC
 
       const formatted = data.map((item) => {
         const nominal = Number(item.nominal_transaksi || 0)
@@ -163,28 +151,23 @@ const HalamanTransaksi = () => {
         const metode = item.tipe_transaksi?.toLowerCase() || ''
 
         let final = saldoAwal
-
-        // Hitung hanya jika sumber ≠ terima
         const sumberSamaDenganTerima = Number(item.sumber_dana_id) === Number(item.terima_dana_id)
 
         switch (jenis) {
           case 'tarik tunai':
             final -= nominal
             break
-
           case 'transfer':
           case 'mode pulsa':
             final -= nominal + adminBank
             if (sumberSamaDenganTerima) {
-              final += nominal // 🔁 Netralisir karena nominal masuk dan keluar di akun yang sama
+              final += nominal
             }
             break
-
           case 'jasa transfer':
             break
         }
 
-        // Tambahkan fee kalau fee dibayar dari sumber
         if (Number(item.sumber_dana_id) === Number(item.metode_pembayaran)) {
           final += fee
         }
@@ -199,19 +182,22 @@ const HalamanTransaksi = () => {
           tipe_transaksi: item.tipe_transaksi || '-',
           saldo_awal: formatRupiah(saldoAwal),
           terima_dana_id: item.terima_dana_id || '-',
+          pelanggan_dan_nomor: {
+            nama: item.nama_pelanggan || '-',
+            nomor: item.nomor_tujuan || '-'
+          },
+
           nominal_transaksi: formatRupiah(nominal),
           fee: formatRupiah(fee),
           metode_pembayaran: Number(item.metode_pembayaran) || null,
-          metode_pembayaran_nama: getNamaSumberDanaById(item.metode_pembayaran) || '-', // untuk tampilan
+          metode_pembayaran_nama: getNamaSumberDanaById(item.metode_pembayaran) || '-',
           biaya_admin_bank: formatRupiah(adminBank),
           saldo_akhir: formatRupiah(final),
           keterangan: item.keterangan || '-'
         }
       })
 
-      console.log('📥 Formatted Transaksi:', formatted)
       setTransactions(formatted)
-      calculateFinancialSummary(data)
     } catch (error) {
       console.error('❌ Gagal ambil data transaksi:', error)
     }
@@ -220,11 +206,13 @@ const HalamanTransaksi = () => {
   useEffect(() => {
     if (fundSources.length > 0) {
       fetchTransaksi()
+      fetchFinancialSummary()
     }
-  }, [fundSources])
+  }, [fundSources, userRole])
 
   const transactionColumns = [
     { key: 'tanggal', label: 'Tanggal' },
+    { key: 'pelanggan_dan_nomor', label: 'Pelanggan & Tujuan' },
     { key: 'no_transaksi', label: 'No Transaksi' },
     { key: 'sumber_dana', label: 'Sumber Dana' },
     { key: 'jenis_transaksi', label: 'Jenis' },
@@ -276,9 +264,9 @@ const HalamanTransaksi = () => {
 
   const submitTransaction = async (data) => {
     try {
-      console.log('📥 Menambahkan transaksi:', data)
+      // console.log('📥 Menambahkan transaksi:', data)
       const newTransaction = await window.api.createTransaksi(data)
-      console.log('✅ Transaksi berhasil:', newTransaction)
+      // console.log('✅ Transaksi berhasil:', newTransaction)
 
       // Fetch ulang data setelah insert
       fetchTransaksi()
@@ -326,7 +314,7 @@ const HalamanTransaksi = () => {
 
       const result = await window.api.editTransaksi(payload)
 
-      console.log('✅ Transaksi berhasil diedit:', result)
+      // console.log('✅ Transaksi berhasil diedit:', result)
 
       // Ambil ulang data transaksi setelah edit
       const updatedTransactions = await window.api.getTransaksi()
@@ -436,6 +424,7 @@ const HalamanTransaksi = () => {
       )}
 
       <TableContent
+
         data={filteredData}
         columns={transactionColumns}
         title={'Data Transaksi'}

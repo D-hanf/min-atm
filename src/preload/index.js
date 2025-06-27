@@ -55,10 +55,11 @@ const api = {
   loginUser: (credentials) => ipcRenderer.invoke('login-user', credentials),
 
   // transaksi
-  getTransaksi: () => ipcRenderer.invoke('get-transaksi'),
+  getTransaksi: (role) => ipcRenderer.invoke('get-transaksi', role),
   createTransaksi: (data) => ipcRenderer.invoke('create-transaksi', data),
   editTransaksi: (data) => ipcRenderer.invoke('edit-transaksi', data),
-  deleteTransaksi: (id) => ipcRenderer.invoke('delete-transaksi', id)
+  deleteTransaksi: (id) => ipcRenderer.invoke('delete-transaksi', id),
+  getTransaksiSummary: (role) => ipcRenderer.invoke('get-transaksi-summary', role),
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -1,11 +1,17 @@
 import { BrowserWindow, app, screen } from 'electron'
-import { createTransaksi, deleteTransaksi, getTransaksi } from './transactionHandler.js'
+import {
+  createTransaksi,
+  deleteTransaksi,
+  getTransaksi,
+  getTransaksiSummary
+} from './transactionHandler.js'
 
 import db from './db.js'
 import icon from '../../resources/iconNew.jpg?asset'
 import { ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
+import { updateSchema } from './db.js'
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
@@ -36,7 +42,7 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   db.serialize(() => {
     // Tabel toko
     db.run(`
@@ -88,20 +94,22 @@ app.whenReady().then(() => {
     `)
     db.run(`
       CREATE TABLE IF NOT EXISTS transaksi (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
-          no_transaksi TEXT UNIQUE NOT NULL,
-          sumber_dana_id INTEGER ,
-          jenis_transaksi TEXT NOT NULL,
-          tipe_transaksi TEXT, 
-          nominal_transaksi REAL,
-          terima_dana_id INTEGER,
-          biaya_admin_bank REAL DEFAULT 0, 
-          fee REAL DEFAULT 0,
-          metode_pembayaran TEXT, 
-          keterangan TEXT,
-          FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
-          FOREIGN KEY (terima_dana_id) REFERENCES saldo_awal(id)
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
+        no_transaksi TEXT UNIQUE NOT NULL,
+        sumber_dana_id INTEGER,
+        jenis_transaksi TEXT NOT NULL,
+        tipe_transaksi TEXT,
+        nominal_transaksi REAL,
+        terima_dana_id INTEGER,
+        biaya_admin_bank REAL DEFAULT 0,
+        fee REAL DEFAULT 0,
+        metode_pembayaran TEXT,
+        keterangan TEXT,
+        nama_pelanggan TEXT,
+        nomor_tujuan TEXT,
+        FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
+        FOREIGN KEY (terima_dana_id) REFERENCES saldo_awal(id)
       )
     `)
     db.run(`
@@ -1671,8 +1679,14 @@ app.whenReady().then(() => {
     })
 
     // ============================== transaksi handler ======================================
-    ipcMain.handle('get-transaksi', async () => {
-      return await getTransaksi()
+    ipcMain.handle('get-transaksi', async (event, role) => {
+      try {
+        const data = await getTransaksi(role)
+        return data
+      } catch (err) {
+        console.error('❌ Error get-transaksi:', err)
+        return []
+      }
     })
 
     // CREATE TRANSAKSI
@@ -1702,7 +1716,20 @@ app.whenReady().then(() => {
         throw error
       }
     })
+
+    ipcMain.handle('get-transaksi-summary', async (event, role) => {
+      try {
+        const summary = await getTransaksiSummary(role)
+        return { success: true, data: summary }
+      } catch (error) {
+        console.error('❌ Error get-transaksi-summary:', error)
+        return { success: false, error: error.message }
+      }
+    })
   })
+    await updateSchema()
+
+  
   createWindow()
 })
 

@@ -5,6 +5,7 @@ import ConfirmDialog from '../../../../components/ConfirmDialog'
 import FormLayout from './FormLayout'
 import InputField from '../../../../components/InputField'
 import ModalEdit from '../../../../shared/ui/Modal'
+import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
 import { useParams } from 'react-router-dom'
 
@@ -243,13 +244,18 @@ const HalamanDetilToko = () => {
         >
           Nomor Telepon
         </InputField>
-        <InputField
-          name="role"
-          value={formData.role}
-          onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-        >
-          Jabatan
-        </InputField>
+        
+        <SelectItems
+        options={[
+          { value: 'kasir', label: 'Kasir' },
+          { value: 'admin', label: 'Admin' },
+          { value: 'manager', label: 'Manager' }
+        ]}
+        label="Jabatan"
+        name={'role'}
+        value={formData.role}
+        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+        ></SelectItems>
       </ModalEdit>
     </div>
   )

@@ -6,12 +6,6 @@ import ButtonInput from './ButtonInput'
 import SearchField from './SearchField'
 import { useTheme } from '../context/ThemeContext'
 
-// import AlertDialog from '../components/AlertDialog'
-
-
-
-
-
 const TableContent = ({
   data = [],
   columns = [],
@@ -27,7 +21,6 @@ const TableContent = ({
   searchValue = '',
   userRole = 'admin'
 }) => {
-  // Add new states for logged in user and alert dialog
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
@@ -38,11 +31,10 @@ const TableContent = ({
   const totalPages = Math.ceil(data.length / itemsPerPage)
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const reversedData = [...data].reverse() // data terbaru di atas
+  const reversedData = [...data].reverse()
   const currentData = reversedData.slice(indexOfFirstItem, indexOfLastItem)
 
   useEffect(() => {
-    // Get user data from localStorage
     const userString = localStorage.getItem('user')
     if (userString) {
       setLoggedInUser(JSON.parse(userString))
@@ -67,73 +59,75 @@ const TableContent = ({
     onDelete(id)
   }
 
-  const renderPagination = () => {
-    const pageNumbers = []
-    for (let i = 1; i <= totalPages; i++) {
-      pageNumbers.push(i)
-    }
-
-    return (
-      <div className={`flex justify-between items-center px-6 py-3 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-t'}`}>
-        <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Halaman {currentPage} dari {totalPages}
-        </p>
-        <div className="flex gap-2 items-center">
+  const renderPagination = () => (
+    <div
+      className={`flex justify-between items-center px-6 py-3 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-t'}`}
+    >
+      <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+        Halaman {currentPage} dari {totalPages}
+      </p>
+      <div className="flex gap-2 items-center">
+        <button
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className={`px-3 py-1 rounded text-sm ${
+            isDark
+              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50'
+          }`}
+        >
+          Sebelumnya
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
           <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
+            key={num}
+            onClick={() => setCurrentPage(num)}
             className={`px-3 py-1 rounded text-sm ${
-              isDark 
-                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50'
+              num === currentPage
+                ? 'bg-blue-500 text-white'
+                : isDark
+                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
           >
-            Sebelumnya
+            {num}
           </button>
-          {pageNumbers.map((num) => (
-            <button
-              key={num}
-              onClick={() => setCurrentPage(num)}
-              className={`px-3 py-1 rounded text-sm ${
-                num === currentPage
-                  ? 'bg-blue-500 text-white'
-                  : isDark
-                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              {num}
-            </button>
-          ))}
-          <button
-            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className={`px-3 py-1 rounded text-sm ${
-              isDark 
-                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50'
-            }`}
-          >
-            Selanjutnya
-          </button>
-        </div>
+        ))}
+        <button
+          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+          disabled={currentPage === totalPages}
+          className={`px-3 py-1 rounded text-sm ${
+            isDark
+              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50'
+          }`}
+        >
+          Selanjutnya
+        </button>
       </div>
-    )
-  }
+    </div>
+  )
 
   return (
     <>
-      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md overflow-hidden w-full`}>
-        <div className={`p-4 border-b flex items-center justify-between ${isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
+      <div
+        className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md overflow-hidden w-full`}
+      >
+        {/* Header */}
+        <div
+          className={`p-4 border-b flex items-center justify-between ${isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}
+        >
           <div className="flex flex-col w-full">
-            <h2 className={`text-lg font-medium ${isDark ? 'text-white' : 'text-gray-700'}`}>{title}</h2>
+            <h2 className={`text-lg font-medium ${isDark ? 'text-white' : 'text-gray-700'}`}>
+              {title}
+            </h2>
             <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{info}</p>
           </div>
           <div className="flex gap-10 w-full justify-end">
             <div className="flex-1 max-w-xs">
               <SearchField
                 placeholder="Cari Data"
-                className={`w-full border ${isDark ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-300'} rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400`}
+                className={`w-full border ${isDark ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-300'} rounded-lg px-3 py-2`}
                 value={searchValue}
                 onChange={(e) => onSearchChange?.(e.target.value)}
               />
@@ -142,11 +136,16 @@ const TableContent = ({
           </div>
         </div>
 
+        {/* Table */}
         <div className="overflow-x-auto">
-          <table className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+          <table
+            className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}
+          >
             <thead className={isDark ? 'bg-gray-700' : 'bg-gray-50'}>
               <tr>
-                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider w-16`}>
+                <th
+                  className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider w-16`}
+                >
                   No
                 </th>
                 {columns.map((col) => (
@@ -157,23 +156,45 @@ const TableContent = ({
                     {col.label}
                   </th>
                 ))}
-                <th className={`px-6 py-3 text-right text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}>
+                <th
+                  className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${
+                    isDark ? 'text-gray-300 bg-gray-700' : 'text-gray-500 bg-gray-50'
+                  } sticky right-0 z-10`}
+                >
                   Aksi
                 </th>
               </tr>
             </thead>
-            <tbody className={`${isDark ? 'bg-gray-800 divide-y divide-gray-700' : 'bg-white divide-y divide-gray-200'}`}>
+            <tbody
+              className={`${isDark ? 'bg-gray-800 divide-y divide-gray-700' : 'bg-white divide-y divide-gray-200'}`}
+            >
               {currentData.map((item, index) => (
-                <tr key={item.id ?? index} className={isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <tr
+                  key={item.id ?? index}
+                  className={isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}
+                >
+                  <td className={`px-6 py-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                     {(currentPage - 1) * itemsPerPage + index + 1}
                   </td>
                   {columns.map((col) => (
-                    <td key={col.key} className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm ${isDark ? 'text-gray-200' : 'text-gray-900'}`}>{item[col.key]}</div>
+                    <td key={col.key} className="px-6 py-4 text-sm">
+                      {typeof item[col.key] === 'object' && item[col.key] !== null ? (
+                        <div className="leading-snug">
+                          <div className="font-medium">{item[col.key].nama}</div>
+                          <div className="text-xs text-gray-500">{item[col.key].nomor}</div>
+                        </div>
+                      ) : (
+                        <div className={`${isDark ? 'text-gray-200' : 'text-gray-900'}`}>
+                          {item[col.key]}
+                        </div>
+                      )}
                     </td>
                   ))}
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td
+                    className={`px-6 py-4 text-right text-sm font-medium sticky right-0 z-10 ${
+                      isDark ? 'bg-gray-800' : 'bg-white'
+                    }`}
+                  >
                     <div className="flex justify-end gap-2">
                       {showView && (
                         <ButtonInput color="blue" size={btnSize} onClick={() => onView(item.id)}>
@@ -202,12 +223,13 @@ const TableContent = ({
         </div>
 
         {data.length === 0 && (
-          <div className={`py-8 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Belum ada data untuk ditampilkan.</div>
+          <div className={`py-8 text-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            Belum ada data untuk ditampilkan.
+          </div>
         )}
 
         {data.length > itemsPerPage && renderPagination()}
 
-        {/* Add AlertDialog for non-admin users */}
         <AlertDialog
           isOpen={showAlertDialog}
           onClose={() => setShowAlertDialog(false)}

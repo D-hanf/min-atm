@@ -14,7 +14,6 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
   const [manualFee, setManualFee] = useState(false)
   const [manualAdmin, setManualAdmin] = useState(false)
 
-  // Fetch saldo awal dari database
   const fetchSaldo = async () => {
     try {
       const result = await window.api.getSaldoAwal()
@@ -28,12 +27,10 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
     fetchSaldo()
   }, [])
 
-  // Reset manualAdmin saat user ganti sumber_dana
   useEffect(() => {
     setManualAdmin(false)
   }, [formData.sumber_dana_id])
 
-  // Set biaya_admin default dari sumber dana
   useEffect(() => {
     const sumberDana = sumberDanaList.find((item) => item.id === parseInt(formData.sumber_dana_id))
     if (sumberDana && !manualAdmin) {
@@ -41,16 +38,13 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
     }
   }, [formData.sumber_dana_id, sumberDanaList, manualAdmin])
 
-  // Validasi dan perhitungan fee otomatis
   useEffect(() => {
     const nominal = parseInt(formData.nominal_transaksi || '0', 10)
-
     if (!formData.nominal_transaksi) {
       setManualFee(false)
     }
   }, [formData.nominal_transaksi, manualFee])
 
-  // Validasi saldo cukup
   useEffect(() => {
     const nominal = parseFloat(formData.nominal_transaksi || 0)
     const admin = parseFloat(formData.biaya_admin || 0)
@@ -67,16 +61,10 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
       setNominalError('')
       onValidChange?.(true)
     }
-  }, [
-    formData.sumber_dana_id,
-    formData.nominal_transaksi,
-    formData.biaya_admin, // ✅ tambahkan dependency-nya juga
-    sumberDanaList
-  ])
+  }, [formData.sumber_dana_id, formData.nominal_transaksi, formData.biaya_admin, sumberDanaList])
 
   return (
     <>
-      {/* Header Nomor Transaksi */}
       <div
         className={`${isDark ? 'bg-gray-700 border-blue-700' : 'bg-gray-50 border-blue-500'} p-4 rounded-lg mb-4 border-l-4`}
       >
@@ -91,7 +79,23 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
           </span>
         </div>
       </div>
+      <InputField
+        name="nama_pelanggan"
+        type="text"
+        value={formData.nama_pelanggan || ''}
+        onChange={onChange}
+      >
+        Nama Pelanggan
+      </InputField>
 
+      <InputField
+        name="nomor_tujuan"
+        type="text"
+        value={formData.nomor_tujuan || ''}
+        onChange={onChange}
+      >
+        Nomor Rekening Tujuan
+      </InputField>
       <SelectItems
         options={[
           { label: 'Briva', value: 'Briva' },
@@ -155,9 +159,7 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
         onChange={(e) => {
           setManualFee(true)
           const numericFee = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
-          onChange({
-            target: { name: 'fee', value: numericFee }
-          })
+          onChange({ target: { name: 'fee', value: numericFee } })
         }}
       >
         Biaya Jasa
@@ -177,7 +179,6 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
 
       <InputField
         name="biaya_admin"
-        required={false}
         type="text"
         value={
           formData.biaya_admin
@@ -192,9 +193,7 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
         onChange={(e) => {
           setManualAdmin(true)
           const numericAdmin = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
-          onChange({
-            target: { name: 'biaya_admin', value: numericAdmin }
-          })
+          onChange({ target: { name: 'biaya_admin', value: numericAdmin } })
         }}
       >
         Biaya Admin

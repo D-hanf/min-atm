@@ -37,15 +37,11 @@ const ModePulsaForm = ({ formData, onChange, onValidChange }) => {
   }, [formData.sumber_dana_id, sumberDanaList, manualAdmin])
 
   useEffect(() => {
-    const nominal = parseInt(formData.nominal_transaksi || '0', 10)
-
     if (!formData.nominal_transaksi) {
       setManualFee(false)
     }
   }, [formData.nominal_transaksi, manualFee])
 
-  // Validasi saldo cukup
-  // Validasi saldo cukup
   useEffect(() => {
     const nominal = parseFloat(formData.nominal_transaksi || 0)
     const admin = parseFloat(formData.biaya_admin || 0)
@@ -62,12 +58,7 @@ const ModePulsaForm = ({ formData, onChange, onValidChange }) => {
       setNominalError('')
       onValidChange?.(true)
     }
-  }, [
-    formData.sumber_dana_id,
-    formData.nominal_transaksi,
-    formData.biaya_admin, // ✅ tambahkan dependency-nya juga
-    sumberDanaList
-  ])
+  }, [formData.sumber_dana_id, formData.nominal_transaksi, formData.biaya_admin, sumberDanaList])
 
   return (
     <>
@@ -95,6 +86,23 @@ const ModePulsaForm = ({ formData, onChange, onValidChange }) => {
         Tanggal
       </InputField>
 
+      <InputField
+        name="nama_pelanggan"
+        type="text"
+        value={formData.nama_pelanggan || ''}
+        onChange={onChange}
+      >
+        Nama Pelanggan
+      </InputField>
+
+      <InputField
+        name="nomor_tujuan"
+        type="text"
+        value={formData.nomor_tujuan || ''}
+        onChange={onChange}
+      >
+        Nomor Tujuan
+      </InputField>
       <SelectItems
         options={sumberDanaList.map((item) => ({
           label: item.nama_sumber_dana,
@@ -151,7 +159,7 @@ const ModePulsaForm = ({ formData, onChange, onValidChange }) => {
       >
         Biaya Jasa
       </InputField>
-      
+
       <SelectItems
         options={sumberDanaList.map((item) => ({
           label: item.nama_sumber_dana,

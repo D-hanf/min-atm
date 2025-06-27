@@ -93,13 +93,17 @@ const FormLayout = ({ onSubmit }) => {
         >
           Alamat
         </InputField>
-
-        <InputField   value={formData.role}
-        placeholder={'kasir, admin'}
+        <SelectItems
+          options={[
+            { value: 'kasir', label: 'Kasir' },
+            { value: 'admin', label: 'Admin' },
+            { value: 'manager', label: 'Manager' }
+          ]}
+          label="Jabatan"
+          name={'role'}
+          value={formData.role}
           onChange={(e) => handleChange('role', e.target.value)}
-        name='role'>
-          Jabatan
-        </InputField>
+        ></SelectItems>
       </Modal>
     </>
   )
