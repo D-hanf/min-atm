@@ -1,6 +1,6 @@
-import { useTheme } from '../../context/ThemeContext'
 import ButtonInput from '../../components/ButtonInput'
 import React from 'react'
+import { useTheme } from '../../context/ThemeContext'
 
 const Modal = ({
   isOpen,
@@ -21,10 +21,7 @@ const Modal = ({
     const formData = new FormData(e.target)
     const data = Object.fromEntries(formData.entries())
 
-    // Call onSubmit and check the result
     const result = onSubmit(data)
-
-    // Only close the modal if onSubmit doesn't return false
     if (result !== false) {
       onClose()
     }
@@ -35,21 +32,22 @@ const Modal = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-600/25 dark:bg-black/40">
       <div
-        className={`${isDark ? 'bg-gray-800 text-white' : 'bg-white'} rounded-2xl shadow-lg w-full max-w-lg p-6 relative`}
+        className={`${isDark ? 'bg-gray-800 text-white' : 'bg-white'}
+          rounded-2xl shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto p-6`}
       >
-        {/* Modal Header with optional title */}
-        {title && (
-          <div
-            className={`flex justify-center items-center mb-4 pb-4 ${isDark ? 'border-gray-700' : 'border-b'}`}
-          >
-            <h3 className="text-lg font-semibold">{title}</h3>
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="">{children}</div>
-          <div className="flex justify-between items-center gap-2 mt-4">
-            {/* Left side - Back button */}
+          {/* Header */}
+          {title && (
+            <div className={`text-center border-b pb-4 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <h3 className="text-lg font-semibold">{title}</h3>
+            </div>
+          )}
+
+          {/* Konten form */}
+          <div className="space-y-4">{children}</div>
+
+          {/* Tombol */}
+          <div className="flex justify-between items-center gap-2 pt-4 mt-2">
             <div className="flex">
               {showBackButton && (
                 <ButtonInput onClick={onBack} color="gray" type="button">
@@ -57,8 +55,6 @@ const Modal = ({
                 </ButtonInput>
               )}
             </div>
-
-            {/* Right side - Cancel and Submit buttons */}
             <div className={`flex gap-2 ${fullWidthCancel && !showBackButton ? 'w-full' : ''}`}>
               <ButtonInput
                 onClick={onClose}

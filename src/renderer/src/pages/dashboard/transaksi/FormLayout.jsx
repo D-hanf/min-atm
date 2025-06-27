@@ -157,6 +157,7 @@ const FormLayout = ({
         </div>
       )}
       <Modal
+      className="max-h-[80vh] overflow-y-auto pr-2"
         isOpen={modalOpen}
         disabled={!formValid && !showMenu && !isEdit}
         onClose={handleModalClose}
