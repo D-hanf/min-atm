@@ -182,11 +182,8 @@ const HalamanTransaksi = () => {
           tipe_transaksi: item.tipe_transaksi || '-',
           saldo_awal: formatRupiah(saldoAwal),
           terima_dana_id: item.terima_dana_id || '-',
-          pelanggan_dan_nomor: {
-            nama: item.nama_pelanggan || '-',
-            nomor: item.nomor_tujuan || '-'
-          },
-
+          nama_pelanggan: item.nama_pelanggan || "-",
+          nomor_tujuan: item.nomor_tujuan || "-",
           nominal_transaksi: formatRupiah(nominal),
           fee: formatRupiah(fee),
           metode_pembayaran: Number(item.metode_pembayaran) || null,
@@ -212,7 +209,8 @@ const HalamanTransaksi = () => {
 
   const transactionColumns = [
     { key: 'tanggal', label: 'Tanggal' },
-    { key: 'pelanggan_dan_nomor', label: 'Pelanggan & Tujuan' },
+    { key: 'nama_pelanggan', label: 'Nama Pelanggan' },
+    {key: 'nomor_tujuan', label: 'Nomor Tujuan'},
     { key: 'no_transaksi', label: 'No Transaksi' },
     { key: 'sumber_dana', label: 'Sumber Dana' },
     { key: 'jenis_transaksi', label: 'Jenis' },
@@ -257,6 +255,7 @@ const HalamanTransaksi = () => {
     }
   }
 
+
   const handleDateChange = (date) => {
     setSelectedDate(date)
     const filteredTransactions = transactions.filter((transaction) => transaction.date === date)
@@ -285,25 +284,34 @@ const HalamanTransaksi = () => {
     return Number(value.replace(/[^0-9,-]+/g, '').replace(',', '.')) || 0
   }
 
-  const handleTransactionEdit = (id) => {
-    const transactionToEdit = transactions.find((transaction) => transaction.id === id)
+ const handleTransactionEdit = (id) => {
+  const transactionToEdit = transactions.find((transaction) => transaction.id === id)
 
-    if (transactionToEdit) {
-      // Ubah string format rupiah jadi number
-      const cleanedData = {
-        ...transactionToEdit,
-        saldo_awal: parseRupiah(transactionToEdit.saldo_awal),
-        nominal_transaksi: parseRupiah(transactionToEdit.nominal_transaksi),
-        fee: parseRupiah(transactionToEdit.fee),
-        biaya_admin_bank: parseRupiah(transactionToEdit.biaya_admin_bank),
-        saldo_akhir: parseRupiah(transactionToEdit.saldo_akhir),
-        metode_pembayaran: transactionToEdit.metode_pembayaran || ''
-      }
+  if (!transactionToEdit) return
 
-      setEditingTransaction(cleanedData)
-      setShowEditModal(true)
-    }
+  const today = new Date().toISOString().split('T')[0]
+
+  // Validasi khusus untuk kasir
+  if (userRole === 'kasir' && transactionToEdit.tanggal !== today) {
+    setAlertMessage('Kasir hanya bisa mengedit transaksi hari ini. Hubungi admin untuk mengubah data lama.')
+    setShowAlertDialog(true)
+    return
   }
+
+  // Jika lolos, ubah format rupiah ke angka
+  const cleanedData = {
+    ...transactionToEdit,
+    saldo_awal: parseRupiah(transactionToEdit.saldo_awal),
+    nominal_transaksi: parseRupiah(transactionToEdit.nominal_transaksi),
+    fee: parseRupiah(transactionToEdit.fee),
+    biaya_admin_bank: parseRupiah(transactionToEdit.biaya_admin_bank),
+    saldo_akhir: parseRupiah(transactionToEdit.saldo_akhir),
+    metode_pembayaran: transactionToEdit.metode_pembayaran || ''
+  }
+
+  setEditingTransaction(cleanedData)
+  setShowEditModal(true)
+}
 
   const handleEditSubmit = async (updatedData) => {
     try {
@@ -424,13 +432,13 @@ const HalamanTransaksi = () => {
       )}
 
       <TableContent
-
         data={filteredData}
         columns={transactionColumns}
         title={'Data Transaksi'}
         info={`Total Transaksi: ${transactions.length}`}
         btnSize={'xs'}
         userRole={userRole}
+        showDateFilter={true}
         onDelete={handleDelete}
         onEdit={handleTransactionEdit}
         onAdd={
