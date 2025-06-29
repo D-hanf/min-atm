@@ -80,6 +80,23 @@ const HalamanTransaksi = () => {
     fetchToko()
     fetchFundSources()
   }, [])
+  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0])
+
+  useEffect(() => {
+    const interval = setInterval(
+      () => {
+        const today = new Date().toISOString().split('T')[0]
+        if (today !== currentDate) {
+          setCurrentDate(today)
+          fetchTransaksi() // ⬅️ Panggil ulang transaksi saat hari ganti
+          fetchFinancialSummary() // (opsional, biar ringkasan juga update)
+        }
+      },
+      5 * 60 * 1000
+    ) // Cek tiap 5 menit
+
+    return () => clearInterval(interval)
+  }, [currentDate])
 
   const [fundSources, setFundSources] = useState([])
 
@@ -182,8 +199,8 @@ const HalamanTransaksi = () => {
           tipe_transaksi: item.tipe_transaksi || '-',
           saldo_awal: formatRupiah(saldoAwal),
           terima_dana_id: item.terima_dana_id || '-',
-          nama_pelanggan: item.nama_pelanggan || "-",
-          nomor_tujuan: item.nomor_tujuan || "-",
+          nama_pelanggan: item.nama_pelanggan || '-',
+          nomor_tujuan: item.nomor_tujuan || '-',
           nominal_transaksi: formatRupiah(nominal),
           fee: formatRupiah(fee),
           metode_pembayaran: Number(item.metode_pembayaran) || null,
@@ -210,7 +227,7 @@ const HalamanTransaksi = () => {
   const transactionColumns = [
     { key: 'tanggal', label: 'Tanggal' },
     { key: 'nama_pelanggan', label: 'Nama Pelanggan' },
-    {key: 'nomor_tujuan', label: 'Nomor Tujuan'},
+    { key: 'nomor_tujuan', label: 'Nomor Tujuan' },
     { key: 'no_transaksi', label: 'No Transaksi' },
     { key: 'sumber_dana', label: 'Sumber Dana' },
     { key: 'jenis_transaksi', label: 'Jenis' },
@@ -255,7 +272,6 @@ const HalamanTransaksi = () => {
     }
   }
 
-
   const handleDateChange = (date) => {
     setSelectedDate(date)
     const filteredTransactions = transactions.filter((transaction) => transaction.date === date)
@@ -284,34 +300,36 @@ const HalamanTransaksi = () => {
     return Number(value.replace(/[^0-9,-]+/g, '').replace(',', '.')) || 0
   }
 
- const handleTransactionEdit = (id) => {
-  const transactionToEdit = transactions.find((transaction) => transaction.id === id)
+  const handleTransactionEdit = (id) => {
+    const transactionToEdit = transactions.find((transaction) => transaction.id === id)
 
-  if (!transactionToEdit) return
+    if (!transactionToEdit) return
 
-  const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toISOString().split('T')[0]
 
-  // Validasi khusus untuk kasir
-  if (userRole === 'kasir' && transactionToEdit.tanggal !== today) {
-    setAlertMessage('Kasir hanya bisa mengedit transaksi hari ini. Hubungi admin untuk mengubah data lama.')
-    setShowAlertDialog(true)
-    return
+    // Validasi khusus untuk kasir
+    if (userRole === 'kasir' && transactionToEdit.tanggal !== today) {
+      setAlertMessage(
+        'Kasir hanya bisa mengedit transaksi hari ini. Hubungi admin untuk mengubah data lama.'
+      )
+      setShowAlertDialog(true)
+      return
+    }
+
+    // Jika lolos, ubah format rupiah ke angka
+    const cleanedData = {
+      ...transactionToEdit,
+      saldo_awal: parseRupiah(transactionToEdit.saldo_awal),
+      nominal_transaksi: parseRupiah(transactionToEdit.nominal_transaksi),
+      fee: parseRupiah(transactionToEdit.fee),
+      biaya_admin_bank: parseRupiah(transactionToEdit.biaya_admin_bank),
+      saldo_akhir: parseRupiah(transactionToEdit.saldo_akhir),
+      metode_pembayaran: transactionToEdit.metode_pembayaran || ''
+    }
+
+    setEditingTransaction(cleanedData)
+    setShowEditModal(true)
   }
-
-  // Jika lolos, ubah format rupiah ke angka
-  const cleanedData = {
-    ...transactionToEdit,
-    saldo_awal: parseRupiah(transactionToEdit.saldo_awal),
-    nominal_transaksi: parseRupiah(transactionToEdit.nominal_transaksi),
-    fee: parseRupiah(transactionToEdit.fee),
-    biaya_admin_bank: parseRupiah(transactionToEdit.biaya_admin_bank),
-    saldo_akhir: parseRupiah(transactionToEdit.saldo_akhir),
-    metode_pembayaran: transactionToEdit.metode_pembayaran || ''
-  }
-
-  setEditingTransaction(cleanedData)
-  setShowEditModal(true)
-}
 
   const handleEditSubmit = async (updatedData) => {
     try {

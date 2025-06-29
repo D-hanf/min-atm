@@ -28,7 +28,6 @@ export function getTransaksi(role) {
     })
   })
 }
-
 export function createTransaksi(_event, data) {
   return new Promise((resolve, reject) => {
     let {

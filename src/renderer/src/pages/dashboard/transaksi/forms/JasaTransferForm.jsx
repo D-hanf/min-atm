@@ -83,7 +83,23 @@ const JasaTransferForm = ({ formData, onChange }) => {
       >
         Tanggal
       </InputField>
+      <InputField
+        name="nama_pelanggan"
+        type="text"
+        value={formData.nama_pelanggan || ''}
+        onChange={onChange}
+      >
+        Nama Pelanggan
+      </InputField>
 
+      <InputField
+        name="nomor_tujuan"
+        type="text"
+        value={formData.nomor_tujuan || ''}
+        onChange={onChange}
+      >
+        Nomor Rekening Tujuan
+      </InputField>
       {/* Hidden: Sumber Dana */}
       <SelectItems
         hidden={true}
