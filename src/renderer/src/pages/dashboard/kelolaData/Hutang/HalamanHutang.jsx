@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { use, useEffect, useState } from 'react'
 
 import AlertDialog from '../../../../components/AlertDialog'
 import ConfirmDialog from '../../../../components/ConfirmDialog'
@@ -30,6 +30,8 @@ function HalamanHutang() {
   const [modalOpen, setModalOpen] = useState(false)
   const [jenisTransaksiOptions] = useState(['Ambil Hutang', 'Bayar Hutang'])
   const [isLoading, setIsLoading] = useState(false)
+  const [confirmMessage, setConfirmMessage] = useState('')
+
   const [userRole, setUserRole] = useState(() => {
     const storedUser = JSON.parse(localStorage.getItem('user'))
     return storedUser?.role || 'kasir'
@@ -136,7 +138,7 @@ function HalamanHutang() {
       .format('YYYY-MM-DD')
 
     // Role kasir hanya bisa edit transaksi hari ini
-    if (userRole == 'kasir' && tanggalTransaksi !== today) {
+    if (userRole.toLowerCase() === 'kasir' && tanggalTransaksi !== today) {
       setAlertMessage(
         'Kasir hanya bisa mengedit transaksi hutang hari ini. Hubungi admin untuk mengubah data lama.'
       )
@@ -180,6 +182,7 @@ function HalamanHutang() {
     }
 
     setDeleteId(id)
+    setConfirmMessage('Apakah Anda yakin ingin menghapus transaksi hutang ini?') // ✅ ini penting
     setShowConfirmDialog(true)
   }
 
@@ -242,7 +245,8 @@ function HalamanHutang() {
         jenis_transaksi: formData.jenis_transaksi,
         biaya_admin: parseFloat(extractNumeric(formData.biaya_admin) || 0),
         tanggal_transaksi: formattedDate,
-        keterangan: formData.keterangan
+        keterangan: formData.keterangan,
+        role: userRole
       }
 
       await window.api.updateHutang(updatedEntry)
@@ -287,6 +291,13 @@ function HalamanHutang() {
           />
         )}
       </div>
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        onConfirm={confirmDelete}
+        title="Konfirmasi Hapus"
+        message={confirmMessage}
+      />
       <ModalEdit isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmitEdit}>
         {/* Petugas */}
         <div className="col-span-2 mb-4">
@@ -301,7 +312,14 @@ function HalamanHutang() {
             {loggedInUser ? loggedInUser.nama || `User ID: ${loggedInUser.id}` : 'Loading...'}
           </div>
         </div>
-
+        <InputField
+          name="tanggal_transaksi"
+          type="date"
+          value={formData.tanggal_transaksi}
+          onChange={(e) => setFormData({ ...formData, tanggal_transaksi: e.target.value })}
+        >
+          Tanggal Transaksi
+        </InputField>
         {/* Platform/Sumber Dana */}
         <div className="col-span-2 mb-4">
           <label
@@ -387,15 +405,6 @@ function HalamanHutang() {
           required={false}
         >
           Biaya Admin
-        </InputField>
-
-        <InputField
-          name="tanggal_transaksi"
-          type="date"
-          value={formData.tanggal_transaksi}
-          onChange={(e) => setFormData({ ...formData, tanggal_transaksi: e.target.value })}
-        >
-          Tanggal Transaksi
         </InputField>
 
         <InputField

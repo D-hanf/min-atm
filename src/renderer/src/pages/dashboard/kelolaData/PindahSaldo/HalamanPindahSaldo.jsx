@@ -301,7 +301,7 @@ const HalamanPindahSaldo = () => {
     const today = getTodayWIB()
 
     // Validasi: kasir hanya boleh edit transaksi hari ini
-    if (userRole === 'kasir' && itemToEdit.date !== today) {
+    if (userRole.toLowerCase() === 'kasir' && itemToEdit.date !== today) {
       setAlertMessage(
         'Kasir hanya bisa mengedit pemindahan saldo hari ini. Hubungi admin untuk mengubah data lama.'
       )
@@ -360,7 +360,7 @@ const HalamanPindahSaldo = () => {
   const filteredData = transfers
     .filter((item) => {
       // role kasir hanya tampilkan data hari ini
-      if (userRole === 'kasir') {
+      if (userRole.toLowerCase() === 'kasir') {
         return item.date === getTodayWIB()
       }
       return true

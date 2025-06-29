@@ -319,7 +319,7 @@ const HalamanTransaksi = () => {
     const today = getTodayWIB()
 
     // Validasi khusus untuk kasir
-    if (userRole === 'kasir' && transactionToEdit.tanggal !== today) {
+    if (userRole.toLowerCase() === 'kasir' && transactionToEdit.tanggal !== today) {
       setAlertMessage(
         'Kasir hanya bisa mengedit transaksi hari ini. Hubungi admin untuk mengubah data lama.'
       )

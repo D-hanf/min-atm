@@ -48,8 +48,10 @@ const HalamanAwalSaldo = () => {
       phone: '081234567893'
     }
   ])
-    const { isDark } = useTheme()
-
+  const { isDark } = useTheme()
+  const getTodayWIB = () => {
+    return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  }
   const [saldo, setSaldo] = useState([])
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
@@ -212,7 +214,9 @@ const HalamanAwalSaldo = () => {
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
-            <h1  className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>Saldo Awal</h1>
+            <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>
+              Saldo Awal
+            </h1>
           </div>
           {/* <div className="flex-1 max-w-xs">
             <Dropdown
@@ -269,7 +273,7 @@ const HalamanAwalSaldo = () => {
         <InputField
           name="biaya_admin"
           type="text"
-           required={false}
+          required={false}
           value={formData.biaya_admin}
           onChange={handleRupiahInput}
         >

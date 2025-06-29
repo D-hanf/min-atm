@@ -105,7 +105,7 @@ const HalamanAmbilSaldo = () => {
 
       let filtered = result
 
-      if (userRole === 'kasir') {
+      if (userRole.toLowerCase() === 'kasir') {
         const today = getTodayWIB()
         filtered = result.filter((item) => {
           const itemDate = dayjs(item.tanggal_pengambilan).tz('Asia/Jakarta').format('YYYY-MM-DD')
@@ -331,7 +331,7 @@ const HalamanAmbilSaldo = () => {
   const filteredData = ambilSaldo
     .filter((item) => {
       // Jika role kasir, hanya tampilkan data hari ini
-      if (userRole === 'kasir') {
+      if (userRole.toLowerCase() === 'kasir') {
         const today = getTodayWIB()
         const itemDate = dayjs(item.tanggal_pengambilan).format('YYYY-MM-DD')
         return itemDate === today
