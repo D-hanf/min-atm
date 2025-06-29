@@ -21,7 +21,7 @@ const InputHere = ({
   name,
   value,
   placeholder,
-  onChange = { onChange },
+  onChange = () => {},
   showToggle,
   showPassword,
   togglePassword,
@@ -64,13 +64,14 @@ const InputHere = ({
   )
 }
 
+
 const InputField = ({
   children,
   name,
   type = 'text',
   value,
   onChange,
-  required = true,
+  required =false,
   className = '',
   placeholder = '',
   disabled = false,

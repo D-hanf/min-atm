@@ -37,23 +37,23 @@ const TableContent = ({
     }
   }, [])
 
-  const handleEdit = (id) => {
-    if (loggedInUser?.role !== 'admin' && userRole !== 'kasir') {
-      setAlertMessage('Maaf, hanya admin yang dapat mengedit data.')
-      setShowAlertDialog(true)
-      return
-    }
-    onEdit(id)
+const handleEdit = (id) => {
+  if (loggedInUser?.role?.toLowerCase() !== 'admin' && userRole?.toLowerCase() !== 'kasir') {
+    setAlertMessage('Maaf, hanya admin yang dapat mengedit data.')
+    setShowAlertDialog(true)
+    return
   }
+  onEdit(id)
+}
 
-  const handleDelete = (id) => {
-    if (!loggedInUser || loggedInUser.role !== 'admin') {
-      setAlertMessage('Maaf, hanya admin yang dapat menghapus data.')
-      setShowAlertDialog(true)
-      return
-    }
-    onDelete(id)
+const handleDelete = (id) => {
+  if (!loggedInUser || loggedInUser.role?.toLowerCase() !== 'admin') {
+    setAlertMessage('Maaf, hanya admin yang dapat menghapus data.')
+    setShowAlertDialog(true)
+    return
   }
+  onDelete(id)
+}
 
   // Filtering berdasarkan tanggal dan search
   const reversedData = [...data].reverse()

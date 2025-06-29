@@ -19,19 +19,19 @@ const api = {
   deleteSaldoAwal: (id) => ipcRenderer.invoke('delete-saldo-awal', id),
 
   // hutang
-  getHutang: () => ipcRenderer.invoke('get-hutang'),
+  getHutang: (params) => ipcRenderer.invoke('get-hutang', params),
   createHutang: (data) => ipcRenderer.invoke('create-hutang', data),
   updateHutang: (data) => ipcRenderer.invoke('update-hutang', data),
   deleteHutang: (id) => ipcRenderer.invoke('delete-hutang', id),
 
   // pindah saldo
-  getPindahSaldo: () => ipcRenderer.invoke('get-pindah-saldo'),
+  getPindahSaldo: (params) => ipcRenderer.invoke('get-pindah-saldo',params),
   createPindahSaldo: (data) => ipcRenderer.invoke('create-pindah-saldo', data),
   updatePindahSaldo: (data) => ipcRenderer.invoke('update-pindah-saldo', data),
   deletePindahSaldo: (id) => ipcRenderer.invoke('delete-pindah-saldo', id),
 
   // ambil saldo - make sure these are correctly defined
-  getAmbilSaldo: () => ipcRenderer.invoke('get-ambil-saldo'),
+  getAmbilSaldo: (params) => ipcRenderer.invoke('get-ambil-saldo', params),
   createAmbilSaldo: (data) => ipcRenderer.invoke('create-ambil-saldo', data),
   updateAmbilSaldo: (data) => ipcRenderer.invoke('update-ambil-saldo', data),
   deleteAmbilSaldo: (id) => ipcRenderer.invoke('delete-ambil-saldo', id),

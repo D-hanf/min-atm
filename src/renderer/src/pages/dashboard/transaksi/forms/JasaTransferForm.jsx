@@ -2,64 +2,61 @@ import React, { useEffect, useState } from 'react'
 
 import InputField from '../../../../components/InputField'
 import SelectItems from '../../../../components/SelectItems'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
 import { useTheme } from '../../../../context/ThemeContext'
+import utc from 'dayjs/plugin/utc'
 
+dayjs.extend(utc)
+dayjs.extend(timezone)
 const JasaTransferForm = ({ formData, onChange }) => {
   const { isDark } = useTheme()
   const [sumberDanaList, setSumberDanaList] = useState([])
-  const [manualFee, setManualFee] = useState(false)
-
-  // Ambil data sumber dana dari DB
-  const fetchSaldo = async () => {
-    try {
-      const result = await window.api.getSaldoAwal()
-      setSumberDanaList(result)
-    } catch (error) {
-      console.error('❌ Gagal ambil data saldo:', error)
-    }
-  }
-
+  const getTodayWIB = () => {
+  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+}
   useEffect(() => {
+    const fetchSaldo = async () => {
+      try {
+        const result = await window.api.getSaldoAwal()
+        setSumberDanaList(result)
+      } catch (error) {
+        console.error('❌ Gagal ambil data saldo:', error)
+      }
+    }
     fetchSaldo()
   }, [])
 
-  // Set default fee sekali saat load
   useEffect(() => {
     if (!formData.fee) {
-      onChange({
-        target: { name: 'fee', value: 5000 }
-      })
+      onChange({ target: { name: 'fee', value: 5000 } })
     }
   }, [])
 
-  // Set default sumber_dana_id ke laci (kalau belum ada)
-  useEffect(() => {
-    const laci = sumberDanaList.find((item) => item.nama_sumber_dana.toLowerCase() === 'laci')
-    if (laci && !formData.sumber_dana_id) {
-      onChange({
-        target: {
-          name: 'sumber_dana_id',
-          value: laci.id
-        }
-      })
-    }
-  }, [sumberDanaList])
-
-  // Sinkronisasi metode_pembayaran ke sumber_dana_id dan terima_dana_id
+  // Sinkronkan sumber dana agar sama dengan metode pembayaran
   useEffect(() => {
     if (formData.metode_pembayaran) {
-      onChange({
-        target: { name: 'sumber_dana_id', value: formData.metode_pembayaran }
-      })
-      onChange({
-        target: { name: 'terima_dana_id', value: formData.metode_pembayaran }
-      })
+      onChange({ target: { name: 'sumber_dana_id', value: formData.metode_pembayaran } })
     }
   }, [formData.metode_pembayaran])
 
+  const formatFee = (value) =>
+    value
+      ? new Intl.NumberFormat('id-ID', {
+          style: 'currency',
+          currency: 'IDR',
+          minimumFractionDigits: 0
+        }).format(value)
+      : ''
+
+  const handleFeeChange = (e) => {
+    const numericFee = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
+    onChange({ target: { name: 'fee', value: numericFee } })
+  }
+
   return (
     <>
-      {/* Header Nomor Transaksi */}
+      {/* Nomor Transaksi */}
       <div
         className={`${isDark ? 'bg-gray-700 border-blue-700' : 'bg-gray-50 border-blue-500'} p-4 rounded-lg mb-4 border-l-4`}
       >
@@ -76,13 +73,14 @@ const JasaTransferForm = ({ formData, onChange }) => {
       </div>
 
       <InputField
-        name="date"
+        name="tanggal"
         type="date"
-        value={formData.date || new Date().toISOString().split('T')[0]}
+        value={formData.date ||getTodayWIB()}
         onChange={onChange}
       >
         Tanggal
       </InputField>
+
       <InputField
         name="nama_pelanggan"
         type="text"
@@ -100,71 +98,32 @@ const JasaTransferForm = ({ formData, onChange }) => {
       >
         Nomor Rekening Tujuan
       </InputField>
-      {/* Hidden: Sumber Dana */}
+
+      {/* Metode Pembayaran */}
       <SelectItems
-        hidden={true}
         options={sumberDanaList.map((item) => ({
           label: item.nama_sumber_dana,
           value: item.id
         }))}
-        label=""
-        name="sumber_dana_id"
-        value={formData.sumber_dana_id || ''}
-        onChange={onChange}
+        label="Metode Pembayaran"
+        name="metode_pembayaran"
+        value={formData.metode_pembayaran || ''}
+        onChange={(e) => {
+          const id = e.target.value
+          onChange({ target: { name: 'metode_pembayaran', value: id } })
+        }}
       />
 
-      {/* Hidden: Terima Dana */}
-      <SelectItems
-        hidden={true}
-        options={sumberDanaList.map((item) => ({
-          label: item.nama_sumber_dana,
-          value: item.id
-        }))}
-        label=""
-        name="terima_dana_id"
-        value={formData.terima_dana_id || ''}
-        onChange={onChange}
-      />
-
-      {/* Input Fee */}
+      {/* Fee */}
       <InputField
         name="fee"
         type="text"
-        value={
-          formData.fee
-            ? new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-              }).format(formData.fee)
-            : ''
-        }
-        onChange={(e) => {
-          setManualFee(true)
-          const numericFee = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
-          onChange({
-            target: { name: 'fee', value: numericFee }
-          })
-        }}
+        value={formatFee(formData.fee)}
+        onChange={handleFeeChange}
       >
-        Biaya jasa
+        Biaya Jasa
       </InputField>
 
-      {/* Metode Pembayaran (Fee masuk ke mana) */}
-      <SelectItems
-        options={sumberDanaList.map((item) => ({
-          label: item.nama_sumber_dana,
-          value: item.id
-        }))}
-        label="Metode Pembayaran (Fee Masuk ke)"
-        name="metode_pembayaran"
-        value={formData.metode_pembayaran || ''}
-        onChange={onChange}
-        required
-      />
-
-      {/* Keterangan */}
       <InputField
         name="description"
         type="text"

@@ -9,9 +9,14 @@ import ModalEdit from '../../../../shared/ui/Modal'
 import SearchField from '../../../../components/SearchField'
 import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
 import { useEffect } from 'react'
 import { useTheme } from '../../../../context/ThemeContext'
+import utc from 'dayjs/plugin/utc'
 
+dayjs.extend(utc)
+dayjs.extend(timezone)
 const HalamanAwalSaldo = () => {
   const [stores] = useState([
     {
@@ -94,8 +99,8 @@ const HalamanAwalSaldo = () => {
     const newSaldo = {
       nama_sumber_dana: formData.source,
       saldo: cleanedSaldo,
-      tanggal_buat: new Date().toISOString().split('T')[0],
-      tanggal_update: new Date().toISOString().split('T')[0],
+      tanggal_buat: getTodayWIB(), // Use getTodayWIB to get today's date in WIB format
+      tanggal_update: getTodayWIB(), // Use getTodayWIB to get today's date in WIB format
       keterangan: formData.description,
       biaya_admin: parseFloat(formData.biaya_admin) ? parseFloat(formData.biaya_admin) : 0
     }
@@ -155,7 +160,7 @@ const HalamanAwalSaldo = () => {
       saldo: cleanedSaldo,
       biaya_admin: cleanedBiayaAdmin,
       tanggal_buat: updatedData.dateCreated,
-      tanggal_update: new Date().toISOString().split('T')[0],
+      tanggal_update: getTodayWIB(), // Use getTodayWIB to get today's date in WIB format
       keterangan: updatedData.description
     }
 

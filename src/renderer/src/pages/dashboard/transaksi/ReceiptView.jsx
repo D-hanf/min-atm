@@ -1,33 +1,41 @@
 import React, { useEffect, useState } from 'react'
 
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
+import utc from 'dayjs/plugin/utc'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
+
 const ReceiptView = ({ financialSummary, fundSources, formatRupiah }) => {
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [currentTime, setCurrentTime] = useState(dayjs().tz('Asia/Jakarta'))
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date())
+      setCurrentTime(dayjs().tz('Asia/Jakarta'))
     }, 1000)
 
     return () => clearInterval(timer)
   }, [])
 
-  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
-  const dayName = days[currentTime.getDay()]
-  const date = currentTime.toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  })
-  const time = currentTime.toLocaleTimeString('id-ID', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
+  const dayName = currentTime.format('dddd') // Nama hari dalam bahasa Inggris
+  const date = currentTime.format('D MMMM YYYY') // Contoh: 29 Juni 2025
+  const time = currentTime.format('HH:mm:ss') // 24 jam
+
+  const hariID = {
+    Sunday: 'Minggu',
+    Monday: 'Senin',
+    Tuesday: 'Selasa',
+    Wednesday: 'Rabu',
+    Thursday: 'Kamis',
+    Friday: 'Jumat',
+    Saturday: 'Sabtu'
+  }
 
   return (
     <div className="print-only p-6">
       <div className="mb-4 text-sm text-gray-700 italic">
-        Dicetak pada: <strong>{dayName}, {date}</strong> pukul <strong>{time}</strong>
+        Dicetak pada: <strong>{hariID[dayName] || dayName}, {date}</strong> pukul <strong>{time}</strong>
       </div>
 
       <h2 className="text-xl font-bold mb-4">Ringkasan Keuangan</h2>

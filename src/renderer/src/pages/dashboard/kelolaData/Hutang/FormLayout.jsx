@@ -5,15 +5,23 @@ import Dropdown from '../../../../components/Dropdown'
 import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
 import { useState } from 'react'
 import { useTheme } from '../../../../context/ThemeContext'
+import utc from 'dayjs/plugin/utc'
 
+dayjs.extend(utc)
+dayjs.extend(timezone)
 const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {} }) => {
   const { isDark } = useTheme()
   const [modalOpen, setModalOpen] = useState(false)
   const [loggedInUser, setLoggedInUser] = useState(null)
   // Add state to persist the previously selected platform
   const [lastSelectedPlatform, setLastSelectedPlatform] = useState('')
+  const getTodayWIB = () => {
+  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+}
   const [formData, setFormData] = useState({
     user_id: 1, // Will be replaced with current user ID
     platform: '',
@@ -21,7 +29,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
     currentBalance: '',
     amount: '',
     transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
-    tanggal: new Date().toISOString().split('T')[0],
+    tanggal: getTodayWIB(), // Default to today's date in WIB
     description: ''
   })
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
@@ -62,7 +70,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
       setIsLoading(true)
       const result = await window.api.getSaldoAwal()
       setSaldoAwalOptions(result)
-      console.log('✅ Data saldo awal berhasil diambil:', result)
+      // console.log('✅ Data saldo awal berhasil diambil:', result)
     } catch (error) {
       console.error('❌ Gagal ambil data saldo awal:', error)
       setSaldoAwalOptions([])
@@ -99,7 +107,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
         currentBalance: '',
         amount: '',
         transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
-        tanggal: new Date().toISOString().split('T')[0],
+        tanggal: getTodayWIB(), // Default to today's date in WIB
         description: ''
       })
 
@@ -284,6 +292,14 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
           {/* Hidden input to store the actual user ID */}
           <input type="hidden" name="user_id" value={formData.user_id} />
         </div>
+        <InputField
+          name="tanggal"
+          type="date"
+          value={formData.tanggal || getTodayWIB()}
+          onChange={handleInputChange}
+        >
+          Tanggal Transaksi
+        </InputField>
 
         {/* Platform dropdown */}
         <div className="col-span-2 mb-4">
@@ -405,15 +421,6 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
           {selectedPlatform && (
             <span className="text-xs text-yellow-600">(dari platform, dapat diedit)</span>
           )}
-        </InputField>
-
-        <InputField
-          name="tanggal"
-          type="date"
-          value={formData.tanggal || new Date().toISOString().split('T')[0]}
-          onChange={handleInputChange}
-        >
-          Tanggal Transaksi
         </InputField>
 
         <InputField

@@ -22,11 +22,11 @@ function addColumnIfNotExists(tableName, columnName, columnDef) {
       if (err) return reject(err)
 
       const exists = columns.some(col => col.name === columnName)
-      if (exists) return resolve(`⚠️ Kolom '${columnName}' sudah ada`)
+      if (exists) return resolve(`⚠️ Kolom '${columnName}' sudah ada di ${tableName}`)
 
       db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef}`, (err2) => {
         if (err2) return reject(err2)
-        resolve(`✅ Kolom '${columnName}' ditambahkan`)
+        resolve(`✅ Kolom '${columnName}' ditambahkan ke ${tableName}`)
       })
     })
   })
@@ -35,10 +35,17 @@ function addColumnIfNotExists(tableName, columnName, columnDef) {
 // 🔄 Jalankan semua alter schema di sini
 export async function updateSchema() {
   try {
-    const msg1 = await addColumnIfNotExists('transaksi', 'nama_pelanggan', 'TEXT')
-    const msg2 = await addColumnIfNotExists('transaksi', 'nomor_tujuan', 'TEXT')
-    console.log(msg1)
-    console.log(msg2)
+    const results = await Promise.all([
+      addColumnIfNotExists('transaksi', 'nama_pelanggan', 'TEXT'),
+      addColumnIfNotExists('transaksi', 'nomor_tujuan', 'TEXT'),
+
+      // Tambahan kolom tanggal di tabel yang kamu minta
+      addColumnIfNotExists('pindah_saldo', 'tanggal', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
+      addColumnIfNotExists('ambil_saldo', 'tanggal_pengambilan', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
+      addColumnIfNotExists('hutang', 'tanggal_transaksi', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+    ])
+
+    results.forEach(msg => console.log(msg))
   } catch (err) {
     console.error('❌ Gagal update schema:', err)
   }

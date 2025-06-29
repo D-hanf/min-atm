@@ -1,9 +1,16 @@
 import dayjs from 'dayjs'
 import db from './db'
+import timezone from 'dayjs/plugin/timezone'
+import utc from 'dayjs/plugin/utc'
+
+// Aktifkan plugin
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 export function getTransaksi(role) {
   return new Promise((resolve, reject) => {
-    const today = new Date().toISOString().split('T')[0]
+    // Pakai tanggal WIB (Asia/Jakarta)
+    const today = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
 
     const query = `
       SELECT 
@@ -28,6 +35,7 @@ export function getTransaksi(role) {
     })
   })
 }
+
 export function createTransaksi(_event, data) {
   return new Promise((resolve, reject) => {
     let {

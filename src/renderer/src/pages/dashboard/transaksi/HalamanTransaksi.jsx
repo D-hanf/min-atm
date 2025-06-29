@@ -13,7 +13,13 @@ import PageContainer from '../../../components/PageContainer'
 import ReceiptView from './ReceiptView'
 import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
 import { useTheme } from '../../../context/ThemeContext'
+import utc from 'dayjs/plugin/utc'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 const HalamanTransaksi = () => {
   const { isDark } = useTheme()
@@ -39,9 +45,12 @@ const HalamanTransaksi = () => {
   })
   const [filterText, setFilterText] = useState('')
   const [selectedDate, setSelectedDate] = useState('26/12/2024')
+  const getTodayWIB = () => {
+  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+}
 
   const [transactionFormData, setTransactionFormData] = useState({
-    tanggal: new Date().toISOString().split('T')[0],
+    tanggal: getTodayWIB(),
     no_transaksi: '',
     sumber_dana: '',
     terima_dana_id: '',
@@ -81,12 +90,13 @@ const HalamanTransaksi = () => {
     fetchToko()
     fetchFundSources()
   }, [])
-  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0])
+  const [currentDate, setCurrentDate] = useState(getTodayWIB())
 
   useEffect(() => {
     const interval = setInterval(
       () => {
-        const today = new Date().toISOString().split('T')[0]
+       const today = getTodayWIB()
+
         if (today !== currentDate) {
           setCurrentDate(today)
           fetchTransaksi() // ⬅️ Panggil ulang transaksi saat hari ganti
@@ -306,7 +316,7 @@ const HalamanTransaksi = () => {
 
     if (!transactionToEdit) return
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = getTodayWIB()
 
     // Validasi khusus untuk kasir
     if (userRole === 'kasir' && transactionToEdit.tanggal !== today) {
@@ -498,7 +508,8 @@ const HalamanTransaksi = () => {
         onSubmit={(updatedData) => {
           const updatedEntry = {
             ...updatedData,
-            dateUpdated: new Date().toISOString().split('T')[0]
+            dateUpdated: getTodayWIB()
+
           }
 
           setSaldo((prevData) =>

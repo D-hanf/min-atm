@@ -6,8 +6,13 @@ import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
 import SelectItems from '../../../../components/SelectItems'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
 import { useTheme } from '../../../../context/ThemeContext'
+import utc from 'dayjs/plugin/utc'
 
+dayjs.extend(utc)
+dayjs.extend(timezone)
 const FormLayout = ({
   onSubmit,
   buttonText = 'Tambah Pemindahan Saldo',
@@ -20,23 +25,22 @@ const FormLayout = ({
   const [saldoData, setSaldoData] = useState([])
   const [loggedInUser, setLoggedInUser] = useState(null)
 
-  // Platform options
   const [platformSourceOptions, setPlatformSourceOptions] = useState('')
   const [platformDestinationOptions, setPlatformDestinationOptions] = useState('')
 
-  // Selected saldo objects
   const [selectedSourceSaldo, setSelectedSourceSaldo] = useState(null)
   const [selectedDestSaldo, setSelectedDestSaldo] = useState(null)
 
-  // Add error state variables
   const [errors, setErrors] = useState({
     platformSource: '',
     platformDestination: '',
     amount: '',
     balance: ''
   })
+  const getTodayWIB = () => {
+  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+}
 
-  // Fetch logged in user from localStorage
   useEffect(() => {
     const userString = localStorage.getItem('user')
     if (userString) {
@@ -45,15 +49,10 @@ const FormLayout = ({
     }
   }, [])
 
-  // Format currency with special handling for zero balance - only used for displaying account balances
   const formatBalanceDisplay = (value) => {
     if (value === null || value === undefined) return 'Tidak ada Saldo'
-
-    // Convert to number and check if it's zero
     const numericValue = Number(value)
     if (numericValue === 0) return 'Tidak ada Saldo'
-
-    // Format as currency
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
@@ -61,17 +60,10 @@ const FormLayout = ({
     }).format(numericValue)
   }
 
-  // Format currency for input values - always show the amount, even if zero
   const formatRupiah = (value) => {
     if (value === null || value === undefined) return 'Rp 0'
-
-    // Remove all non-numeric characters
     const numeric = value.toString().replace(/[^0-9]/g, '')
-
-    // Convert to number - even if it's zero, we'll display it
     const numericValue = Number(numeric)
-
-    // Format as currency
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
       currency: 'IDR',
@@ -79,13 +71,11 @@ const FormLayout = ({
     }).format(numericValue)
   }
 
-  // Extract numeric value from formatted string
   const extractNumeric = (formattedValue) => {
     if (!formattedValue) return ''
     return formattedValue.toString().replace(/[^0-9]/g, '')
   }
 
-  // Fetch saldo data when the component mounts or when modal opens
   useEffect(() => {
     const fetchSaldoData = async () => {
       try {
@@ -102,39 +92,30 @@ const FormLayout = ({
 
     if (modalOpen) {
       fetchSaldoData()
-
-      // Auto-fill user when modal opens
       setFormData((prevData) => ({
         ...prevData,
-        user: loggedInUser
-          ? loggedInUser.username || loggedInUser.nama || 'User ID: ' + loggedInUser.id
-          : 'Loading...',
-        user_id: loggedInUser ? loggedInUser.id : 1 // Store user ID for backend
+        user: loggedInUser?.username || loggedInUser?.nama || 'User ID: ' + loggedInUser?.id,
+        user_id: loggedInUser?.id || 1,
+        tanggal: getTodayWIB() // Set default date to today in WIB
       }))
     }
   }, [modalOpen, saldoOptions, loggedInUser])
 
-  // Set the selected saldo when platform changes
   useEffect(() => {
     if (platformSourceOptions && saldoData.length > 0) {
-      // Find the first saldo entry that matches the selected platform
-      const matchingSaldo = saldoData.find(
-        (s) =>
-          s.nama_sumber_dana &&
-          s.nama_sumber_dana.toLowerCase().includes(platformSourceOptions.toLowerCase())
+      const matchingSaldo = saldoData.find((s) =>
+        s.nama_sumber_dana?.toLowerCase().includes(platformSourceOptions.toLowerCase())
       )
 
       if (matchingSaldo) {
-        setSelectedSourceSaldo(matchingSaldo)
-
-        // Set operational value from the source platform's biaya_admin
         const biayaAdmin = matchingSaldo.biaya_admin || 0
 
+        setSelectedSourceSaldo(matchingSaldo)
         setFormData((prev) => ({
           ...prev,
           senderBalance: matchingSaldo.nama_sumber_dana,
           senderBalanceId: matchingSaldo.id,
-          operational: formatRupiah(biayaAdmin), // Always format as Rupiah, even if zero
+          operational: formatRupiah(biayaAdmin),
           operationalRaw: biayaAdmin.toString()
         }))
       }
@@ -148,14 +129,10 @@ const FormLayout = ({
     }
   }, [platformSourceOptions, saldoData])
 
-  // Set the selected destination saldo when platform changes
   useEffect(() => {
     if (platformDestinationOptions && saldoData.length > 0) {
-      // Find the first saldo entry that matches the selected platform
-      const matchingSaldo = saldoData.find(
-        (s) =>
-          s.nama_sumber_dana &&
-          s.nama_sumber_dana.toLowerCase().includes(platformDestinationOptions.toLowerCase())
+      const matchingSaldo = saldoData.find((s) =>
+        s.nama_sumber_dana?.toLowerCase().includes(platformDestinationOptions.toLowerCase())
       )
 
       if (matchingSaldo) {
@@ -176,7 +153,6 @@ const FormLayout = ({
     }
   }, [platformDestinationOptions, saldoData])
 
-  // Reset errors when platforms change
   useEffect(() => {
     setErrors({ ...errors, platformSource: '', balance: '' })
   }, [platformSourceOptions])
@@ -188,16 +164,14 @@ const FormLayout = ({
   const handleInputChange = (e) => {
     const { name, value } = e.target
 
-    // Special handling for amount and operational fields
     if (name === 'amount' || name === 'operational') {
       const numericValue = extractNumeric(value)
       setFormData({
         ...formData,
-        [name]: formatRupiah(numericValue), // Always format as Rupiah, even if zero
-        [`${name}Raw`]: numericValue // Store raw value for submission
+        [name]: formatRupiah(numericValue),
+        [`${name}Raw`]: numericValue
       })
 
-      // Clear error when user types in the field
       if (name === 'amount') {
         setErrors({ ...errors, amount: '' })
       }
@@ -206,9 +180,7 @@ const FormLayout = ({
     }
   }
 
-  // Handle form submission with validation
   const handleSubmit = () => {
-    // Reset errors
     const newErrors = {
       platformSource: '',
       platformDestination: '',
@@ -218,25 +190,21 @@ const FormLayout = ({
 
     let isValid = true
 
-    // Validate source platform
     if (!selectedSourceSaldo) {
       newErrors.platformSource = 'Pilih platform sumber terlebih dahulu'
       isValid = false
     }
 
-    // Validate destination platform
     if (!selectedDestSaldo) {
       newErrors.platformDestination = 'Pilih platform tujuan terlebih dahulu'
       isValid = false
     }
 
-    // Validate amount
     if (!formData.amount || formData.amountRaw === '0') {
       newErrors.amount = 'Masukkan nominal transfer yang valid'
       isValid = false
     }
 
-    // Check if source has sufficient balance
     if (selectedSourceSaldo) {
       const amountValue = parseInt(formData.amountRaw || extractNumeric(formData.amount), 10)
       const operationalValue = parseInt(
@@ -251,15 +219,10 @@ const FormLayout = ({
       }
     }
 
-    // Update error states
     setErrors(newErrors)
 
-    // If form is not valid, stop here and don't proceed with submission
-    if (!isValid) {
-      return false // Return false to indicate validation failed
-    }
+    if (!isValid) return false
 
-    // Prepare data for submission - extract raw values from formatted currency
     const submissionData = {
       ...formData,
       platformSource: platformSourceOptions,
@@ -268,16 +231,12 @@ const FormLayout = ({
       receiverBalanceId: selectedDestSaldo?.id,
       amount: formData.amountRaw || extractNumeric(formData.amount),
       operational: formData.operationalRaw || extractNumeric(formData.operational),
-      user_id: loggedInUser ? loggedInUser.id : 1 // Ensure user ID is sent to backend
+      user_id: loggedInUser?.id || 1
     }
 
-    // Submit the data
     onSubmit(submissionData)
-
-    // Close modal and reset form after successful submission
     setModalOpen(false)
 
-    // Reset form data after submission
     setFormData({
       user: '',
       platformSource: '',
@@ -286,24 +245,21 @@ const FormLayout = ({
       receiverBalance: '',
       amount: '',
       operational: '',
-      description: ''
+      description: '',
+      tanggal: ''
     })
     setPlatformSourceOptions('')
     setPlatformDestinationOptions('')
     setSelectedSourceSaldo(null)
     setSelectedDestSaldo(null)
 
-    return true // Return true to indicate successful validation and submission
+    return true
   }
 
-  // Extract unique platforms from saldo data for select options
   const getPlatformOptions = () => {
-    // Group saldo by platform for dropdown options
     const platformGroups = {}
-
     saldoData.forEach((item) => {
       if (item.nama_sumber_dana) {
-        // Extract platform name (e.g., "DANA Pusat" -> "DANA")
         const platformMatch = item.nama_sumber_dana.match(/^(\w+)/)
         if (platformMatch) {
           const platform = platformMatch[1]
@@ -311,14 +267,10 @@ const FormLayout = ({
         }
       }
     })
-
-    // Convert to array of options with default option first
-    return [
-      ...Object.keys(platformGroups).map((platform) => ({
-        label: platform,
-        value: platform
-      }))
-    ]
+    return Object.keys(platformGroups).map((platform) => ({
+      label: platform,
+      value: platform
+    }))
   }
 
   return (
@@ -329,8 +281,8 @@ const FormLayout = ({
           {buttonText}
         </ButtonInput>
       </div>
+
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}>
-        {/* Replace input field with display of user name */}
         <div className="col-span-2 mb-4">
           <label
             className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
@@ -346,73 +298,65 @@ const FormLayout = ({
           >
             {loggedInUser ? loggedInUser.nama || 'User ID: ' + loggedInUser.id : 'Loading...'}
           </div>
-          {/* Hidden input to store the user ID */}
-          <input type="hidden" name="user_id" value={loggedInUser ? loggedInUser.id : 1} />
         </div>
 
-        {/* Platform section with flex layout */}
+        {/* TANGGAL TRANSAKSI */}
+        <InputField
+          name="tanggal"
+          type="date"
+          value={formData.tanggal || getTodayWIB()}
+          onChange={handleInputChange}
+        >
+          Tanggal
+        </InputField>
+
         <div className="col-span-2 flex gap-4 mb-4">
-          {/* Left side - Platform Source */}
           <div className="flex-1">
             <SelectItems
-              onChange={(e) => {
-                setPlatformSourceOptions(e.target.value)
-              }}
+              onChange={(e) => setPlatformSourceOptions(e.target.value)}
               name="platformSource"
               label="Platform Sumber"
               value={platformSourceOptions}
               options={getPlatformOptions()}
-            ></SelectItems>
+            />
             {errors.platformSource && (
               <p className="text-red-500 text-xs mt-1">{errors.platformSource}</p>
             )}
           </div>
-
-          {/* Right side - Platform Destination */}
           <div className="flex-1">
             <SelectItems
-              onChange={(e) => {
-                setPlatformDestinationOptions(e.target.value)
-              }}
+              onChange={(e) => setPlatformDestinationOptions(e.target.value)}
               name="platformDestination"
               label="Platform Penerima"
               value={platformDestinationOptions}
               options={getPlatformOptions()}
-            ></SelectItems>
+            />
             {errors.platformDestination && (
               <p className="text-red-500 text-xs mt-1">{errors.platformDestination}</p>
             )}
           </div>
         </div>
 
-        {/* Balance section with flex layout */}
         <div className="col-span-2 flex gap-4 mb-4">
-          {/* Left side - Sender Balance */}
           <div className="flex-1">
             <InputField
               name="senderBalance"
               type="text"
               value={selectedSourceSaldo ? formatBalanceDisplay(selectedSourceSaldo.saldo) : '-'}
-              onChange={() => {}} // No change handler needed as it's disabled
-              disabled={true}
-              className={
-                selectedSourceSaldo && selectedSourceSaldo.saldo === 0 ? 'text-red-500' : ''
-              }
+              disabled
+              className={selectedSourceSaldo?.saldo === 0 ? 'text-red-500' : ''}
             >
               Saldo Pengirim
             </InputField>
             {errors.balance && <p className="text-red-500 text-xs mt-1">{errors.balance}</p>}
           </div>
-
-          {/* Right side - Receiver Balance */}
           <div className="flex-1">
             <InputField
               name="receiverBalance"
               type="text"
               value={selectedDestSaldo ? formatBalanceDisplay(selectedDestSaldo.saldo) : '-'}
-              onChange={() => {}} // No change handler needed as it's disabled
-              disabled={true}
-              className={selectedDestSaldo && selectedDestSaldo.saldo === 0 ? 'text-red-500' : ''}
+              disabled
+              className={selectedDestSaldo?.saldo === 0 ? 'text-red-500' : ''}
             >
               Saldo Penerima
             </InputField>

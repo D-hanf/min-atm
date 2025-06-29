@@ -3,8 +3,13 @@ import React, { useEffect, useState } from 'react'
 import InputField from '../../../../components/InputField'
 import RupiahInput from '../../../../components/RupiahInput'
 import SelectItems from '../../../../components/SelectItems'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
 import { useTheme } from '../../../../context/ThemeContext'
+import utc from 'dayjs/plugin/utc'
 
+dayjs.extend(utc)
+dayjs.extend(timezone)
 const TransferForm = ({ formData, onChange, onValidChange }) => {
   const { isDark } = useTheme()
   const [nominalError, setNominalError] = useState('')
@@ -22,7 +27,9 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
       console.error('❌ Gagal ambil data saldo:', error)
     }
   }
-
+const getTodayWIB = () => {
+  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+}
   useEffect(() => {
     fetchSaldo()
   }, [])
@@ -79,6 +86,15 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
           </span>
         </div>
       </div>
+      <InputField
+        name="tanggal"
+        type="date"
+        value={formData.date ||getTodayWIB()}
+        onChange={onChange}
+      >
+        Tanggal
+      </InputField>
+      
       <InputField
         name="nama_pelanggan"
         type="text"
@@ -195,6 +211,7 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
           const numericAdmin = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
           onChange({ target: { name: 'biaya_admin', value: numericAdmin } })
         }}
+        required={false}
       >
         Biaya Admin
       </InputField>

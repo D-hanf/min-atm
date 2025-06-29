@@ -4,7 +4,12 @@ import InputField from '../../../../components/InputField'
 import RupiahInput from '../../../../components/RupiahInput'
 import SelectItems from '../../../../components/SelectItems'
 import { useTheme } from '../../../../context/ThemeContext'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
+import utc from 'dayjs/plugin/utc'
 
+dayjs.extend(utc)
+dayjs.extend(timezone)
 const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
   const { isDark } = useTheme()
   const [nominalError, setNominalError] = useState('')
@@ -21,7 +26,9 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
       console.error('❌ Gagal ambil data saldo:', error)
     }
   }
-
+  const getTodayWIB = () => {
+  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+}
   useEffect(() => {
     fetchSaldo()
   }, [])
@@ -54,7 +61,7 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
       onValidChange?.(true)
     }
   }, [formData.sumber_dana_id, formData.nominal_transaksi, sumberDanaList])
-
+  
   return (
     <>
       {/* Header Nomor Transaksi */}
@@ -76,7 +83,7 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
       <InputField
         name="tanggal"
         type="date"
-        value={formData.tanggal || new Date().toISOString().split('T')[0]}
+        value={formData.tanggal || getTodayWIB()  }
         onChange={onChange}
       >
         Tanggal

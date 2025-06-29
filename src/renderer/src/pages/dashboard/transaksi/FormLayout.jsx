@@ -9,7 +9,12 @@ import ModePulsaForm from './forms/ModePulsaForm'
 import TarikTunaiForm from './forms/TarikTunaiForm'
 import TransactionMenu from './TransactionMenu'
 import TransferForm from './forms/TransferForm'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
+import utc from 'dayjs/plugin/utc'
 
+dayjs.extend(utc)
+dayjs.extend(timezone)
 const FormLayout = ({
   onSubmit,
   buttonText = 'Tambah Sumber Dana',
@@ -41,6 +46,9 @@ const FormLayout = ({
     }
     return typeMap[transactionType] || ''
   }
+  const getTodayWIB = () => {
+  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+}
 
   useEffect(() => {
     if (isEdit && editData) {
@@ -57,8 +65,8 @@ const FormLayout = ({
 
   useEffect(() => {
     if (modalOpen && formType === 'transaction' && !isEdit && !formData.no_transaksi) {
-      const today = new Date()
-      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '')
+      const today = getTodayWIB()
+      const dateStr = today.replace(/-/g, '')
       const randomStr = Math.floor(Math.random() * 10000)
         .toString()
         .padStart(4, '0')
@@ -67,7 +75,8 @@ const FormLayout = ({
       setFormData((prev) => ({
         ...prev,
         no_transaksi: transactionNumber,
-        tanggal: prev.tanggal || today.toISOString().split('T')[0]
+        tanggal: prev.tanggal || today
+
       }))
     }
   }, [modalOpen, formType, isEdit])
@@ -93,7 +102,7 @@ const FormLayout = ({
 
     if (formType === 'transaction' && !isEdit) {
       setFormData({
-        tanggal: new Date().toISOString().split('T')[0],
+        tanggal: getTodayWIB(),
         no_transaksi: '',
         sumber_dana_id: '',
         metode_pembayaran: '',
@@ -145,6 +154,16 @@ const FormLayout = ({
         return null
     }
   }
+  useEffect(() => {
+    if (!isEdit && modalOpen && formType === 'transaction') {
+      const today = getTodayWIB()
+
+      setFormData((prev) => ({
+        ...prev,
+        tanggal: today
+      }))
+    }
+  }, [modalOpen])
 
   return (
     <>
@@ -157,7 +176,7 @@ const FormLayout = ({
         </div>
       )}
       <Modal
-      className="max-h-[80vh] overflow-y-auto pr-2"
+        className="max-h-[80vh] overflow-y-auto pr-2"
         isOpen={modalOpen}
         disabled={!formValid && !showMenu && !isEdit}
         onClose={handleModalClose}

@@ -1,7 +1,7 @@
 {
   "name": "mini-atm-jaya-mart",
   "productName": "mini-atm-jaya-mart",
-  "version": "1.1.4",
+  "version": "1.1.6",
   "description": "aplikasi mini ATM untuk mengelola keuangan",
   "main": "out/main/index.js",
   "author": "github.com/D-hanf & github.com/willyChairullah",
@@ -23,6 +23,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@tailwindcss/vite": "^4.1.8",
     "clsx": "^2.1.1",
+    "dayjs": "^1.11.13",
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.6.2",
     "sqlite3": "^5.1.7",

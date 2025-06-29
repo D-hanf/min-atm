@@ -10,8 +10,13 @@ import ModalEdit from '../../../../shared/ui/Modal'
 import SearchField from '../../../../components/SearchField'
 import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
 import { useTheme } from '../../../../context/ThemeContext'
+import utc from 'dayjs/plugin/utc'
 
+dayjs.extend(utc)
+dayjs.extend(timezone)
 const HalamanPindahSaldo = () => {
   const [stores, setStores] = useState([])
   const { isDark } = useTheme()
@@ -22,6 +27,9 @@ const HalamanPindahSaldo = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const getTodayWIB = () => {
+    return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  }
   const [formData, setFormData] = useState({
     user: '',
     platformSource: '',
@@ -37,11 +45,18 @@ const HalamanPindahSaldo = () => {
   const [platformDestinationOptions, setPlatformDestinationOptions] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [confirmMessage, setConfirmMessage] = useState('')
-
+  const [userRole, setUserRole] = useState(() => {
+    const storedUser = JSON.parse(localStorage.getItem('user'))
+    // always lowercase
+    return (storedUser?.role || 'kasir').toLowerCase()
+  })
   // Add new states for logged in user and alert dialog
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
+  // Add state for selected saldo objects
+  const [selectedSourceSaldo, setSelectedSourceSaldo] = useState(null)
+  const [selectedDestSaldo, setSelectedDestSaldo] = useState(null)
 
   // Fetch initial data
   useEffect(() => {
@@ -52,7 +67,10 @@ const HalamanPindahSaldo = () => {
         // Get user data from localStorage
         const userString = localStorage.getItem('user')
         if (userString) {
-          setLoggedInUser(JSON.parse(userString))
+          const userObj = JSON.parse(userString)
+          setLoggedInUser(userObj)
+          // always lowercase
+          setUserRole((userObj.role || 'kasir').toLowerCase())
         }
 
         // Fetch stores data
@@ -111,6 +129,7 @@ const HalamanPindahSaldo = () => {
 
   // Updated columns definition to match our database structure
   const columns = [
+    { key: 'date', label: 'Tanggal' },
     { key: 'user', label: 'User Pemindah' },
     { key: 'platformSource', label: 'Platform Sumber' },
     { key: 'platformDestination', label: 'Platform Penerima' },
@@ -132,18 +151,14 @@ const HalamanPindahSaldo = () => {
   // New function for displaying account balances
   const formatBalanceDisplay = (value) => {
     if (value === null || value === undefined) return 'Tidak ada Saldo'
-
-    // Convert to number and check if it's zero
     const numericValue = Number(value)
     if (numericValue === 0) return 'Tidak ada Saldo'
-
     return formatRupiah(numericValue)
   }
 
   const formatInputRupiah = (value) => {
     const cleaned = value.replace(/[^0-9]/g, '')
     const number = parseInt(cleaned, 10)
-    // Return 'Rp 0' for zero values instead of empty string
     if (isNaN(number)) return 'Rp 0'
     return 'Rp' + number.toLocaleString('id-ID')
   }
@@ -152,14 +167,8 @@ const HalamanPindahSaldo = () => {
     try {
       const cleanedAmount = parseInt(String(formData.amount).replace(/[^0-9]/g, ''), 10)
       const cleanedOperational = parseInt(String(formData.operational).replace(/[^0-9]/g, ''), 10)
-
-      // Prepare platform string for database
       const platformString = `${formData.platformSource} > ${formData.platformDestination}`
-
-      // Get the user ID from formData (comes from the currently logged in user)
       const currentUserId = formData.user_id || (loggedInUser ? loggedInUser.id : 1)
-
-      // Get current saldo for source and destination
       const sourceSaldo = saldoData.find((s) => s.nama_sumber_dana === formData.senderBalance)
       const destSaldo = saldoData.find((s) => s.nama_sumber_dana === formData.receiverBalance)
 
@@ -168,7 +177,6 @@ const HalamanPindahSaldo = () => {
         return
       }
 
-      // Check if source has sufficient balance
       const totalNeeded = cleanedAmount + cleanedOperational
       if (sourceSaldo.saldo < totalNeeded) {
         setAlertMessage(
@@ -178,32 +186,26 @@ const HalamanPindahSaldo = () => {
         return
       }
 
-      // Create data object for API
       const transferData = {
         sumber_dana_id: sourceSaldo.id,
         tujuan_dana_id: destSaldo.id,
-        user_pemindah_id: currentUserId, // Use the ID from logged in user
+        user_pemindah_id: currentUserId,
         nominal: cleanedAmount,
         platform: platformString,
         biaya_admin: cleanedOperational || 0,
         saldo_sumber: sourceSaldo.saldo,
         saldo_tujuan: destSaldo.saldo,
         keterangan: formData.description,
-        tanggal: new Date().toISOString().split('T')[0]
+        tanggal: formData.tanggal || getTodayWIB()
       }
 
-      console.log('Creating transfer with user ID:', currentUserId)
-
-      // Call API to save data
       const result = await window.api.createPindahSaldo(transferData)
 
       if (result) {
-        // Refresh data after successful creation
         const updatedTransfers = await window.api.getPindahSaldo()
         const updatedSaldo = await window.api.getSaldoAwal()
         setSaldoData(updatedSaldo)
 
-        // Transform the new data
         const transformedTransfers = await Promise.all(
           (updatedTransfers || []).map(async (transfer) => {
             const sourceSaldo = updatedSaldo.find((s) => s.id === transfer.sumber_dana_id)
@@ -239,42 +241,26 @@ const HalamanPindahSaldo = () => {
 
   const handleDelete = (id) => {
     // Check if user is admin first
-    if (!loggedInUser || loggedInUser.role !== 'admin') {
+    if (!loggedInUser || (loggedInUser.role || '').toLowerCase() !== 'admin') {
       setAlertMessage('Maaf, hanya admin yang dapat menghapus data pemindahan saldo.')
       setShowAlertDialog(true)
       return
     }
 
-    // If admin, proceed with delete confirmation
     const transferToDelete = transfers.find((item) => item.id === id)
     setDeleteId(id)
-
-    // Set confirmation message with amount details
     const confirmMessage = 'Apakah Anda yakin ingin menghapus data pemindahan saldo ini?'
-
     setConfirmMessage(confirmMessage)
     setShowConfirmDialog(true)
   }
 
   const confirmDelete = async () => {
     try {
-      // Before deletion, get the current transfer details for user feedback
-      const transferToDelete = transfers.find((item) => item.id === deleteId)
-
-      // Call API to delete and revert the transfer
       await window.api.deletePindahSaldo(deleteId)
-
-      // Show success notification/feedback
-      console.log('Transfer deleted successfully')
-      // You could add a toast/notification here to show success message
-      // For example: "Transfer deleted and Rp X returned to [source account]"
-
-      // Refresh data after successful deletion
       const updatedTransfers = await window.api.getPindahSaldo()
       const updatedSaldo = await window.api.getSaldoAwal()
       setSaldoData(updatedSaldo)
 
-      // Transform the new data
       const transformedTransfers = await Promise.all(
         (updatedTransfers || []).map(async (transfer) => {
           const sourceSaldo = updatedSaldo.find((s) => s.id === transfer.sumber_dana_id)
@@ -302,7 +288,6 @@ const HalamanPindahSaldo = () => {
       setTransfers(transformedTransfers)
     } catch (error) {
       console.error('Error deleting transfer:', error)
-      // You could add a toast/notification here to show error message
     } finally {
       setShowConfirmDialog(false)
       setDeleteId(null)
@@ -310,57 +295,52 @@ const HalamanPindahSaldo = () => {
   }
 
   const handleEdit = (id) => {
-    // Check if user is admin first
-    if (!loggedInUser || loggedInUser.role !== 'admin') {
-      setAlertMessage('Maaf, hanya admin yang dapat mengedit data pemindahan saldo.')
+    const itemToEdit = transfers.find((item) => item.id === id)
+    if (!itemToEdit) return
+
+    const today = getTodayWIB()
+
+    // Validasi: kasir hanya boleh edit transaksi hari ini
+    if (userRole === 'kasir' && itemToEdit.date !== today) {
+      setAlertMessage(
+        'Kasir hanya bisa mengedit pemindahan saldo hari ini. Hubungi admin untuk mengubah data lama.'
+      )
       setShowAlertDialog(true)
       return
     }
 
-    // If admin, proceed with edit
-    const itemToEdit = transfers.find((item) => item.id === id)
-    if (itemToEdit) {
-      // Set form data with item values
-      setFormData({
-        id: itemToEdit.id,
-        user: itemToEdit.user,
-        platformSource: itemToEdit.platformSource,
-        platformDestination: itemToEdit.platformDestination,
-        senderBalance: itemToEdit.senderBalance,
-        senderBalanceId: itemToEdit.senderBalanceId, // Make sure we set the IDs
-        receiverBalance: itemToEdit.receiverBalance,
-        receiverBalanceId: itemToEdit.receiverBalanceId, // Make sure we set the IDs
-        amount: formatInputRupiah(String(itemToEdit.amount)),
-        operational: formatInputRupiah(String(itemToEdit.operational)),
-        description: itemToEdit.description
-      })
+    const sourceSaldo = saldoData.find((s) => s.id === itemToEdit.senderBalanceId)
+    const destSaldo = saldoData.find((s) => s.id === itemToEdit.receiverBalanceId)
 
-      // Set platform options
-      setPlatformSourceOptions(itemToEdit.platformSource)
-      setPlatformDestinationOptions(itemToEdit.platformDestination)
-
-      // Set selected saldo
-      const sourceSaldo = saldoData.find((s) => s.id === itemToEdit.senderBalanceId)
-      const destSaldo = saldoData.find((s) => s.id === itemToEdit.receiverBalanceId)
-      setSelectedSourceSaldo(sourceSaldo)
-      setSelectedDestSaldo(destSaldo)
-
-      setModalOpen(true)
+    const cleanedData = {
+      id: itemToEdit.id,
+      user: itemToEdit.user,
+      tanggal: itemToEdit.date,
+      userId: itemToEdit.userId,
+      platformSource: itemToEdit.platformSource,
+      platformDestination: itemToEdit.platformDestination,
+      senderBalance: itemToEdit.senderBalance,
+      senderBalanceId: itemToEdit.senderBalanceId,
+      receiverBalance: itemToEdit.receiverBalance,
+      receiverBalanceId: itemToEdit.receiverBalanceId,
+      amount: formatInputRupiah(itemToEdit.amount.toString()),
+      operational: formatInputRupiah(itemToEdit.operational.toString()),
+      description: itemToEdit.description
     }
-  }
 
-  // Add state for selected saldo objects
-  const [selectedSourceSaldo, setSelectedSourceSaldo] = useState(null)
-  const [selectedDestSaldo, setSelectedDestSaldo] = useState(null)
+    setFormData(cleanedData)
+    setPlatformSourceOptions(itemToEdit.platformSource)
+    setPlatformDestinationOptions(itemToEdit.platformDestination)
+    setSelectedSourceSaldo(sourceSaldo)
+    setSelectedDestSaldo(destSaldo)
+    setModalOpen(true)
+  }
 
   // Extract unique platforms from saldo data for select options
   const getPlatformOptions = () => {
-    // Group saldo by platform for dropdown options
     const platformGroups = {}
-
     saldoData.forEach((item) => {
       if (item.nama_sumber_dana) {
-        // Extract platform name (e.g., "DANA Pusat" -> "DANA")
         const platformMatch = item.nama_sumber_dana.match(/^(\w+)/)
         if (platformMatch) {
           const platform = platformMatch[1]
@@ -368,8 +348,6 @@ const HalamanPindahSaldo = () => {
         }
       }
     })
-
-    // Convert to array of options with default option first
     return [
       ...Object.keys(platformGroups).map((platform) => ({
         label: platform,
@@ -378,7 +356,15 @@ const HalamanPindahSaldo = () => {
     ]
   }
 
+  // FILTER DATA: kasir hanya lihat data hari ini
   const filteredData = transfers
+    .filter((item) => {
+      // role kasir hanya tampilkan data hari ini
+      if (userRole === 'kasir') {
+        return item.date === getTodayWIB()
+      }
+      return true
+    })
     .filter((item) =>
       Object.values(item).some((val) =>
         String(val).toLowerCase().includes(filterText.toLowerCase())
@@ -399,7 +385,6 @@ const HalamanPindahSaldo = () => {
         10
       )
 
-      // Ensure we have the ID from formData if not in updatedData
       const id = formData.id
 
       if (!id) {
@@ -409,16 +394,9 @@ const HalamanPindahSaldo = () => {
         return
       }
 
-      console.log('Updating record with ID:', id)
-
-      // Use the original user ID to maintain data consistency
-      // (Transfer should keep original creator even when edited by admin)
       const userId = formData.userId || (loggedInUser ? loggedInUser.id : 1)
-
-      // Prepare platform string for database
       const platformString = `${platformSourceOptions} > ${platformDestinationOptions}`
 
-      // Find the source and destination saldo by IDs from selected saldo objects
       if (!selectedSourceSaldo || !selectedDestSaldo) {
         console.error('Source or destination saldo not selected')
         setAlertMessage('Sumber dana atau tujuan dana tidak dipilih')
@@ -426,10 +404,7 @@ const HalamanPindahSaldo = () => {
         return
       }
 
-      // Get the latest saldo data to ensure we're using current balances
       const latestSaldoData = await window.api.getSaldoAwal()
-
-      // Find the latest balances for the selected source and destination
       const latestSourceSaldo = latestSaldoData.find((s) => s.id === selectedSourceSaldo.id)
       const latestDestSaldo = latestSaldoData.find((s) => s.id === selectedDestSaldo.id)
 
@@ -440,15 +415,11 @@ const HalamanPindahSaldo = () => {
         return
       }
 
-      // Check if source has sufficient balance (only check for new amount - original amount + admin fee)
-      // Get original transfer data
       const originalTransfer = transfers.find((t) => t.id === id)
       if (originalTransfer) {
-        // Calculate the difference in amounts
         const originalTotal = originalTransfer.amount + originalTransfer.operational
         const newTotal = cleanedAmount + cleanedOperational
 
-        // If new amount is greater, check if we have enough balance
         if (newTotal > originalTotal && latestSourceSaldo.saldo + originalTotal < newTotal) {
           setAlertMessage(
             `Saldo ${latestSourceSaldo.nama_sumber_dana} tidak mencukupi untuk menambah nominal transfer.`
@@ -457,7 +428,6 @@ const HalamanPindahSaldo = () => {
           return
         }
       } else if (latestSourceSaldo.saldo < cleanedAmount + cleanedOperational) {
-        // If we can't find original transfer, do a simple balance check
         setAlertMessage(
           `Saldo ${latestSourceSaldo.nama_sumber_dana} tidak mencukupi untuk transfer.`
         )
@@ -465,34 +435,28 @@ const HalamanPindahSaldo = () => {
         return
       }
 
-      // Create data object for API with latest balances
       const transferData = {
-        id: id, // Use the ID from formData
+        id: id,
         sumber_dana_id: selectedSourceSaldo.id,
         tujuan_dana_id: selectedDestSaldo.id,
-        user_pemindah_id: userId, // Keep original user ID
+        user_pemindah_id: userId,
         nominal: cleanedAmount,
         platform: platformString,
         biaya_admin: cleanedOperational || 0,
         saldo_sumber: latestSourceSaldo.saldo,
         saldo_tujuan: latestDestSaldo.saldo,
         keterangan: updatedData.description,
-        tanggal: new Date().toISOString().split('T')[0]
+        tanggal: formData.tanggal || getTodayWIB()
+
       }
 
-      console.log('Updating transfer with data:', transferData)
-
-      // Call API to update data
       const result = await window.api.updatePindahSaldo(transferData)
-      console.log('Update result:', result)
 
       if (result) {
-        // Refresh data after successful update
         const updatedTransfers = await window.api.getPindahSaldo()
         const updatedSaldo = await window.api.getSaldoAwal()
         setSaldoData(updatedSaldo)
 
-        // Transform the new data
         const transformedTransfers = await Promise.all(
           (updatedTransfers || []).map(async (transfer) => {
             const sourceSaldo = updatedSaldo.find((s) => s.id === transfer.sumber_dana_id)
@@ -524,7 +488,6 @@ const HalamanPindahSaldo = () => {
       setAlertMessage(`Error updating transfer: ${error.message || 'Unknown error'}`)
       setShowAlertDialog(true)
     } finally {
-      // Reset form and selected values
       setSelectedSourceSaldo(null)
       setSelectedDestSaldo(null)
       setModalOpen(false)
@@ -540,15 +503,6 @@ const HalamanPindahSaldo = () => {
               Pindah Saldo
             </h1>
           </div>
-          {/* <div className="flex-1 max-w-xs">
-            <Dropdown
-              className="w-full"
-              color={'gray'}
-              label="Pilih Toko"
-              items={stores.map((store) => store.nama_toko)}
-              onSelect={(index) => setSelectedStore(stores[index])}
-            />
-          </div> */}
         </div>
       </div>
       <div>
@@ -562,6 +516,8 @@ const HalamanPindahSaldo = () => {
             onSearchChange={setFilterText}
             btnSize={'xs'}
             data={filteredData}
+            showDateFilter={true}
+            userRole={userRole}
             title={'Pindah Saldo'}
             columns={columns}
             onDelete={handleDelete}
@@ -610,13 +566,20 @@ const HalamanPindahSaldo = () => {
                 ? loggedInUser.username || loggedInUser.nama || 'User ID: ' + loggedInUser.id
                 : 'Loading...')}
           </div>
-          {/* Hidden input to maintain the original user ID */}
           <input
             type="hidden"
             name="userId"
             value={formData.userId || (loggedInUser ? loggedInUser.id : 1)}
           />
         </div>
+        <InputField
+          name="tanggal"
+          type="date"
+          value={formData.tanggal || getTodayWIB}
+          onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
+        >
+          Tanggal
+        </InputField>
 
         {/* Platform section with flex layout */}
         <div className="col-span-2 flex gap-4 mb-4">
@@ -624,15 +587,12 @@ const HalamanPindahSaldo = () => {
             <SelectItems
               onChange={(e) => {
                 setPlatformSourceOptions(e.target.value)
-
-                // Find matching saldo entry
                 if (e.target.value) {
                   const matchingSaldo = saldoData.find(
                     (s) =>
                       s.nama_sumber_dana &&
                       s.nama_sumber_dana.toLowerCase().includes(e.target.value.toLowerCase())
                   )
-
                   if (matchingSaldo) {
                     setSelectedSourceSaldo(matchingSaldo)
                     setFormData((prev) => ({
@@ -661,15 +621,12 @@ const HalamanPindahSaldo = () => {
             <SelectItems
               onChange={(e) => {
                 setPlatformDestinationOptions(e.target.value)
-
-                // Find matching saldo entry
                 if (e.target.value) {
                   const matchingSaldo = saldoData.find(
                     (s) =>
                       s.nama_sumber_dana &&
                       s.nama_sumber_dana.toLowerCase().includes(e.target.value.toLowerCase())
                   )
-
                   if (matchingSaldo) {
                     setSelectedDestSaldo(matchingSaldo)
                     setFormData((prev) => ({
@@ -702,7 +659,7 @@ const HalamanPindahSaldo = () => {
               name="senderBalance"
               type="text"
               value={selectedSourceSaldo ? formatBalanceDisplay(selectedSourceSaldo.saldo) : '-'}
-              onChange={() => {}} // No change handler needed as it's disabled
+              onChange={() => {}}
               disabled={true}
               className={
                 selectedSourceSaldo && selectedSourceSaldo.saldo === 0 ? 'text-red-500' : ''
@@ -717,7 +674,7 @@ const HalamanPindahSaldo = () => {
               name="receiverBalance"
               type="text"
               value={selectedDestSaldo ? formatBalanceDisplay(selectedDestSaldo.saldo) : '-'}
-              onChange={() => {}} // No change handler needed as it's disabled
+              onChange={() => {}}
               disabled={true}
               className={selectedDestSaldo && selectedDestSaldo.saldo === 0 ? 'text-red-500' : ''}
             >
@@ -763,7 +720,6 @@ const HalamanPindahSaldo = () => {
         </InputField>
       </ModalEdit>
 
-      {/* Add AlertDialog for non-admin users */}
       <AlertDialog
         isOpen={showAlertDialog}
         onClose={() => setShowAlertDialog(false)}

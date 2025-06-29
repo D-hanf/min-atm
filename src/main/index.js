@@ -6,12 +6,18 @@ import {
   getTransaksiSummary
 } from './transactionHandler.js'
 
+import dayjs from 'dayjs'
 import db from './db.js'
 import icon from '../../resources/iconNew.jpg?asset'
 import { ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
+import timezone from 'dayjs/plugin/timezone'
 import { updateSchema } from './db.js'
+import utc from 'dayjs/plugin/utc'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize
@@ -169,8 +175,7 @@ app.whenReady().then(async () => {
     keterangan TEXT,
     FOREIGN KEY (petugas_id) REFERENCES users(id),
     FOREIGN KEY (platform_id) REFERENCES saldo_awal(id)
-  )
-    `)
+  )`)
     // db.run(`ALTER TABLE users ADD COLUMN toko_id INTEGER`) =>  untuk menambahkan kolom toko_id&no_telepon di table users
     // Insert toko
     // Cek dulu apakah toko "Toko Alpha" sudah ada
@@ -355,21 +360,34 @@ app.whenReady().then(async () => {
 
     // ============================= Hutang handler =============================
 
-    ipcMain.handle('get-hutang', () => {
+    ipcMain.handle('get-hutang', (event, { role, today }) => {
       return new Promise((resolve, reject) => {
-        db.all(
-          'SELECT h.*, s.nama_sumber_dana as platform_name FROM hutang h LEFT JOIN saldo_awal s ON h.platform_id = s.id',
-          [],
-          (err, rows) => {
-            if (err) {
-              console.error('❌ Error getting hutang data:', err)
-              reject(err)
-            } else {
-              console.log('✅ Successfully retrieved hutang data, count:', rows.length)
-              resolve(rows)
-            }
+        const roleLower = (role || '').toLowerCase()
+
+        const baseQuery = ` 
+      SELECT h.*, s.nama_sumber_dana as platform_name 
+      FROM hutang h 
+      LEFT JOIN saldo_awal s ON h.platform_id = s.id
+    `
+
+        let query = baseQuery
+        let params = []
+
+        // Jika role kasir, batasi hanya transaksi hari ini
+        if (roleLower === 'kasir') {
+          query += ' WHERE DATE(h.tanggal_transaksi) = ?'
+          params.push(today)
+        }
+
+        db.all(query, params, (err, rows) => {
+          if (err) {
+            console.error('❌ Error getting hutang data:', err)
+            reject(err)
+          } else {
+            console.log(`✅ Hutang data retrieved (${rows.length} rows) for role ${roleLower}`)
+            resolve(rows)
           }
-        )
+        })
       })
     })
 
@@ -696,11 +714,24 @@ app.whenReady().then(async () => {
 
     // ============================= pindah saldo handler =============================
 
-    ipcMain.handle('get-pindah-saldo', () => {
+    ipcMain.handle('get-pindah-saldo', (event, roleRaw) => {
       return new Promise((resolve, reject) => {
-        db.all('SELECT * FROM pindah_saldo', [], (err, rows) => {
-          if (err) reject(err)
-          else resolve(rows)
+        const role = String(roleRaw).toLowerCase()
+        const today = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+
+        const query = `
+      SELECT ps.*, s1.nama_sumber_dana AS sumber_nama, s2.nama_sumber_dana AS tujuan_nama
+      FROM pindah_saldo ps
+      LEFT JOIN saldo_awal s1 ON ps.sumber_dana_id = s1.id
+      LEFT JOIN saldo_awal s2 ON ps.tujuan_dana_id = s2.id
+      ${role === 'kasir' ? 'WHERE DATE(ps.tanggal) = ?' : ''}
+      ORDER BY ps.tanggal DESC
+    `
+        const params = role === 'kasir' ? [today] : []
+
+        db.all(query, params, (err, rows) => {
+          if (err) return reject(err)
+          resolve(rows)
         })
       })
     })
@@ -832,121 +863,17 @@ app.whenReady().then(async () => {
       })
     })
 
-    // ipcMain.handle('update-pindah-saldo', (event, id) => {
-    //   return new Promise((resolve, reject) => {
-    //     // First get the record to be deleted so we can reverse the transfer
-    //     db.get(
-    //       'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin FROM pindah_saldo WHERE id = ?',
-    //       [id],
-    //       async (err, record) => {
-    //         if (err) {
-    //           console.error('❌ Error getting pindah_saldo record for deletion:', err)
-    //           return reject(err)
-    //         }
-
-    //         if (record) {
-    //           try {
-    //             // Correctly handle the balance reversal
-    //             db.serialize(() => {
-    //               // Start transaction
-    //               db.run('BEGIN TRANSACTION')
-
-    //               // STEP 1: Add both nominal amount AND admin fee back to source account
-    //               console.log(
-    //                 `Adding back to source: nominal ${record.nominal} + admin fee ${record.biaya_admin}`
-    //               )
-    //               db.run(
-    //                 'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-    //                 [record.nominal + record.biaya_admin, record.sumber_dana_id],
-    //                 function (err) {
-    //                   if (err) {
-    //                     db.run('ROLLBACK')
-    //                     console.error('❌ Error returning funds to source account:', err)
-    //                     return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
-    //                   }
-
-    //                   // STEP 2: Remove only the nominal amount from destination account
-    //                   console.log(`Removing from destination: only nominal ${record.nominal}`)
-    //                   db.run(
-    //                     'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-    //                     [record.nominal, record.tujuan_dana_id],
-    //                     function (err) {
-    //                       if (err) {
-    //                         db.run('ROLLBACK')
-    //                         console.error(
-    //                           '❌ Error subtracting funds from destination account:',
-    //                           err
-    //                         )
-    //                         return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
-    //                       }
-
-    //                       // Commit transaction
-    //                       db.run('COMMIT', (err) => {
-    //                         if (err) {
-    //                           console.error('❌ Error committing transaction:', err)
-    //                           return resolve({ changes: this.changes }) // Still resolve to prevent UI hang
-    //                         }
-
-    //                         console.log(
-    //                           '✅ Transfer reversed correctly: Source received nominal + admin, destination returned nominal'
-    //                         )
-    //                         resolve({ changes: this.changes })
-    //                       })
-    //                     }
-    //                   )
-    //                 }
-    //               )
-    //             })
-    //           } catch (updateErr) {
-    //             console.error('❌ Error reversing transfer after deletion:', updateErr)
-    //             // Still return success for the deletion
-    //             resolve({ changes: this.changes })
-    //           }
-
-    //           // STEP 3: Update the pindah_saldo record with new data
-    //           db.run(
-    //             'UPDATE pindah_saldo SET sumber_dana_id = ?, tujuan_dana_id = ?, nominal = ?, biaya_admin = ?, tanggal = ?, keterangan = ? WHERE id = ?',
-    //             [
-    //               updatedData.sumber_dana_id,
-    //               updatedData.tujuan_dana_id,
-    //               updatedData.nominal,
-    //               updatedData.biaya_admin,
-    //               updatedData.tanggal,
-    //               updatedData.keterangan,
-    //               updatedData.id
-    //             ],
-    //             function (err) {
-    //               if (err) {
-    //                 db.run('ROLLBACK')
-    //                 console.error('❌ Error updating pindah_saldo record:', err)
-    //                 return resolve({ changes: this.changes })
-    //               }
-
-    //               // Commit transaction
-    //               db.run('COMMIT', (err) => {
-    //                 if (err) {
-    //                   console.error('❌ Error committing transaction:', err)
-    //                   return resolve({ changes: this.changes })
-    //                 }
-
-    //                 console.log('✅ Transfer updated correctly: Balances adjusted, record updated')
-    //                 resolve({
-    //                   changes: this.changes,
-    //                   message: 'Transfer updated successfully'
-    //                 })
-    //               })
-    //             }
-    //           )
-    //         } else {
-    //           resolve({ changes: this.changes })
-    //         }
-    //       }
-    //     )
-    //   })
-    // })
-
     ipcMain.handle('update-pindah-saldo', (event, updatedData) => {
       return new Promise((resolve, reject) => {
+        const role = String(updatedData.role || 'kasir').toLowerCase()
+        const today = new Date().toISOString().split('T')[0]
+        const tanggalUpdate = String(updatedData.tanggal).split('T')[0]
+
+        if (role === 'kasir' && tanggalUpdate !== today) {
+          console.warn('⛔ Kasir hanya bisa mengedit data hari ini')
+          return reject(new Error('Kasir hanya bisa mengedit data hari ini'))
+        }
+
         // First get the existing record to completely reverse the original transaction
         db.get(
           'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin FROM pindah_saldo WHERE id = ?',
@@ -1185,21 +1112,27 @@ app.whenReady().then(async () => {
     // ============================= ambil saldo handler =============================
 
     // Make sure this handler exists and is properly registered
-    ipcMain.handle('get-ambil-saldo', () => {
+    ipcMain.handle('get-ambil-saldo', (event, { role, userId, today }) => {
+      const query =
+        role.toLowerCase() === 'admin'
+          ? 'SELECT * FROM ambil_saldo'
+          : 'SELECT * FROM ambil_saldo WHERE tanggal_pengambilan = ? AND petugas_pengambil_id = ?'
+
+      const params = role.toLowerCase() === 'admin' ? [] : [today, userId]
+
       return new Promise((resolve, reject) => {
-        db.all('SELECT * FROM ambil_saldo', [], (err, rows) => {
+        db.all(query, params, (err, rows) => {
           if (err) {
             console.error('❌ Error getting ambil_saldo data:', err)
             reject(err)
           } else {
-            console.log('✅ Successfully retrieved ambil_saldo data, count:', rows.length)
+            console.log('✅ Retrieved ambil_saldo data:', rows.length)
             resolve(rows)
           }
         })
       })
     })
 
-    // Helper function to update saldo_awal after withdrawal
     const updateSaldoAfterWithdrawal = async (platform, withdrawalAmount, adminFee = 0) => {
       return new Promise((resolve, reject) => {
         // First, get the current saldo_awal record for this platform
@@ -1727,9 +1660,8 @@ app.whenReady().then(async () => {
       }
     })
   })
-    await updateSchema()
+  await updateSchema()
 
-  
   createWindow()
 })
 
