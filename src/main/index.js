@@ -47,7 +47,9 @@ function createWindow() {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
-
+  const getTodayWIB = () => {
+    return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  }
 app.whenReady().then(async () => {
   db.serialize(() => {
     // Tabel toko
@@ -866,7 +868,7 @@ app.whenReady().then(async () => {
     ipcMain.handle('update-pindah-saldo', (event, updatedData) => {
       return new Promise((resolve, reject) => {
         const role = String(updatedData.role || 'kasir').toLowerCase()
-        const today = new Date().toISOString().split('T')[0]
+        const today = getTodayWIB()
         const tanggalUpdate = String(updatedData.tanggal).split('T')[0]
 
         if (role === 'kasir' && tanggalUpdate !== today) {
@@ -1112,13 +1114,16 @@ app.whenReady().then(async () => {
     // ============================= ambil saldo handler =============================
 
     // Make sure this handler exists and is properly registered
-    ipcMain.handle('get-ambil-saldo', (event, { role, userId, today }) => {
-      const query =
-        role.toLowerCase() === 'admin'
-          ? 'SELECT * FROM ambil_saldo'
-          : 'SELECT * FROM ambil_saldo WHERE tanggal_pengambilan = ? AND petugas_pengambil_id = ?'
+    ipcMain.handle('get-ambil-saldo', (event, userRole) => {
+      const today = getTodayWIB()
+      const role = (userRole || '').toLowerCase()
 
-      const params = role.toLowerCase() === 'admin' ? [] : [today, userId]
+      const query =
+        role === 'kasir'
+          ? 'SELECT * FROM ambil_saldo WHERE tanggal_pengambilan = ?'
+          : 'SELECT * FROM ambil_saldo'
+
+      const params = role === 'kasir' ? [today] : []
 
       return new Promise((resolve, reject) => {
         db.all(query, params, (err, rows) => {
@@ -1220,7 +1225,7 @@ app.whenReady().then(async () => {
             biaya_admin,
             metode_pengambilan,
             tujuan_pengambilan,
-            tanggal_pengambilan || new Date().toISOString().split('T')[0],
+            tanggal_pengambilan || getTodayWIB(),
             keterangan
           ],
           async function (err) {
@@ -1300,7 +1305,7 @@ app.whenReady().then(async () => {
                 biaya_admin,
                 metode_pengambilan,
                 tujuan_pengambilan,
-                tanggal_pengambilan || new Date().toISOString().split('T')[0],
+                tanggal_pengambilan || getTodayWIB(),
                 keterangan,
                 id
               ],

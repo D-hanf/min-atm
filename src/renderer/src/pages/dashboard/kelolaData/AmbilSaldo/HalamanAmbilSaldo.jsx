@@ -9,52 +9,32 @@ import InputField from '../../../../components/InputField'
 import ModalEdit from '../../../../shared/ui/Modal'
 import SearchField from '../../../../components/SearchField'
 import TableContent from '../../../../components/TableContent'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
 import { useTheme } from '../../../../context/ThemeContext'
+import utc from 'dayjs/plugin/utc'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 const HalamanAmbilSaldo = () => {
   const { isDark } = useTheme()
-  const [stores] = useState([
-    {
-      id: 1,
-      name: 'Toko Pusat',
-      totalEmployees: 8,
-      address: 'Jl. Raya Pusat No. 123',
-      phone: '081234567890'
-    },
-    {
-      id: 2,
-      name: 'Cabang Malang',
-      totalEmployees: 5,
-      address: 'Jl. Soekarno Hatta No. 45, Malang',
-      phone: '081234567891'
-    },
-    {
-      id: 3,
-      name: 'Cabang Surabaya',
-      totalEmployees: 6,
-      address: 'Jl. Pemuda No. 56, Surabaya',
-      phone: '081234567892'
-    },
-    {
-      id: 4,
-      name: 'Cabang Jakarta',
-      totalEmployees: 10,
-      address: 'Jl. Sudirman No. 78, Jakarta',
-      phone: '081234567893'
-    }
-  ])
+  const [stores] = useState([])
 
-  // Updated state for database
   const [ambilSaldo, setAmbilSaldo] = useState([])
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
 
-  // Add new states for logged in user and alert dialog
   const [users, setUsers] = useState([])
   const [loggedInUser, setLoggedInUser] = useState(null)
+  const [userRole, setUserRole] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
+
+  const getTodayWIB = () => {
+    return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  }
 
   const [formData, setFormData] = useState({
     id: null,
@@ -65,7 +45,7 @@ const HalamanAmbilSaldo = () => {
     biaya_admin: '',
     metode_pengambilan: '',
     tujuan_pengambilan: '',
-    tanggal_pengambilan: new Date().toISOString().split('T')[0],
+    tanggal_pengambilan: getTodayWIB(),
     keterangan: ''
   })
   const [filterText, setFilterText] = useState('')
@@ -73,21 +53,18 @@ const HalamanAmbilSaldo = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedPlatform, setSelectedPlatform] = useState(null)
 
-  // Updated columns definition - remove the index/No column entirely
   const columns = [
-    // Remove the index/No column since TableContent already adds one
     { key: 'petugas_pengambil_id', label: 'Petugas Pengambil' },
+    { key: 'tanggal_pengambilan', label: 'Tanggal Pengambilan' },
     { key: 'platform', label: 'Platform' },
     { key: 'saldo_platform', label: 'Saldo Platform' },
     { key: 'nominal_pengambilan', label: 'Nominal Pengambilan' },
     { key: 'biaya_admin', label: 'Biaya Admin' },
     { key: 'metode_pengambilan', label: 'Metode Pengambilan' },
     { key: 'tujuan_pengambilan', label: 'Tujuan Pengambilan' },
-    { key: 'tanggal_pengambilan', label: 'Tanggal Pengambilan' },
     { key: 'keterangan', label: 'Keterangan' }
   ]
 
-  // Format currency
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -96,61 +73,70 @@ const HalamanAmbilSaldo = () => {
     }).format(value)
   }
 
-  // Extract numeric value from formatted string
   const extractNumeric = (formattedValue) => {
     if (!formattedValue) return ''
     return formattedValue.toString().replace(/[^0-9]/g, '')
   }
 
-  // Fetch saldo_awal data from database
   const fetchSaldoAwal = async () => {
     try {
       setIsLoading(true)
       const result = await window.api.getSaldoAwal()
       setSaldoAwalOptions(result)
-      console.log('✅ Data saldo awal berhasil diambil:', result)
     } catch (error) {
-      console.error('❌ Gagal ambil data saldo awal:', error)
       setSaldoAwalOptions([])
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Fetch users data from database
   const fetchUsers = async () => {
     try {
       const result = await window.api.getUsers()
       setUsers(result || [])
-      console.log('✅ Data users berhasil diambil:', result)
     } catch (error) {
-      console.error('❌ Gagal ambil data users:', error)
       setUsers([])
     }
   }
 
-  // Fetch ambil saldo data from database
   const fetchAmbilSaldo = async () => {
     try {
-      const result = await window.api.getAmbilSaldo()
-      setAmbilSaldo(result)
-      console.log('✅ Data ambil saldo berhasil diambil:', result)
+      const result = await window.api.getAmbilSaldo(userRole)
+
+      let filtered = result
+
+      if (userRole === 'kasir') {
+        const today = getTodayWIB()
+        filtered = result.filter((item) => {
+          const itemDate = dayjs(item.tanggal_pengambilan).tz('Asia/Jakarta').format('YYYY-MM-DD')
+
+          return itemDate === today
+        })
+      }
+
+      setAmbilSaldo(filtered)
     } catch (error) {
       console.error('❌ Gagal ambil data ambil saldo:', error)
     }
   }
 
   useEffect(() => {
-    // Get user data from localStorage
     const userString = localStorage.getItem('user')
     if (userString) {
-      setLoggedInUser(JSON.parse(userString))
+      const user = JSON.parse(userString)
+      setLoggedInUser(user)
+      setUserRole(user.role.toLowerCase())
     }
-
-    fetchAmbilSaldo()
-    fetchSaldoAwal() // Also fetch saldo_awal for dropdowns
-    fetchUsers() // Fetch all users for displaying names
+    fetchSaldoAwal()
+    fetchUsers()
   }, [])
+
+  useEffect(() => {
+    if (userRole) {
+      console.log('🧪 Role terdeteksi:', userRole)
+      fetchAmbilSaldo()
+    }
+  }, [userRole])
 
   // Handle platform selection in edit mode
   const handlePlatformChange = (selectedPlatformName) => {
@@ -186,7 +172,7 @@ const HalamanAmbilSaldo = () => {
         biaya_admin: parseFloat(formData.fee?.replace(/[^0-9]/g, '') || 0),
         metode_pengambilan: formData.withdrawalMethod,
         tujuan_pengambilan: formData.withdrawalAccount,
-        tanggal_pengambilan: formData.withdrawalDate || new Date().toISOString().split('T')[0],
+        tanggal_pengambilan: formData.withdrawalDate || getTodayWIB(), // Use the current date in WIB timezone
         keterangan: formData.description
       }
 
@@ -229,64 +215,53 @@ const HalamanAmbilSaldo = () => {
 
   // Handle edit ambil saldo
   const handleEdit = (id) => {
-    // Check if user is admin first
-    if (!loggedInUser || loggedInUser.role !== 'admin') {
-      setAlertMessage('Maaf, hanya admin yang dapat mengedit data pengambilan saldo.')
+    if (!loggedInUser) {
+      setAlertMessage('Pengguna tidak terdeteksi.')
       setShowAlertDialog(true)
       return
     }
 
     const itemToEdit = ambilSaldo.find((item) => item.id === id)
-    if (itemToEdit) {
-      // Better date handling with fallback
-      let formattedDate
-      try {
-        // Try to parse the date from database
-        if (itemToEdit.tanggal_pengambilan) {
-          // Handle different date formats
-          formattedDate = itemToEdit.tanggal_pengambilan.includes('T')
-            ? itemToEdit.tanggal_pengambilan.split('T')[0] // ISO format
-            : new Date(itemToEdit.tanggal_pengambilan).toISOString().split('T')[0] // Other formats
-        } else {
-          formattedDate = new Date().toISOString().split('T')[0]
-        }
-      } catch (error) {
-        console.error('❌ Error formatting date:', error)
-        formattedDate = new Date().toISOString().split('T')[0] // Fallback to today
-      }
+    if (!itemToEdit) return
 
-      console.log('📊 Original data from DB:', itemToEdit)
-      console.log('📅 Original date value:', itemToEdit.tanggal_pengambilan)
-      console.log('📅 Formatted date for form:', formattedDate)
+    const itemDate = dayjs(itemToEdit.tanggal_pengambilan).format('YYYY-MM-DD')
+    const today = getTodayWIB()
 
-      // Update form data with all fields from database - format currency fields
-      setFormData({
-        id: itemToEdit.id,
-        petugas_pengambil_id: itemToEdit.petugas_pengambil_id,
-        platform: itemToEdit.platform,
-        saldo_platform: itemToEdit.saldo_platform.toString(),
-        nominal_pengambilan: formatRupiah(itemToEdit.nominal_pengambilan),
-        biaya_admin: formatRupiah(itemToEdit.biaya_admin || 0),
-        metode_pengambilan: itemToEdit.metode_pengambilan || '',
-        tujuan_pengambilan: itemToEdit.tujuan_pengambilan || '',
-        tanggal_pengambilan: formattedDate,
-        keterangan: itemToEdit.keterangan || ''
-      })
-
-      console.log('🔄 Setting form data for editing:', {
-        id: itemToEdit.id,
-        platform: itemToEdit.platform,
-        tanggal_pengambilan: formattedDate
-      })
-
-      // Find matching saldo_awal item if exists
-      const matchingSaldoAwal = saldoAwalOptions.find(
-        (item) => item.nama_sumber_dana === itemToEdit.platform
-      )
-      setSelectedPlatform(matchingSaldoAwal || null)
-
-      setModalOpen(true)
+    if (loggedInUser.role !== 'admin' && itemDate !== today) {
+      setAlertMessage('Kasir hanya dapat mengedit data tanggal hari ini.')
+      setShowAlertDialog(true)
+      return
     }
+
+    let formattedDate
+    try {
+      formattedDate = itemToEdit.tanggal_pengambilan.includes('T')
+        ? itemToEdit.tanggal_pengambilan.split('T')[0]
+        : itemToEdit.tanggal_pengambilan
+    } catch (error) {
+      console.error('❌ Error formatting date:', error)
+      formattedDate = getTodayWIB()
+    }
+
+    setFormData({
+      id: itemToEdit.id,
+      petugas_pengambil_id: itemToEdit.petugas_pengambil_id,
+      platform: itemToEdit.platform,
+      saldo_platform: itemToEdit.saldo_platform.toString(),
+      nominal_pengambilan: formatRupiah(itemToEdit.nominal_pengambilan),
+      biaya_admin: formatRupiah(itemToEdit.biaya_admin || 0),
+      metode_pengambilan: itemToEdit.metode_pengambilan || '',
+      tujuan_pengambilan: itemToEdit.tujuan_pengambilan || '',
+      tanggal_pengambilan: formattedDate,
+      keterangan: itemToEdit.keterangan || ''
+    })
+
+    const matchingSaldoAwal = saldoAwalOptions.find(
+      (item) => item.nama_sumber_dana === itemToEdit.platform
+    )
+    setSelectedPlatform(matchingSaldoAwal || null)
+
+    setModalOpen(true)
   }
 
   // Handle input changes for currency fields
@@ -311,10 +286,10 @@ const HalamanAmbilSaldo = () => {
         // Make sure we have a valid date string
         formattedDate = formData.tanggal_pengambilan
           ? new Date(formData.tanggal_pengambilan).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0]
+          : getTodayWIB()
       } catch (error) {
         console.error('❌ Error formatting date for submission:', error)
-        formattedDate = new Date().toISOString().split('T')[0]
+        formattedDate = getTodayWIB()
       }
 
       console.log('📅 Date before submission:', formData.tanggal_pengambilan)
@@ -354,28 +329,31 @@ const HalamanAmbilSaldo = () => {
 
   // Process data for display - don't add the index field
   const filteredData = ambilSaldo
+    .filter((item) => {
+      // Jika role kasir, hanya tampilkan data hari ini
+      if (userRole === 'kasir') {
+        const today = getTodayWIB()
+        const itemDate = dayjs(item.tanggal_pengambilan).format('YYYY-MM-DD')
+        return itemDate === today
+      }
+      return true // admin bisa lihat semua data
+    })
     .filter((item) =>
       Object.values(item).some((val) =>
         String(val).toLowerCase().includes(filterText.toLowerCase())
       )
     )
     .map((item) => {
-      // Look up the user's name from the users array
       let petugasName = 'ID: ' + item.petugas_pengambil_id
-
-      // Find the user in the users array
       const user = users.find((user) => user.id === item.petugas_pengambil_id)
       if (user) {
         petugasName = user.nama || user.username || petugasName
-      }
-      // If it's the current user, we could use the data from loggedInUser as a fallback
-      else if (loggedInUser && loggedInUser.id === item.petugas_pengambil_id) {
+      } else if (loggedInUser && loggedInUser.id === item.petugas_pengambil_id) {
         petugasName = loggedInUser.nama || loggedInUser.username || petugasName
       }
 
       return {
         ...item,
-        // Replace ID with name for display but keep ID for backend
         petugas_pengambil_id: petugasName,
         saldo_platform: formatRupiah(item.saldo_platform),
         nominal_pengambilan: formatRupiah(item.nominal_pengambilan),
@@ -406,6 +384,7 @@ const HalamanAmbilSaldo = () => {
       <div>
         <TableContent
           searchValue={filterText}
+          userRole={userRole}
           onSearchChange={setFilterText}
           title="Data Pengambilan Saldo"
           btnSize={'xs'}
@@ -467,7 +446,17 @@ const HalamanAmbilSaldo = () => {
           {/* Keep the original ID for submission */}
           <input type="hidden" name="petugas_pengambil_id" value={formData.petugas_pengambil_id} />
         </div>
-
+            <InputField
+          name="tanggal_pengambilan"
+          type="date"
+          value={formData.tanggal_pengambilan || getTodayWIB()}
+          onChange={(e) => {
+            console.log('📅 Date selected in form:', e.target.value)
+            setFormData({ ...formData, tanggal_pengambilan: e.target.value })
+          }}
+        >
+          Tanggal Pengambilan
+        </InputField>
         {/* Platform dropdown */}
         <div className="col-span-2 mb-4">
           <label
@@ -569,17 +558,7 @@ const HalamanAmbilSaldo = () => {
           Tujuan Pengambilan
         </InputField>
 
-        <InputField
-          name="tanggal_pengambilan"
-          type="date"
-          value={formData.tanggal_pengambilan || new Date().toISOString().split('T')[0]}
-          onChange={(e) => {
-            console.log('📅 Date selected in form:', e.target.value)
-            setFormData({ ...formData, tanggal_pengambilan: e.target.value })
-          }}
-        >
-          Tanggal Pengambilan
-        </InputField>
+        
 
         <InputField
           name="keterangan"

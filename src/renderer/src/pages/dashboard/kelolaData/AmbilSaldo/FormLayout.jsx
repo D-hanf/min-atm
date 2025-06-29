@@ -5,13 +5,21 @@ import Dropdown from '../../../../components/Dropdown'
 import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
 import { useState } from 'react'
 import { useTheme } from '../../../../context/ThemeContext'
+import utc from 'dayjs/plugin/utc'
 
+dayjs.extend(utc)
+dayjs.extend(timezone)
 const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) => {
   const { isDark } = useTheme()
   const [modalOpen, setModalOpen] = useState(false)
   const [loggedInUser, setLoggedInUser] = useState(null)
+    const getTodayWIB = () => {
+      return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+    }
   // Add state to persist the previously selected platform
   const [lastSelectedPlatform, setLastSelectedPlatform] = useState('')
   const [formData, setFormData] = useState({
@@ -22,7 +30,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     fee: '',
     withdrawalMethod: '',
     withdrawalAccount: '',
-    withdrawalDate: new Date().toISOString().split('T')[0],
+    withdrawalDate: getTodayWIB(),
     description: ''
   })
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
@@ -103,7 +111,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         fee: '',
         withdrawalMethod: '',
         withdrawalAccount: '',
-        withdrawalDate: new Date().toISOString().split('T')[0],
+        withdrawalDate: getTodayWIB(),
         description: ''
       })
 
@@ -301,8 +309,16 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
           {/* Hidden input to store the actual user ID */}
           <input type="hidden" name="user_id" value={formData.user_id} />
         </div>
+        <InputField
+          name="withdrawalDate"
+          type="date"
+          value={formData.withdrawalDate || getTodayWIB()}
+          onChange={handleInputChange}
+        >
+          Tanggal Pengambilan
+        </InputField>
 
-        {/* Platform dropdown */}
+          {/* Platform dropdown */}
         <div className="col-span-2 mb-4">
           <label
             className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
@@ -333,7 +349,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
             </p>
           )}
         </div>
-
+          
         {/* Show current balance only when platform is selected */}
         {selectedPlatform && (
           <div className="col-span-2 mb-4">
@@ -413,14 +429,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
           <p className="text-red-500 text-xs mt-1">{errors.withdrawalAccount}</p>
         )}
 
-        <InputField
-          name="withdrawalDate"
-          type="date"
-          value={formData.withdrawalDate || new Date().toISOString().split('T')[0]}
-          onChange={handleInputChange}
-        >
-          Tanggal Pengambilan
-        </InputField>
+        
 
         <InputField
           name="description"
