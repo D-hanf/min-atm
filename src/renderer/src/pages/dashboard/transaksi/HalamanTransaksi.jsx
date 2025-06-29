@@ -63,6 +63,7 @@ const HalamanTransaksi = () => {
     transfer: 0,
     bankAdmin: 0,
     profit: 0,
+    modePulsa: 0,
     totalAssets: 0
   })
 
