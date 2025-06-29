@@ -865,143 +865,118 @@ app.whenReady().then(async () => {
       })
     })
 
-    ipcMain.handle('update-pindah-saldo', (event, updatedData) => {
-      return new Promise((resolve, reject) => {
-        const role = String(updatedData.role || 'kasir').toLowerCase()
-        const today = getTodayWIB()
-        const tanggalUpdate = String(updatedData.tanggal).split('T')[0]
+ipcMain.handle('update-pindah-saldo', (event, updatedData) => {
+  return new Promise((resolve, reject) => {
+    const role = String(updatedData.role || 'kasir').toLowerCase()
+    const today = getTodayWIB()
 
-        if (role === 'kasir' && tanggalUpdate !== today) {
-          console.warn('⛔ Kasir hanya bisa mengedit data hari ini')
-          return reject(new Error('Kasir hanya bisa mengedit data hari ini'))
+    // Ambil data lama dari database
+    db.get(
+      'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin, tanggal FROM pindah_saldo WHERE id = ?',
+      [updatedData.id],
+      async (err, oldRecord) => {
+        if (err) {
+          console.error('❌ Error getting existing pindah_saldo record:', err)
+          return reject(err)
         }
 
-        // First get the existing record to completely reverse the original transaction
-        db.get(
-          'SELECT sumber_dana_id, tujuan_dana_id, nominal, biaya_admin FROM pindah_saldo WHERE id = ?',
-          [updatedData.id],
-          async (err, oldRecord) => {
-            if (err) {
-              console.error('❌ Error getting existing pindah_saldo record:', err)
-              return reject(err)
-            }
+        if (!oldRecord) {
+          console.error('❌ Record not found')
+          return reject(new Error('Record not found'))
+        }
 
-            if (!oldRecord) {
-              console.error('❌ Record not found')
-              return reject(new Error('Record not found'))
-            }
+        const tanggalLama = String(oldRecord.tanggal || '').split('T')[0]
+        if (role === 'kasir' && tanggalLama !== today) {
+          console.warn('⛔ Kasir hanya bisa mengedit transaksi yang dibuat hari ini')
+          return reject(new Error('Kasir hanya bisa mengedit transaksi yang dibuat hari ini'))
+        }
 
-            try {
-              db.serialize(() => {
-                // Start transaction
-                db.run('BEGIN TRANSACTION')
+        try {
+          db.serialize(() => {
+            db.run('BEGIN TRANSACTION')
 
-                // STEP 1: REVERSE THE ORIGINAL TRANSACTION
-                console.log('1️⃣ Reversing original transaction...')
+            // 1️⃣ Reversing original transaction
+            db.run(
+              'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+              [oldRecord.nominal + oldRecord.biaya_admin, oldRecord.sumber_dana_id],
+              function (err) {
+                if (err) {
+                  db.run('ROLLBACK')
+                  console.error('❌ Error returning funds to original source account:', err)
+                  return resolve({ success: false, error: err.message })
+                }
 
-                // A) Add back the amount + admin fee to the original source account
                 db.run(
-                  'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                  [oldRecord.nominal + oldRecord.biaya_admin, oldRecord.sumber_dana_id],
+                  'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+                  [oldRecord.nominal, oldRecord.tujuan_dana_id],
                   function (err) {
                     if (err) {
                       db.run('ROLLBACK')
-                      console.error('❌ Error returning funds to original source account:', err)
+                      console.error('❌ Error removing funds from original destination account:', err)
                       return resolve({ success: false, error: err.message })
                     }
 
-                    // B) Subtract the original amount from the original destination account
+                    // 2️⃣ Executing new transaction
                     db.run(
                       'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                      [oldRecord.nominal, oldRecord.tujuan_dana_id],
+                      [updatedData.nominal + updatedData.biaya_admin, updatedData.sumber_dana_id],
                       function (err) {
                         if (err) {
                           db.run('ROLLBACK')
-                          console.error(
-                            '❌ Error removing funds from original destination account:',
-                            err
-                          )
+                          console.error('❌ Error deducting funds from new source account:', err)
                           return resolve({ success: false, error: err.message })
                         }
 
-                        console.log('✅ Original transaction reversed successfully')
-
-                        // STEP 2: EXECUTE THE NEW TRANSACTION
-                        console.log('2️⃣ Executing new transaction...')
-
-                        // A) Subtract the new amount + admin fee from the new source account
                         db.run(
-                          'UPDATE saldo_awal SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                          [
-                            updatedData.nominal + updatedData.biaya_admin,
-                            updatedData.sumber_dana_id
-                          ],
+                          'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
+                          [updatedData.nominal, updatedData.tujuan_dana_id],
                           function (err) {
                             if (err) {
                               db.run('ROLLBACK')
-                              console.error(
-                                '❌ Error deducting funds from new source account:',
-                                err
-                              )
+                              console.error('❌ Error adding funds to new destination account:', err)
                               return resolve({ success: false, error: err.message })
                             }
 
-                            // B) Add the new amount to the new destination account
+                            // 3️⃣ Update pindah_saldo record
                             db.run(
-                              'UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?',
-                              [updatedData.nominal, updatedData.tujuan_dana_id],
+                              `UPDATE pindah_saldo
+                               SET sumber_dana_id = ?, tujuan_dana_id = ?, nominal = ?, platform = ?, biaya_admin = ?,
+                                   saldo_sumber = (SELECT saldo FROM saldo_awal WHERE id = ?),
+                                   saldo_tujuan = (SELECT saldo FROM saldo_awal WHERE id = ?),
+                                   keterangan = ?, tanggal = ?
+                               WHERE id = ?`,
+                              [
+                                updatedData.sumber_dana_id,
+                                updatedData.tujuan_dana_id,
+                                updatedData.nominal,
+                                updatedData.platform,
+                                updatedData.biaya_admin,
+                                updatedData.sumber_dana_id,
+                                updatedData.tujuan_dana_id,
+                                updatedData.keterangan,
+                                updatedData.tanggal,
+                                updatedData.id
+                              ],
                               function (err) {
                                 if (err) {
                                   db.run('ROLLBACK')
-                                  console.error(
-                                    '❌ Error adding funds to new destination account:',
-                                    err
-                                  )
+                                  console.error('❌ Error updating pindah_saldo record:', err)
                                   return resolve({ success: false, error: err.message })
                                 }
 
-                                console.log('✅ New transaction executed successfully')
-
-                                // STEP 3: Update the pindah_saldo record with new data
-                                db.run(
-                                  'UPDATE pindah_saldo SET sumber_dana_id = ?, tujuan_dana_id = ?, nominal = ?, platform = ?, biaya_admin = ?, saldo_sumber = (SELECT saldo FROM saldo_awal WHERE id = ?), saldo_tujuan = (SELECT saldo FROM saldo_awal WHERE id = ?), keterangan = ?, tanggal = ? WHERE id = ?',
-                                  [
-                                    updatedData.sumber_dana_id,
-                                    updatedData.tujuan_dana_id,
-                                    updatedData.nominal,
-                                    updatedData.platform,
-                                    updatedData.biaya_admin,
-                                    updatedData.sumber_dana_id, // For getting current source balance
-                                    updatedData.tujuan_dana_id, // For getting current destination balance
-                                    updatedData.keterangan,
-                                    updatedData.tanggal,
-                                    updatedData.id
-                                  ],
-                                  function (err) {
-                                    if (err) {
-                                      db.run('ROLLBACK')
-                                      console.error('❌ Error updating pindah_saldo record:', err)
-                                      return resolve({ success: false, error: err.message })
-                                    }
-
-                                    // Commit transaction
-                                    db.run('COMMIT', (err) => {
-                                      if (err) {
-                                        console.error('❌ Error committing transaction:', err)
-                                        return resolve({ success: false, error: err.message })
-                                      }
-
-                                      console.log(
-                                        '✅ Transfer updated correctly: Balances adjusted, record updated'
-                                      )
-                                      resolve({
-                                        success: true,
-                                        changes: this.changes,
-                                        message: 'Transfer updated successfully'
-                                      })
-                                    })
+                                db.run('COMMIT', (err) => {
+                                  if (err) {
+                                    console.error('❌ Error committing transaction:', err)
+                                    return resolve({ success: false, error: err.message })
                                   }
-                                )
+
+                                  console.log('✅ Transfer updated successfully')
+                                  resolve({
+                                    success: true,
+                                    changes: this.changes,
+                                    message: 'Transfer updated successfully'
+                                  })
+                                })
                               }
                             )
                           }
@@ -1010,15 +985,17 @@ app.whenReady().then(async () => {
                     )
                   }
                 )
-              })
-            } catch (updateErr) {
-              console.error('❌ Error updating transfer:', updateErr)
-              resolve({ success: false, error: updateErr.message })
-            }
-          }
-        )
-      })
-    })
+              }
+            )
+          })
+        } catch (updateErr) {
+          console.error('❌ Error updating transfer:', updateErr)
+          resolve({ success: false, error: updateErr.message })
+        }
+      }
+    )
+  })
+})
 
     ipcMain.handle('delete-pindah-saldo', (event, id) => {
       return new Promise((resolve, reject) => {
