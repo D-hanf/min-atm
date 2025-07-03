@@ -47,9 +47,9 @@ const HalamanPindahSaldo = () => {
   const [confirmMessage, setConfirmMessage] = useState('')
   const [userRole, setUserRole] = useState(() => {
     const storedUser = JSON.parse(localStorage.getItem('user'))
-    // always lowercase
-    return (storedUser?.role || 'kasir').toLowerCase()
+    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
   })
+
   // Add new states for logged in user and alert dialog
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
@@ -129,8 +129,8 @@ const HalamanPindahSaldo = () => {
 
   // Updated columns definition to match our database structure
   const columns = [
-    { key: 'date', label: 'Tanggal' },
     { key: 'user', label: 'User Pemindah' },
+    { key: 'date', label: 'Tanggal' },
     { key: 'platformSource', label: 'Platform Sumber' },
     { key: 'platformDestination', label: 'Platform Penerima' },
     { key: 'senderBalance', label: 'Saldo Pengirim' },
@@ -447,7 +447,6 @@ const HalamanPindahSaldo = () => {
         saldo_tujuan: latestDestSaldo.saldo,
         keterangan: updatedData.description,
         tanggal: formData.tanggal || getTodayWIB()
-
       }
 
       const result = await window.api.updatePindahSaldo(transferData)

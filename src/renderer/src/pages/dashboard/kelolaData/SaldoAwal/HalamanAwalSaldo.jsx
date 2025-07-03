@@ -236,6 +236,7 @@ const HalamanAwalSaldo = () => {
           data={filteredData}
           btnSize={'xs'}
           title="Data Saldo Awal"
+          showDateFilter={true}
           columns={columns}
           onAdd={<FormLayout onSubmit={handleAddSaldo} />}
           onDelete={handleDelete}

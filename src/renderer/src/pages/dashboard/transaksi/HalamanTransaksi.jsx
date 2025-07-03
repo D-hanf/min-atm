@@ -33,7 +33,7 @@ const HalamanTransaksi = () => {
   const [modalOpen, setModalOpen] = useState(false)
   const [userRole, setUserRole] = useState(() => {
     const storedUser = JSON.parse(localStorage.getItem('user'))
-    return storedUser?.role || 'kasir'
+    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
   })
 
   const [formData, setFormData] = useState({
@@ -46,8 +46,8 @@ const HalamanTransaksi = () => {
   const [filterText, setFilterText] = useState('')
   const [selectedDate, setSelectedDate] = useState('26/12/2024')
   const getTodayWIB = () => {
-  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-}
+    return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  }
 
   const [transactionFormData, setTransactionFormData] = useState({
     tanggal: getTodayWIB(),
@@ -95,7 +95,7 @@ const HalamanTransaksi = () => {
   useEffect(() => {
     const interval = setInterval(
       () => {
-       const today = getTodayWIB()
+        const today = getTodayWIB()
 
         if (today !== currentDate) {
           setCurrentDate(today)
@@ -354,7 +354,7 @@ const HalamanTransaksi = () => {
       // console.log('✅ Transaksi berhasil diedit:', result)
 
       // Ambil ulang data transaksi setelah edit
-      const updatedTransactions = await window.api.getTransaksi()
+      const updatedTransactions = await window.api.getTransaksi(userRole)
       setTransactions(updatedTransactions)
 
       setShowEditModal(false)
@@ -509,7 +509,6 @@ const HalamanTransaksi = () => {
           const updatedEntry = {
             ...updatedData,
             dateUpdated: getTodayWIB()
-
           }
 
           setSaldo((prevData) =>

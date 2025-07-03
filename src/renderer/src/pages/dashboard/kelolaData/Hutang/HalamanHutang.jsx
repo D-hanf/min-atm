@@ -33,9 +33,10 @@ function HalamanHutang() {
   const [confirmMessage, setConfirmMessage] = useState('')
 
   const [userRole, setUserRole] = useState(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'))
-    return storedUser?.role || 'kasir'
-  })
+  const storedUser = JSON.parse(localStorage.getItem('user'))
+  return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
+})
+
   const getTodayWIB = () => {
     return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   }
@@ -279,6 +280,7 @@ function HalamanHutang() {
             title={'Hutang'}
             userRole={userRole}
             columns={columns}
+            showDateFilter={true}
             data={filteredData}
             onAdd={<FormLayout onSubmit={handleAddAmbilSaldo} buttonText="Transaksi Hutang" />}
             onEdit={handleEdit}

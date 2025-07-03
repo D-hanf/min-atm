@@ -28,7 +28,11 @@ const HalamanAmbilSaldo = () => {
 
   const [users, setUsers] = useState([])
   const [loggedInUser, setLoggedInUser] = useState(null)
-  const [userRole, setUserRole] = useState(null)
+  const [userRole, setUserRole] = useState(() => {
+  const storedUser = JSON.parse(localStorage.getItem('user'))
+  return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
+})
+
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
 
@@ -385,6 +389,7 @@ const HalamanAmbilSaldo = () => {
         <TableContent
           searchValue={filterText}
           userRole={userRole}
+          showDateFilter={true}
           onSearchChange={setFilterText}
           title="Data Pengambilan Saldo"
           btnSize={'xs'}
