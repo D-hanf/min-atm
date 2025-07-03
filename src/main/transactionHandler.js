@@ -8,10 +8,10 @@ dayjs.extend(utc)
 dayjs.extend(timezone)
 
 export function getTransaksi(role) {
-  return new Promise((resolve, reject) => {
-    // Pakai tanggal WIB (Asia/Jakarta)
-    const today = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  const today = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  const roleLower = (role || '').toLowerCase()
 
+  return new Promise((resolve, reject) => {
     const query = `
       SELECT 
         t.*,
@@ -23,11 +23,11 @@ export function getTransaksi(role) {
       LEFT JOIN history_transaksi h ON t.id = h.transaksi_id
       LEFT JOIN saldo_awal s1 ON h.sumber_dana_id = s1.id
       LEFT JOIN saldo_awal s2 ON h.terima_dana_id = s2.id
-      ${role === 'kasir' ? 'WHERE t.tanggal = ?' : ''}
-      ORDER BY t.tanggal ASC
+      ${roleLower === 'kasir' ? 'WHERE DATE(t.tanggal) = ?' : ''}
+      ORDER BY t.tanggal DESC, t.id DESC
     `
 
-    const params = role === 'kasir' ? [today] : []
+    const params = roleLower === 'kasir' ? [today] : []
 
     db.all(query, params, (err, rows) => {
       if (err) return reject(err)
@@ -35,6 +35,8 @@ export function getTransaksi(role) {
     })
   })
 }
+
+
 
 export function createTransaksi(_event, data) {
   return new Promise((resolve, reject) => {

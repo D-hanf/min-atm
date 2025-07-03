@@ -56,8 +56,8 @@ const handleDelete = (id) => {
 }
 
   // Filtering berdasarkan tanggal dan search
-  const reversedData = [...data].reverse()
-  const filteredData = reversedData.filter((item) => {
+  const DataItems = data
+  const filteredData = DataItems.filter((item) => {
     const itemDate = item.tanggal ? new Date(item.tanggal).toISOString().slice(0, 10) : ''
     const matchDate = showDateFilter && selectedDate ? itemDate === selectedDate : true
     const matchSearch = searchValue

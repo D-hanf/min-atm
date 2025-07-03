@@ -27,6 +27,8 @@ const HalamanTransaksi = () => {
   const [emptyBalances, setEmptyBalances] = useState([])
   const [formValid, setFormValid] = useState(true)
   const [saldo, setSaldo] = useState([])
+  const [showAlertDialog, setShowAlertDialog] = useState(false)
+  const [alertMessage, setAlertMessage] = useState('')
   const [transactions, setTransactions] = useState([]) // Awalnya kosong, akan diisi dari DB
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)

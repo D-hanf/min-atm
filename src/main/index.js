@@ -374,7 +374,7 @@ app.whenReady().then(async () => {
     `
 
         const whereClause = roleLower === 'kasir' ? 'WHERE DATE(h.tanggal_transaksi) = ?' : ''
-        const query = `${baseQuery} ${whereClause} ORDER BY h.tanggal_transaksi DESC`
+        const query = `${baseQuery} ${whereClause} ORDER BY h.tanggal_transaksi DESC, h.id DESC`
         const params = roleLower === 'kasir' ? [today] : []
 
         db.all(query, params, (err, rows) => {
@@ -687,7 +687,7 @@ app.whenReady().then(async () => {
       LEFT JOIN saldo_awal s1 ON ps.sumber_dana_id = s1.id
       LEFT JOIN saldo_awal s2 ON ps.tujuan_dana_id = s2.id
       ${role === 'kasir' ? 'WHERE DATE(ps.tanggal) = ?' : ''}
-      ORDER BY ps.tanggal DESC
+      ORDER BY ps.tanggal DESC, ps.id DESC
     `
         const params = role === 'kasir' ? [today] : []
 
@@ -1069,7 +1069,7 @@ app.whenReady().then(async () => {
 
       const query =
         role === 'kasir'
-          ? 'SELECT * FROM ambil_saldo WHERE tanggal_pengambilan = ?'
+          ? 'SELECT * FROM ambil_saldo WHERE tanggal_pengambilan = ? ORDER BY tanggal_pengambilan DESC, id DESC'
           : 'SELECT * FROM ambil_saldo'
 
       const params = role === 'kasir' ? [today] : []
