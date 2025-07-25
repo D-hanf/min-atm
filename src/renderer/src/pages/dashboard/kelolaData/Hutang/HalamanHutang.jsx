@@ -17,7 +17,7 @@ dayjs.extend(utc)
 dayjs.extend(timezone)
 function HalamanHutang() {
   const { isDark } = useTheme()
-  const [ambilSaldo, setAmbilSaldo] = useState([])
+  const [hutang, setHutang] = useState([])
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
   const [selectedPlatform, setSelectedPlatform] = useState(null)
   const [users, setUsers] = useState([])
@@ -33,9 +33,9 @@ function HalamanHutang() {
   const [confirmMessage, setConfirmMessage] = useState('')
 
   const [userRole, setUserRole] = useState(() => {
-  const storedUser = JSON.parse(localStorage.getItem('user'))
-  return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
-})
+    const storedUser = JSON.parse(localStorage.getItem('user'))
+    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
+  })
 
   const getTodayWIB = () => {
     return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
@@ -79,10 +79,10 @@ function HalamanHutang() {
     return formattedValue.toString().replace(/[^0-9]/g, '')
   }
 
-  const fetchAmbilSaldo = async () => {
+  const fetchHutang = async () => {
     try {
       const result = await window.api.getHutang(userRole)
-      setAmbilSaldo(result)
+      setHutang(result)
     } catch (error) {
       console.error('❌ Gagal ambil data hutang:', error)
     }
@@ -110,7 +110,7 @@ function HalamanHutang() {
   }
 
   useEffect(() => {
-    fetchAmbilSaldo()
+    fetchHutang()
     fetchSaldoAwal()
     fetchUsers()
     const userString = localStorage.getItem('user')
@@ -119,10 +119,10 @@ function HalamanHutang() {
     }
   }, [])
 
-  const handleAddAmbilSaldo = async (formData) => {
+  const handleAddhutang = async (formData) => {
     try {
       await window.api.createHutang(formData)
-      await Promise.all([fetchAmbilSaldo(), fetchSaldoAwal()])
+      await Promise.all([fetchHutang(), fetchSaldoAwal()])
     } catch (error) {
       console.error('❌ Gagal menambahkan data hutang:', error)
     }
@@ -130,7 +130,7 @@ function HalamanHutang() {
 
   const handleEdit = (id) => {
     console.log('🟡 handleEdit dipanggil dengan id:', id)
-    const itemToEdit = ambilSaldo.find((item) => item.id === id)
+    const itemToEdit = hutang.find((item) => item.id === id)
     if (!itemToEdit) return
 
     const today = getTodayWIB() // Get today's date in WIB format
@@ -190,7 +190,7 @@ function HalamanHutang() {
   const confirmDelete = async () => {
     try {
       await window.api.deleteHutang(deleteId)
-      await fetchAmbilSaldo()
+      await fetchHutang()
     } catch (error) {
       console.error('❌ Gagal menghapus data hutang:', error)
     } finally {
@@ -199,10 +199,12 @@ function HalamanHutang() {
     }
   }
 
-  const filteredData = ambilSaldo
+  const filteredData = hutang
     .filter((item) =>
       Object.values(item).some((val) =>
-        String(val).toLowerCase().includes(filterText.toLowerCase())
+        String(val || '') 
+          .toLowerCase()
+          .includes(filterText.toLowerCase())
       )
     )
     .map((item) => {
@@ -223,7 +225,6 @@ function HalamanHutang() {
         jenis_transaksi: item.jenis_transaksi || 'Ambil Hutang'
       }
     })
-
   const handleCurrencyInputChange = (e, field) => {
     const value = e.target.value
     const numericValue = extractNumeric(value)
@@ -251,7 +252,7 @@ function HalamanHutang() {
       }
 
       await window.api.updateHutang(updatedEntry)
-      await Promise.all([fetchAmbilSaldo(), fetchSaldoAwal()])
+      await Promise.all([fetchHutang(), fetchSaldoAwal()])
       setModalOpen(false)
     } catch (error) {
       console.error('❌ Gagal update data hutang:', error)
@@ -282,7 +283,7 @@ function HalamanHutang() {
             columns={columns}
             showDateFilter={true}
             data={filteredData}
-            onAdd={<FormLayout onSubmit={handleAddAmbilSaldo} buttonText="Transaksi Hutang" />}
+            onAdd={<FormLayout onSubmit={handleAddhutang} buttonText="Transaksi Hutang" />}
             onEdit={handleEdit}
             onDelete={handleDelete}
             btnSize={'xs'}

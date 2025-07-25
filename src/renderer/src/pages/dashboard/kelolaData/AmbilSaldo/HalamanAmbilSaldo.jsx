@@ -29,9 +29,9 @@ const HalamanAmbilSaldo = () => {
   const [users, setUsers] = useState([])
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [userRole, setUserRole] = useState(() => {
-  const storedUser = JSON.parse(localStorage.getItem('user'))
-  return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
-})
+    const storedUser = JSON.parse(localStorage.getItem('user'))
+    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
+  })
 
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
@@ -56,18 +56,6 @@ const HalamanAmbilSaldo = () => {
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedPlatform, setSelectedPlatform] = useState(null)
-
-  const columns = [
-    { key: 'petugas_pengambil_id', label: 'Petugas Pengambil' },
-    { key: 'tanggal_pengambilan', label: 'Tanggal Pengambilan' },
-    { key: 'platform', label: 'Platform' },
-    { key: 'saldo_platform', label: 'Saldo Platform' },
-    { key: 'nominal_pengambilan', label: 'Nominal Pengambilan' },
-    { key: 'biaya_admin', label: 'Biaya Admin' },
-    { key: 'metode_pengambilan', label: 'Metode Pengambilan' },
-    { key: 'tujuan_pengambilan', label: 'Tujuan Pengambilan' },
-    { key: 'keterangan', label: 'Keterangan' }
-  ]
 
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -105,10 +93,10 @@ const HalamanAmbilSaldo = () => {
 
   const fetchAmbilSaldo = async () => {
     try {
-      const result = await window.api.getAmbilSaldo(userRole)
+      const result = await window.api?.getAmbilSaldo(userRole)
 
       let filtered = result
-
+      console.log('📊 Data ambil saldo:', result)
       if (userRole.toLowerCase() === 'kasir') {
         const today = getTodayWIB()
         filtered = result.filter((item) => {
@@ -155,6 +143,7 @@ const HalamanAmbilSaldo = () => {
       // Update form data with selected platform, its current saldo, and biaya_admin
       setFormData({
         ...formData,
+        tanggal_pengambilan: getTodayWIB(), // Reset date to today
         platform: selectedItem.nama_sumber_dana,
         saldo_platform: selectedItem.saldo.toString(),
         biaya_admin: formatRupiah(selectedItem.biaya_admin) // Format biaya_admin as Rupiah
@@ -335,13 +324,11 @@ const HalamanAmbilSaldo = () => {
   const filteredData = ambilSaldo
     .filter((item) => {
       // Jika role kasir, hanya tampilkan data hari ini
-      if (userRole.toLowerCase() === 'kasir') {
-        const today = getTodayWIB()
-        const itemDate = dayjs(item.tanggal_pengambilan).format('YYYY-MM-DD')
-        return itemDate === today
-      }
-      return true // admin bisa lihat semua data
-    })
+       if (userRole.toLowerCase() === 'kasir') {
+          return item.date === getTodayWIB()
+        }
+        return true
+      })
     .filter((item) =>
       Object.values(item).some((val) =>
         String(val).toLowerCase().includes(filterText.toLowerCase())
@@ -355,16 +342,26 @@ const HalamanAmbilSaldo = () => {
       } else if (loggedInUser && loggedInUser.id === item.petugas_pengambil_id) {
         petugasName = loggedInUser.nama || loggedInUser.username || petugasName
       }
-
       return {
         ...item,
+        tanggal_pengambilan: dayjs(item.tanggal_pengambilan).tz('Asia/Jakarta').format('YYYY-MM-DD'),
         petugas_pengambil_id: petugasName,
         saldo_platform: formatRupiah(item.saldo_platform),
         nominal_pengambilan: formatRupiah(item.nominal_pengambilan),
         biaya_admin: formatRupiah(item.biaya_admin)
       }
     })
-
+  const columns = [
+    { key: 'petugas_pengambil_id', label: 'Petugas Pengambil' },
+    { key: 'tanggal_pengambilan', label: 'Tanggal Pengambilan' },
+    { key: 'platform', label: 'Platform' },
+    { key: 'saldo_platform', label: 'Saldo Platform' },
+    { key: 'nominal_pengambilan', label: 'Nominal Pengambilan' },
+    { key: 'biaya_admin', label: 'Biaya Admin' },
+    { key: 'metode_pengambilan', label: 'Metode Pengambilan' },
+    { key: 'tujuan_pengambilan', label: 'Tujuan Pengambilan' },
+    { key: 'keterangan', label: 'Keterangan' }
+  ]
   return (
     <>
       <div className="flex w-full gap-4 items-center mb-6">
@@ -386,24 +383,26 @@ const HalamanAmbilSaldo = () => {
       </div>
 
       <div>
-        <TableContent
-          searchValue={filterText}
-          userRole={userRole}
-          showDateFilter={true}
-          onSearchChange={setFilterText}
-          title="Data Pengambilan Saldo"
-          btnSize={'xs'}
-          onAdd={
-            <FormLayout
-              onSubmit={handleAddAmbilSaldo}
-              buttonText="Tambah Pengambilan Saldo"
-            ></FormLayout>
-          }
-          data={filteredData}
-          columns={columns}
-          onDelete={handleDelete}
-          onEdit={handleEdit}
-        />
+      
+         <TableContent
+              searchValue={filterText}
+              onSearchChange={setFilterText}
+              btnSize={'xs'}
+              data={filteredData}
+              showDateFilter={true}
+              userRole={userRole}
+              title={'Data Ambil Saldo'}
+              columns={columns}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+              rowPerPage={10}
+              onAdd={
+                <FormLayout
+                  onSubmit={handleAddAmbilSaldo}
+                  buttonText="Tambah Ambil Saldo"
+                ></FormLayout>
+              }
+            />
       </div>
 
       <ConfirmDialog
@@ -451,7 +450,7 @@ const HalamanAmbilSaldo = () => {
           {/* Keep the original ID for submission */}
           <input type="hidden" name="petugas_pengambil_id" value={formData.petugas_pengambil_id} />
         </div>
-            <InputField
+        <InputField
           name="tanggal_pengambilan"
           type="date"
           value={formData.tanggal_pengambilan || getTodayWIB()}
@@ -562,8 +561,6 @@ const HalamanAmbilSaldo = () => {
         >
           Tujuan Pengambilan
         </InputField>
-
-        
 
         <InputField
           name="keterangan"

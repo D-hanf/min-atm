@@ -114,7 +114,7 @@ app.whenReady().then(async () => {
         fee REAL DEFAULT 0,
         metode_pembayaran TEXT,
         keterangan TEXT,
-        nama_pelanggan TEXT,
+        nama_pel    anggan TEXT,
         nomor_tujuan TEXT,
         FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
         FOREIGN KEY (terima_dana_id) REFERENCES saldo_awal(id)
@@ -1069,8 +1069,8 @@ app.whenReady().then(async () => {
 
       const query =
         role === 'kasir'
-          ? 'SELECT * FROM ambil_saldo WHERE tanggal_pengambilan = ? ORDER BY tanggal_pengambilan DESC, id DESC'
-          : 'SELECT * FROM ambil_saldo'
+          ? 'SELECT * FROM ambil_saldo WHERE DATE(tanggal_pengambilan) = ? ORDER BY tanggal_pengambilan DESC, id DESC'
+          : 'SELECT * FROM ambil_saldo ORDER BY tanggal_pengambilan DESC, id DESC'
 
       const params = role === 'kasir' ? [today] : []
 
