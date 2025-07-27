@@ -114,7 +114,7 @@ app.whenReady().then(async () => {
         fee REAL DEFAULT 0,
         metode_pembayaran TEXT,
         keterangan TEXT,
-        nama_pel    anggan TEXT,
+        nama_pelanggan TEXT,
         nomor_tujuan TEXT,
         FOREIGN KEY (sumber_dana_id) REFERENCES saldo_awal(id),
         FOREIGN KEY (terima_dana_id) REFERENCES saldo_awal(id)

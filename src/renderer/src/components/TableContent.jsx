@@ -16,6 +16,7 @@ const TableContent = ({
   onAdd = () => {},
   onSearchChange = () => {},
   showView = false,
+  editDelete = true,
   title,
   info,
   btnSize,
@@ -165,11 +166,11 @@ const TableContent = ({
           >
             <thead className={isDark ? 'bg-gray-700' : 'bg-gray-50'}>
               <tr>
-                <th
+                {editDelete && (<th
                   className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider w-16`}
                 >
                   No
-                </th>
+                </th>)}
                 {columns.map((col) => (
                   <th
                     key={col.key}
@@ -178,11 +179,11 @@ const TableContent = ({
                     {col.label}
                   </th>
                 ))}
-                <th
+                {editDelete && (<th
                   className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300 bg-gray-700' : 'text-gray-500 bg-gray-50'} sticky right-0 z-10`}
                 >
                   Aksi
-                </th>
+                </th>)}
               </tr>
             </thead>
             <tbody
@@ -193,9 +194,9 @@ const TableContent = ({
                   key={item.id ?? index}
                   className={isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}
                 >
-                  <td className={`px-6 py-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                 {editDelete && ( <td className={`px-6 py-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                     {(currentPage - 1) * itemsPerPage + index + 1}
-                  </td>
+                  </td>)}
                   {columns.map((col) => (
                     <td
                       key={col.key}
@@ -223,18 +224,26 @@ const TableContent = ({
                           Kelola
                         </ButtonInput>
                       )}
-                      <ButtonInput
-                        color="yellow"
-                        size={btnSize}
-                        onClick={() => handleEdit(item.id)}
-                      >
-                        <HiPencilSquare className="mr-1" size={16} />
-                        Edit
-                      </ButtonInput>
-                      <ButtonInput color="red" size={btnSize} onClick={() => handleDelete(item.id)}>
-                        <HiXMark className="mr-1" size={16} />
-                        Hapus
-                      </ButtonInput>
+                      {editDelete && (
+                        <>
+                          <ButtonInput
+                            color="yellow"
+                            size={btnSize}
+                            onClick={() => handleEdit(item.id)}
+                          >
+                            <HiPencilSquare className="mr-1" size={16} />
+                            Edit
+                          </ButtonInput>
+                          <ButtonInput
+                            color="red"
+                            size={btnSize}
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <HiXMark className="mr-1" size={16} />
+                            Hapus
+                          </ButtonInput>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

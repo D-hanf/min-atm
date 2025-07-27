@@ -1,17 +1,18 @@
 import {
   HalamanAmbilSaldo,
   HalamanAwalSaldo,
-  HalamanPindahSaldo,
-  HalamanHutang
+  HalamanHutang,
+  HalamanPindahSaldo
 } from '../../pages/dashboard/kelolaData'
 import { HalamanDetilToko, HalamanKelolaToko } from '../../pages/dashboard/kelolaToko'
-import { HalamanTema } from '../../pages/dashboard/tema' // Import the theme page
 
 import { DashboardLayout } from '../layout'
 import { DashboardPage } from '../../pages/dashboard/home'
 import { HalamanProfile } from '../../pages/dashboard/profile'
+import { HalamanTema } from '../../pages/dashboard/tema' // Import the theme page
 import { HalamanTransaksi } from '../../pages/dashboard/transaksi'
 import KelolaToko from '../../pages/dashboard/kelolaToko/KelolaToko'
+import LaporanKeuangan from '../../pages/dashboard/laporan-keuangan'
 import LoginForm from '../../pages/Login'
 import React from 'react'
 import { Route } from 'react-router-dom'
@@ -29,6 +30,7 @@ const DashboardRoutes = () => {
         <Route path="ambil-saldo" element={<HalamanAmbilSaldo />} />
         <Route path="saldo-awal" element={<HalamanAwalSaldo />} />
         <Route path="hutang" element={<HalamanHutang />} />
+        <Route path="laporan-keuangan" element={<LaporanKeuangan />} />
         <Route path="kelola-toko" element={<KelolaToko />} />
         <Route path="kelola-toko/:id" element={<HalamanDetilToko />} />
         <Route path="profile" element={<HalamanProfile />} />
