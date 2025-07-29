@@ -250,6 +250,7 @@ const TableContent = ({
                             color="yellow"
                             size={btnSize}
                             onClick={() => handleEdit(item.id)}
+                            disabled={bayar ? statusHutang[item.id]?.toLowerCase() === 'bayar hutang' : false}
                           >
                             <HiPencilSquare className="mr-1" size={16} />
                             Edit

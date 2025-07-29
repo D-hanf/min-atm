@@ -370,10 +370,10 @@ app.whenReady().then(async () => {
         const baseQuery = `
       SELECT h.*, s.nama_sumber_dana as platform_name, s.saldo as saldo_platform
       FROM hutang h
-      LEFT JOIN saldo_awal s ON h.platform_id = s.id 
+      LEFT JOIN saldo_awal s ON h.platform_id = s.id
     `
         const whereClause = roleLower === 'kasir' ? 'WHERE DATE(h.tanggal_transaksi) = ?' : ''
-        const query = `${baseQuery} ${whereClause} ORDER BY h.tanggal_transaksi DESC, h.id DESC, h.status_bayar ASC`
+        const query = `${baseQuery} ${whereClause} ORDER BY h.status_bayar ASC, h.tanggal_transaksi DESC, h.id DESC`
         const params = roleLower === 'kasir' ? [today] : []
 
         db.all(query, params, (err, rows) => {
