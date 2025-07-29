@@ -368,13 +368,12 @@ app.whenReady().then(async () => {
 
       return new Promise((resolve, reject) => {
         const baseQuery = `
-      SELECT h.*, s.nama_sumber_dana as platform_name
+      SELECT h.*, s.nama_sumber_dana as platform_name, s.saldo as saldo_platform
       FROM hutang h
-      LEFT JOIN saldo_awal s ON h.platform_id = s.id
+      LEFT JOIN saldo_awal s ON h.platform_id = s.id 
     `
-
         const whereClause = roleLower === 'kasir' ? 'WHERE DATE(h.tanggal_transaksi) = ?' : ''
-        const query = `${baseQuery} ${whereClause} ORDER BY h.tanggal_transaksi DESC, h.id DESC`
+        const query = `${baseQuery} ${whereClause} ORDER BY h.tanggal_transaksi DESC, h.id DESC, h.status_bayar ASC`
         const params = roleLower === 'kasir' ? [today] : []
 
         db.all(query, params, (err, rows) => {
@@ -384,6 +383,88 @@ app.whenReady().then(async () => {
           }
           console.log(`✅ Retrieved ${rows.length} hutang for role ${roleLower}`)
           resolve(rows)
+        })
+      })
+    })
+
+    ipcMain.handle('toggle-status-hutang', async (event, updatedData) => {
+      return new Promise((resolve) => {
+        const { id: hutang_id, platform_id, jenis_transaksi } = updatedData
+        const role = String(updatedData.role || 'kasir').toLowerCase()
+        const today = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+
+        db.serialize(() => {
+          db.get(`SELECT * FROM hutang WHERE id = ?`, [hutang_id], (err, latestRecord) => {
+            if (err || !latestRecord) {
+              console.error('❌ Gagal ambil hutang:', err)
+              return resolve({ success: false, error: 'Data hutang tidak ditemukan' })
+            }
+
+            const isBayarNow = latestRecord.status_bayar === 0
+            const tanggalLama = String(latestRecord.tanggal_transaksi || '').split('T')[0]
+            if (role === 'kasir' && tanggalLama !== today) {
+              return resolve({ success: false, error: 'Kasir hanya bisa mengedit hutang hari ini' })
+            }
+
+            db.run('BEGIN TRANSACTION')
+
+            const nominal = parseFloat(latestRecord.nominal_transaksi) || 0
+            const biayaAdmin = parseFloat(latestRecord.biaya_admin || 0)
+            const jenisTransaksiNow = latestRecord.jenis_transaksi || 'Ambil Hutang'
+
+            const amountToUpdate =
+              jenisTransaksiNow === 'Ambil Hutang' ? nominal : nominal + biayaAdmin
+
+            const saldoQuery = isBayarNow
+              ? `UPDATE saldo_awal 
+         SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP 
+         WHERE id = ?`
+              : `UPDATE saldo_awal 
+         SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP 
+         WHERE id = ?`
+
+            db.run(saldoQuery, [amountToUpdate, platform_id], function (err) {
+              if (err) {
+                db.run('ROLLBACK')
+                console.error('❌ Gagal update saldo:', err)
+                return resolve({ success: false, error: err.message })
+              }
+
+              updateHutangStatus()
+            })
+
+            function updateHutangStatus() {
+              const newStatus = isBayarNow ? 1 : 0
+              const updateQuery = isBayarNow
+                ? `UPDATE hutang
+               SET status_bayar = 1,
+                   tanggal_bayar_hutang = DATE('now'),
+                   jenis_transaksi = ?
+             WHERE id = ?`
+                : `UPDATE hutang
+               SET status_bayar = 0,
+                   jenis_transaksi = ?
+             WHERE id = ?`
+
+              db.run(updateQuery, [jenis_transaksi, hutang_id], function (err) {
+                if (err) {
+                  db.run('ROLLBACK')
+                  console.error('❌ Gagal update status bayar:', err)
+                  return resolve({ success: false, error: err.message })
+                }
+
+                db.run('COMMIT', (err) => {
+                  if (err) {
+                    console.error('❌ Commit gagal:', err)
+                    return resolve({ success: false, error: err.message })
+                  }
+
+                  console.log('✅ Status hutang & saldo berhasil diperbarui')
+                  resolve({ success: true, status_bayar: newStatus })
+                })
+              })
+            }
+          })
         })
       })
     })
@@ -513,85 +594,92 @@ app.whenReady().then(async () => {
               db.run('BEGIN TRANSACTION')
 
               // 1️⃣ Rollback efek transaksi lama
-              const rollbackIsAddition = oldRecord.jenis_transaksi === 'Ambil Hutang'
-              const rollbackAmount = rollbackIsAddition
-                ? parseFloat(oldRecord.nominal_transaksi)
-                : parseFloat(oldRecord.nominal_transaksi) + parseFloat(oldRecord.biaya_admin || 0)
+              // 1️⃣ Rollback efek transaksi lama HANYA jika belum dibayar
+              if (oldRecord.status_bayar === 0) {
+                const rollbackIsAddition = oldRecord.jenis_transaksi === 'Ambil Hutang'
+                const rollbackAmount = rollbackIsAddition
+                  ? parseFloat(oldRecord.nominal_transaksi)
+                  : parseFloat(oldRecord.nominal_transaksi) + parseFloat(oldRecord.biaya_admin || 0)
 
-              const rollbackOperator = rollbackIsAddition ? '-' : '+'
+                const rollbackOperator = rollbackIsAddition ? '-' : '+'
 
-              db.run(
-                `UPDATE saldo_awal SET saldo = saldo ${rollbackOperator} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
-                [rollbackAmount, oldRecord.platform_id],
-                function (err) {
-                  if (err) {
-                    db.run('ROLLBACK')
-                    console.error('❌ Gagal rollback saldo dari transaksi lama:', err)
-                    return reject(err)
+                db.run(
+                  `UPDATE saldo_awal SET saldo = saldo ${rollbackOperator} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
+                  [rollbackAmount, oldRecord.platform_id],
+                  function (err) {
+                    if (err) {
+                      db.run('ROLLBACK')
+                      console.error('❌ Gagal rollback saldo dari transaksi lama:', err)
+                      return reject(err)
+                    }
+
+                    applyNewTransaction() // lanjut ke update baru
                   }
+                )
+              } else {
+                // Tidak perlu rollback, langsung ke update
+                applyNewTransaction()
+              }
+              function applyNewTransaction() {
+                const applyIsAddition = updatedData.jenis_transaksi === 'Ambil Hutang'
+                const applyAmount = applyIsAddition
+                  ? parseFloat(updatedData.nominal_transaksi)
+                  : parseFloat(updatedData.nominal_transaksi) +
+                    parseFloat(updatedData.biaya_admin || 0)
 
-                  // 2️⃣ Hitung efek transaksi baru
-                  const applyIsAddition = updatedData.jenis_transaksi === 'Ambil Hutang'
-                  const applyAmount = applyIsAddition
-                    ? parseFloat(updatedData.nominal_transaksi)
-                    : parseFloat(updatedData.nominal_transaksi) +
-                      parseFloat(updatedData.biaya_admin || 0)
+                const applyOperator = applyIsAddition ? '+' : '-'
 
-                  const applyOperator = applyIsAddition ? '+' : '-'
+                db.run(
+                  `UPDATE saldo_awal SET saldo = saldo ${applyOperator} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
+                  [applyAmount, updatedData.platform_id],
+                  function (err) {
+                    if (err) {
+                      db.run('ROLLBACK')
+                      console.error('❌ Gagal update saldo dengan transaksi baru:', err)
+                      return reject(err)
+                    }
 
-                  db.run(
-                    `UPDATE saldo_awal SET saldo = saldo ${applyOperator} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
-                    [applyAmount, updatedData.platform_id],
-                    function (err) {
-                      if (err) {
-                        db.run('ROLLBACK')
-                        console.error('❌ Gagal update saldo dengan transaksi baru:', err)
-                        return reject(err)
-                      }
+                    db.run(
+                      `UPDATE hutang SET
+          platform_id = ?,
+          jenis_transaksi = ?,
+          nominal_transaksi = ?,
+          biaya_admin = ?,
+          saldo_platform = (SELECT saldo FROM saldo_awal WHERE id = ?),
+          keterangan = ?,
+          tanggal_transaksi = ?
+        WHERE id = ?`,
+                      [
+                        updatedData.platform_id,
+                        updatedData.jenis_transaksi,
+                        updatedData.nominal_transaksi,
+                        updatedData.biaya_admin,
+                        updatedData.platform_id,
+                        updatedData.keterangan,
+                        updatedData.tanggal_transaksi,
+                        updatedData.id
+                      ],
+                      function (err) {
+                        if (err) {
+                          db.run('ROLLBACK')
+                          console.error('❌ Gagal update hutang:', err)
+                          return reject(err)
+                        }
 
-                      // 3️⃣ Update data hutang
-                      db.run(
-                        `UPDATE hutang SET
-                      platform_id = ?,
-                      jenis_transaksi = ?,
-                      nominal_transaksi = ?,
-                      biaya_admin = ?,
-                      saldo_platform = (SELECT saldo FROM saldo_awal WHERE id = ?),
-                      keterangan = ?,
-                      tanggal_transaksi = ?
-                    WHERE id = ?`,
-                        [
-                          updatedData.platform_id,
-                          updatedData.jenis_transaksi,
-                          updatedData.nominal_transaksi,
-                          updatedData.biaya_admin,
-                          updatedData.platform_id,
-                          updatedData.keterangan,
-                          updatedData.tanggal_transaksi,
-                          updatedData.id
-                        ],
-                        function (err) {
+                        db.run('COMMIT', (err) => {
                           if (err) {
-                            db.run('ROLLBACK')
-                            console.error('❌ Gagal update hutang:', err)
+                            console.error('❌ Gagal commit transaksi update hutang:', err)
                             return reject(err)
                           }
 
-                          db.run('COMMIT', (err) => {
-                            if (err) {
-                              console.error('❌ Gagal commit transaksi update hutang:', err)
-                              return reject(err)
-                            }
-
-                            console.log('✅ Hutang berhasil diupdate dan saldo disesuaikan')
-                            resolve({ success: true, changes: this.changes })
-                          })
-                        }
-                      )
-                    }
-                  )
-                }
-              )
+                          console.log('✅ Hutang berhasil diupdate dan saldo disesuaikan')
+                          resolve({ success: true, changes: this.changes })
+                        })
+                      }
+                    )
+                  }
+                )
+              }
             })
           } catch (updateErr) {
             console.error('❌ Error in hutang update logic:', updateErr)

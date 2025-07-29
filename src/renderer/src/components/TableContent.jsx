@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 
 import AlertDialog from './AlertDialog'
 import ButtonInput from './ButtonInput'
+import { FaCheck } from 'react-icons/fa6'
 import SearchField from './SearchField'
 import { useTheme } from '../context/ThemeContext'
 
@@ -12,12 +13,15 @@ const TableContent = ({
   onEdit = () => {},
   onDateChange = () => {},
   onDelete = () => {},
+  onStatus = () => {},
   onView = () => {},
   onAdd = () => {},
   onSearchChange = () => {},
   showView = false,
   editDelete = true,
   title,
+  statusHutang,
+  bayar = false,
   info,
   btnSize,
   searchValue = '',
@@ -57,6 +61,14 @@ const TableContent = ({
     onDelete(id)
   }
 
+  const handleStatus = (id) => {
+    if (loggedInUser?.role?.toLowerCase() !== 'admin' && userRole?.toLowerCase() !== 'kasir') {
+      setAlertMessage('Maaf, hanya admin yang dapat mengedit data.')
+      setShowAlertDialog(true)
+      return
+    }
+    onStatus(id)
+  }
   // Filtering berdasarkan tanggal dan search
   const DataItems = data
   const filteredData = DataItems.filter((item) => {
@@ -166,11 +178,13 @@ const TableContent = ({
           >
             <thead className={isDark ? 'bg-gray-700' : 'bg-gray-50'}>
               <tr>
-                {editDelete && (<th
-                  className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider w-16`}
-                >
-                  No
-                </th>)}
+                {editDelete && (
+                  <th
+                    className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider w-16`}
+                  >
+                    No
+                  </th>
+                )}
                 {columns.map((col) => (
                   <th
                     key={col.key}
@@ -179,11 +193,13 @@ const TableContent = ({
                     {col.label}
                   </th>
                 ))}
-                {editDelete && (<th
-                  className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300 bg-gray-700' : 'text-gray-500 bg-gray-50'} sticky right-0 z-10`}
-                >
-                  Aksi
-                </th>)}
+                {editDelete && (
+                  <th
+                    className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300 bg-gray-700' : 'text-gray-500 bg-gray-50'} sticky right-0 z-10`}
+                  >
+                    Aksi
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody
@@ -194,9 +210,13 @@ const TableContent = ({
                   key={item.id ?? index}
                   className={isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}
                 >
-                 {editDelete && ( <td className={`px-6 py-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                    {(currentPage - 1) * itemsPerPage + index + 1}
-                  </td>)}
+                  {editDelete && (
+                    <td
+                      className={`px-6 py-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
+                    >
+                      {(currentPage - 1) * itemsPerPage + index + 1}
+                    </td>
+                  )}
                   {columns.map((col) => (
                     <td
                       key={col.key}
@@ -242,6 +262,23 @@ const TableContent = ({
                             <HiXMark className="mr-1" size={16} />
                             Hapus
                           </ButtonInput>
+                          {bayar && (
+                            <ButtonInput
+                              color={
+                                statusHutang[item.id]?.toLowerCase() === 'bayar hutang'
+                                  ? 'blue'
+                                  : 'yellow'
+                              }
+                              size={btnSize}
+                              onClick={() => onStatus(item.id)}
+                              disabled={statusHutang[item.id]?.toLowerCase() === 'bayar hutang'}
+                            >
+                              <FaCheck size={16} />
+                              {statusHutang[item.id]?.toLowerCase() === 'bayar hutang'
+                                ? ''
+                                : 'Bayar'}
+                            </ButtonInput>
+                          )}
                         </>
                       )}
                     </div>

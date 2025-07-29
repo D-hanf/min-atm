@@ -42,7 +42,9 @@ export async function updateSchema() {
       // Tambahan kolom tanggal di tabel yang kamu minta
       addColumnIfNotExists('pindah_saldo', 'tanggal', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
       addColumnIfNotExists('ambil_saldo', 'tanggal_pengambilan', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
-      addColumnIfNotExists('hutang', 'tanggal_transaksi', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+      addColumnIfNotExists('hutang', 'tanggal_transaksi', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
+      addColumnIfNotExists('hutang', 'status_bayar', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('hutang', 'tanggal_bayar_hutang', 'DATETIME '),
     ])
 
     results.forEach(msg => console.log(msg))

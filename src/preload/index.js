@@ -23,9 +23,10 @@ const api = {
   createHutang: (data) => ipcRenderer.invoke('create-hutang', data),
   updateHutang: (data) => ipcRenderer.invoke('update-hutang', data),
   deleteHutang: (id) => ipcRenderer.invoke('delete-hutang', id),
-
+  toggleStatusHutang: (data) => ipcRenderer.invoke('toggle-status-hutang', data ),
+  
   // pindah saldo
-  getPindahSaldo: (params) => ipcRenderer.invoke('get-pindah-saldo',params),
+  getPindahSaldo: (params) => ipcRenderer.invoke('get-pindah-saldo', params),
   createPindahSaldo: (data) => ipcRenderer.invoke('create-pindah-saldo', data),
   updatePindahSaldo: (data) => ipcRenderer.invoke('update-pindah-saldo', data),
   deletePindahSaldo: (id) => ipcRenderer.invoke('delete-pindah-saldo', id),
@@ -59,7 +60,7 @@ const api = {
   createTransaksi: (data) => ipcRenderer.invoke('create-transaksi', data),
   editTransaksi: (data) => ipcRenderer.invoke('edit-transaksi', data),
   deleteTransaksi: (id) => ipcRenderer.invoke('delete-transaksi', id),
-  getTransaksiSummary: (role) => ipcRenderer.invoke('get-transaksi-summary', role),
+  getTransaksiSummary: (role) => ipcRenderer.invoke('get-transaksi-summary', role)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to
