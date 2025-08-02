@@ -88,7 +88,6 @@ app.whenReady().then(async () => {
     FOREIGN KEY (toko_id) REFERENCES toko(id)
   )
 `)
-
     db.run(`
       CREATE TABLE IF NOT EXISTS saldo_awal (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

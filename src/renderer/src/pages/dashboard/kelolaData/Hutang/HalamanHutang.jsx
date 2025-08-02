@@ -30,6 +30,8 @@ function HalamanHutang() {
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [totalBelumDibayar, setTotalBelumDibayar] = useState(0)
+
   const [showModalConfirm, setShowModalConfirm] = useState(false)
   const [jenisTransaksiOptions] = useState(['Ambil Hutang', 'Bayar Hutang'])
   const [isLoading, setIsLoading] = useState(false)
@@ -95,6 +97,14 @@ function HalamanHutang() {
         initialMap[item.id] = item.jenis_transaksi
       })
       setStatusBayarMap(initialMap)
+
+      // Jumlahkan total nominal hutang yang belum dibayar
+      const totalBelumDibayar = result
+        .filter((item) => item.status_bayar == 0) // sesuaikan nilai status
+        .reduce((total, item) => total + Number(item.nominal_transaksi || 0), 0)
+
+      console.log('Total hutang belum dibayar:', totalBelumDibayar)
+      setTotalBelumDibayar(totalBelumDibayar)
       return result
     } catch (error) {
       console.error('❌ Gagal ambil data hutang:', error)
@@ -354,7 +364,7 @@ function HalamanHutang() {
       console.error('❌ Gagal update data hutang:', error)
     }
   }
-console.log("hutang datanya ini", hutang)
+  console.log('hutang datanya ini', hutang)
   const handleChange = (field, value) => {
     setFormData((prev) => ({
       ...prev,
@@ -380,6 +390,7 @@ console.log("hutang datanya ini", hutang)
           </div>
         ) : (
           <TableContent
+          info={`Total Hutang Belum Dibayar: ${formatRupiah(totalBelumDibayar)}`}
             title={'Hutang'}
             bayar={true}
             statusHutang={statusBayarMap}
