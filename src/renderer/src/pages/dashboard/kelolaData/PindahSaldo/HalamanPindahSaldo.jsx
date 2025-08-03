@@ -258,7 +258,7 @@ dayjs.extend(utc)
     const confirmDelete = async () => {
       try {
         await window.api.deletePindahSaldo(deleteId)
-        const updatedTransfers = await window.api.getPindahSaldo(user)
+        const updatedTransfers = await window.api.getPindahSaldo(userRole)
         const updatedSaldo = await window.api.getSaldoAwal()
         setSaldoData(updatedSaldo)
 
