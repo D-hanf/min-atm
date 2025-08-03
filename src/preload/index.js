@@ -31,6 +31,13 @@ const api = {
   updatePindahSaldo: (data) => ipcRenderer.invoke('update-pindah-saldo', data),
   deletePindahSaldo: (id) => ipcRenderer.invoke('delete-pindah-saldo', id),
 
+  // laporan keuangan
+  getLaporanKeuangan: (role) => ipcRenderer.invoke('get-laporan-keuangan', role),
+
+  // snapshot saldo awal
+  getSnapshotSaldoAwal: (params) => ipcRenderer.invoke('get-snapshot-saldo-awal', params),
+  saveSnapshotSaldoAwal: (periodeManual) => ipcRenderer.invoke('save-snapshot-saldo-awal', periodeManual),
+
   // ambil saldo - make sure these are correctly defined
   getAmbilSaldo: (params) => ipcRenderer.invoke('get-ambil-saldo', params),
   createAmbilSaldo: (data) => ipcRenderer.invoke('create-ambil-saldo', data),

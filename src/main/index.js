@@ -52,6 +52,18 @@ const getTodayWIB = () => {
 }
 app.whenReady().then(async () => {
   db.serialize(() => {
+    // Tabel snapshot saldo awal
+    db.run(`
+      CREATE TABLE IF NOT EXISTS saldo_snapshot (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sumber_dana_id INTEGER,
+        nama_sumber_dana TEXT,
+        saldo_awal REAL,
+        periode TEXT, -- format 'YYYY-MM'
+        tanggal_snapshot DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
     // Tabel toko
     db.run(`
   CREATE TABLE IF NOT EXISTS toko (
@@ -164,6 +176,22 @@ app.whenReady().then(async () => {
       FOREIGN KEY (terima_dana_id) REFERENCES saldo_awal(id)
     )
   `)
+
+    // Tabel laporan_keuangan
+    db.run(`CREATE TABLE IF NOT EXISTS laporan_keuangan (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tanggal DATETIME,
+      sumber_dana TEXT,
+      terima_dana_nama TEXT,
+      jenis_transaksi TEXT,
+      nominal_transaksi REAL,
+      nominal_masuk REAL,
+      keuntungan REAL,
+      total_hutang REAL DEFAULT 0,
+      sumber_id INTEGER,
+      terima_id INTEGER,
+      keterangan TEXT
+    )`)
     db.run(`CREATE TABLE IF NOT EXISTS hutang (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     petugas_id INTEGER NOT NULL,
@@ -179,6 +207,7 @@ app.whenReady().then(async () => {
   )`)
     // db.run(`ALTER TABLE users ADD COLUMN toko_id INTEGER`) =>  untuk menambahkan kolom toko_id&no_telepon di table users
     // Insert toko
+
     // Cek dulu apakah toko "Toko Alpha" sudah ada
     db.get(`SELECT id FROM toko WHERE nama_toko = ?`, ['Toko Alpha'], (err, tokoRow) => {
       if (err) {
@@ -247,6 +276,7 @@ app.whenReady().then(async () => {
     })
 
     // REGISTER IPC HANDLERS
+
     ipcMain.handle('get-users', () => {
       return new Promise((resolve, reject) => {
         db.all('SELECT * FROM users', [], (err, rows) => {
@@ -299,6 +329,239 @@ app.whenReady().then(async () => {
       })
     })
 
+    // ============================= laporan keuangan handler =============================
+    ipcMain.handle('get-laporan-keuangan', async (event, roleRaw) => {
+      // Fetch all data
+      const getTransaksi = () =>
+        new Promise((resolve, reject) => {
+          db.all(
+            'SELECT t.*, s.nama_sumber_dana as sumber_dana, s2.nama_sumber_dana as terima_dana_nama FROM transaksi t LEFT JOIN saldo_awal s ON t.sumber_dana_id = s.id LEFT JOIN saldo_awal s2 ON t.terima_dana_id = s2.id',
+            [],
+            (err, rows) => {
+              if (err) reject(err)
+              else resolve(rows)
+            }
+          )
+        })
+      const getHutang = () =>
+        new Promise((resolve, reject) => {
+          db.all(
+            'SELECT h.*, s.nama_sumber_dana as sumber_dana FROM hutang h LEFT JOIN saldo_awal s ON h.platform_id = s.id',
+            [],
+            (err, rows) => {
+              if (err) reject(err)
+              else resolve(rows)
+            }
+          )
+        })
+      const getAmbilSaldo = () =>
+        new Promise((resolve, reject) => {
+          db.all(
+            'SELECT a.*, s.nama_sumber_dana as sumber_dana FROM ambil_saldo a LEFT JOIN saldo_awal s ON a.platform = s.nama_sumber_dana',
+            [],
+            (err, rows) => {
+              if (err) reject(err)
+              else resolve(rows)
+            }
+          )
+        })
+      const getPindahSaldo = () =>
+        new Promise((resolve, reject) => {
+          db.all(
+            'SELECT p.*, s1.nama_sumber_dana as sumber_dana, s2.nama_sumber_dana as terima_dana_nama FROM pindah_saldo p LEFT JOIN saldo_awal s1 ON p.sumber_dana_id = s1.id LEFT JOIN saldo_awal s2 ON p.tujuan_dana_id = s2.id',
+            [],
+            (err, rows) => {
+              if (err) reject(err)
+              else resolve(rows)
+            }
+          )
+        })
+
+      // Fetch all
+      const [transaksi, hutang, ambilSaldo, pindahSaldo, totalHutangRows] = await Promise.all([
+        getTransaksi(),
+        getHutang(),
+        getAmbilSaldo(),
+        getPindahSaldo(),
+        new Promise((resolve, reject) => {
+          db.get(
+            'SELECT SUM(nominal_transaksi) as total FROM hutang WHERE status_bayar = 0',
+            [],
+            (err, row) => {
+              if (err) reject(err)
+              else resolve(row)
+            }
+          )
+        })
+      ])
+
+      const totalHutang = Number(totalHutangRows?.total || 0)
+
+      // Format transaksi
+      const formattedTransaksi = transaksi.map((item) => {
+        // Nominal keluar = nominal_transaksi + biaya_admin_bank
+        const nominalKeluar =
+          Number(item.nominal_transaksi || 0) + Number(item.biaya_admin_bank || 0)
+        const nominalMasuk = Number(item.nominal_transaksi || 0) + Number(item.fee || 0)
+        const keuntungan = nominalMasuk - nominalKeluar
+        return {
+          tanggal: item.tanggal,
+          sumber_dana: item.sumber_dana || '-',
+          terima_dana_nama: item.terima_dana_nama || '-',
+          jenis_transaksi: item.jenis_transaksi || '-',
+          nominal_transaksi: nominalKeluar,
+          nominal_masuk: nominalMasuk,
+          keuntungan,
+          total_hutang: totalHutang,
+          keterangan: item.keterangan || '-'
+        }
+      })
+
+      // Format hutang
+      const formattedHutang = hutang.map((item) => {
+        const isBayarHutang = (item.jenis_transaksi || '').toLowerCase() === 'bayar hutang'
+        const nominal = Number(item.nominal_transaksi || 0)
+        const biayaAdmin = Number(item.biaya_admin || 0)
+        // Untuk Bayar Hutang, nominal keluar = nominal + admin
+        return {
+          tanggal: item.tanggal_transaksi,
+          sumber_dana: item.sumber_dana || '-',
+          terima_dana_nama: '-',
+          jenis_transaksi: item.jenis_transaksi || 'Hutang',
+          nominal_transaksi: isBayarHutang ? nominal + biayaAdmin : 0,
+          nominal_masuk: isBayarHutang ? 0 : nominal,
+          keuntungan: 0,
+          total_hutang: totalHutang,
+          keterangan: item.keterangan || '-'
+        }
+      })
+
+      // Format ambil saldo
+      const formattedAmbilSaldo = ambilSaldo.map((item) => {
+        const nominal = Number(item.nominal_pengambilan || 0)
+        return {
+          tanggal: item.tanggal_pengambilan,
+          sumber_dana: item.sumber_dana || '-',
+          terima_dana_nama: '-',
+          jenis_transaksi: 'Ambil Saldo',
+          nominal_transaksi: nominal,
+          nominal_masuk: 0,
+          keuntungan: 0,
+          total_hutang: totalHutang,
+          keterangan: item.keterangan || '-'
+        }
+      })
+
+      // Format pindah saldo
+      const formattedPindahSaldo = pindahSaldo.map((item) => {
+        // Nominal keluar = nominal + biaya_admin
+        const nominal = Number(item.nominal || 0)
+        const biayaAdmin = Number(item.biaya_admin || 0)
+        const nominalKeluar = nominal + biayaAdmin
+        const nominalMasuk = nominal
+        // Pastikan keuntungan selalu 0 untuk pindah saldo
+        return {
+          tanggal: item.tanggal,
+          sumber_dana: item.sumber_dana || '-',
+          terima_dana_nama: item.terima_dana_nama || '-',
+          jenis_transaksi: 'Pindah Saldo',
+          nominal_transaksi: nominalKeluar,
+          nominal_masuk: nominalMasuk,
+          keuntungan: 0,
+          total_hutang: totalHutang,
+          keterangan: item.keterangan || '-'
+        }
+      })
+
+      // Gabungkan semua data
+      const allData = [
+        ...formattedTransaksi,
+        ...formattedHutang,
+        ...formattedAmbilSaldo,
+        ...formattedPindahSaldo
+      ]
+      return allData
+    })
+    // // Fungsi untuk simpan snapshot saldo awal tiap awal bulan
+    function saveMonthlySnapshotIfNeeded() {
+      const periode = dayjs().tz('Asia/Jakarta').format('YYYY-MM')
+      db.get(
+        'SELECT COUNT(*) as count FROM saldo_snapshot WHERE periode = ?',
+        [periode],
+        (err, row) => {
+          if (err) return console.error('❌ Error cek snapshot:', err)
+          if (row.count > 0) return // Sudah ada snapshot bulan ini
+
+          // Ambil semua saldo_awal
+          db.all('SELECT id, nama_sumber_dana, saldo FROM saldo_awal', [], (err, rows) => {
+            if (err) return console.error('❌ Error ambil saldo_awal:', err)
+            rows.forEach((item) => {
+              db.run(
+                `INSERT INTO saldo_snapshot (sumber_dana_id, nama_sumber_dana, saldo_awal, periode) VALUES (?, ?, ?, ?)`,
+                [item.id, item.nama_sumber_dana, item.saldo, periode],
+                function (err) {
+                  if (err) console.error('❌ Error insert snapshot:', err)
+                }
+              )
+            })
+            console.log('✅ Snapshot saldo awal bulan', periode, 'tersimpan')
+          })
+        }
+      )
+    }
+
+    // Panggil fungsi ini saat startup
+    saveMonthlySnapshotIfNeeded()
+    // Handler IPC untuk ambil snapshot saldo awal
+    ipcMain.handle('get-snapshot-saldo-awal', (event, params) => {
+      // params: { periode, tipe }
+      const { periode, tipe } = typeof params === 'object' ? params : { periode: params, tipe: 'bulanan' }
+      return new Promise((resolve, reject) => {
+        if (tipe === 'tahunan') {
+          // Query semua snapshot saldo awal untuk tahun tersebut
+          db.all('SELECT * FROM saldo_snapshot WHERE substr(periode, 1, 4) = ?', [periode], (err, rows) => {
+            if (err) reject(err)
+            else resolve(rows)
+          })
+        } else {
+          // Query snapshot saldo awal untuk bulan tertentu
+          db.all('SELECT * FROM saldo_snapshot WHERE periode = ?', [periode], (err, rows) => {
+            if (err) reject(err)
+            else resolve(rows)
+          })
+        }
+      })
+    })
+
+    // Handler IPC untuk simpan snapshot manual (jika perlu)
+    ipcMain.handle('save-snapshot-saldo-awal', (event, periodeManual) => {
+      const periode = periodeManual || dayjs().tz('Asia/Jakarta').format('YYYY-MM')
+      return new Promise((resolve, reject) => {
+        db.get(
+          'SELECT COUNT(*) as count FROM saldo_snapshot WHERE periode = ?',
+          [periode],
+          (err, row) => {
+            if (err) return reject(err)
+            if (row.count > 0)
+              return resolve({ success: false, message: 'Snapshot sudah ada untuk periode ini.' })
+            db.all('SELECT id, nama_sumber_dana, saldo FROM saldo_awal', [], (err, rows) => {
+              if (err) return reject(err)
+              let inserted = 0
+              rows.forEach((item) => {
+                db.run(
+                  `INSERT INTO saldo_snapshot (sumber_dana_id, nama_sumber_dana, saldo_awal, periode) VALUES (?, ?, ?, ?)`,
+                  [item.id, item.nama_sumber_dana, item.saldo, periode],
+                  function (err) {
+                    if (!err) inserted++
+                  }
+                )
+              })
+              resolve({ success: true, inserted })
+            })
+          }
+        )
+      })
+    })
     // ============================= saldo awal handler =============================
 
     ipcMain.handle('get-saldo-awal', () => {
