@@ -12,6 +12,7 @@ import React, { useEffect, useState } from 'react'
 
 import { AiOutlineShop } from 'react-icons/ai'
 import ConfirmDialog from '../../components/ConfirmDialog'
+import { PiMoneyLight } from "react-icons/pi";
 import { TbReportMoney } from "react-icons/tb";
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
@@ -83,7 +84,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           label: 'Laporan Keuangan',
           icon: <TbReportMoney size={18} />,
           to: '/dashboard/laporan-keuangan'
-        }:{})
+        }:{}),
+        (isAdmin?{
+          label: 'Keuntungan',
+          icon: <PiMoneyLight size={18} />,
+          to: '/dashboard/laporan-keuangan/keuntungan'
+        }:{}),
       ]
     },
     {

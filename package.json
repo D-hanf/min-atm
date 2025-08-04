@@ -24,10 +24,15 @@
     "@tailwindcss/vite": "^4.1.8",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
+    "file-saver": "^2.0.5",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.6.2",
     "sqlite3": "^5.1.7",
-    "tailwindcss": "^4.1.8"
+    "tailwindcss": "^4.1.8",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^2.0.0",

@@ -6,6 +6,7 @@ import {
   getTransaksiSummary
 } from './transactionHandler.js'
 
+import { Menu } from 'electron'
 import dayjs from 'dayjs'
 import db from './db.js'
 import icon from '../../resources/iconNew.jpg?asset'
@@ -39,6 +40,35 @@ function createWindow() {
   mainWindow.maximize()
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+  mainWindow.webContents.on('context-menu', (event, params) => {
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'Cut',
+        role: 'cut',
+        enabled: params.editFlags.canCut
+      },
+      {
+        label: 'Copy',
+        role: 'copy',
+        enabled: params.editFlags.canCopy
+      },
+      {
+        label: 'Paste',
+        role: 'paste',
+        enabled: params.editFlags.canPaste
+      },
+      {
+        type: 'separator'
+      },
+      {
+        label: 'Select All',
+        role: 'selectAll'
+      }
+    ])
+    menu.popup({
+      window: mainWindow
+    })
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -515,14 +545,19 @@ app.whenReady().then(async () => {
     // Handler IPC untuk ambil snapshot saldo awal
     ipcMain.handle('get-snapshot-saldo-awal', (event, params) => {
       // params: { periode, tipe }
-      const { periode, tipe } = typeof params === 'object' ? params : { periode: params, tipe: 'bulanan' }
+      const { periode, tipe } =
+        typeof params === 'object' ? params : { periode: params, tipe: 'bulanan' }
       return new Promise((resolve, reject) => {
         if (tipe === 'tahunan') {
           // Query semua snapshot saldo awal untuk tahun tersebut
-          db.all('SELECT * FROM saldo_snapshot WHERE substr(periode, 1, 4) = ?', [periode], (err, rows) => {
-            if (err) reject(err)
-            else resolve(rows)
-          })
+          db.all(
+            'SELECT * FROM saldo_snapshot WHERE substr(periode, 1, 4) = ?',
+            [periode],
+            (err, rows) => {
+              if (err) reject(err)
+              else resolve(rows)
+            }
+          )
         } else {
           // Query snapshot saldo awal untuk bulan tertentu
           db.all('SELECT * FROM saldo_snapshot WHERE periode = ?', [periode], (err, rows) => {
