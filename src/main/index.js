@@ -141,6 +141,15 @@ app.whenReady().then(async () => {
         tanggal_update DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `)
+
+    // Tabel untuk log summary keuangan dan saldo awal
+    db.run(`
+      CREATE TABLE IF NOT EXISTS summary_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        waktu TEXT NOT NULL,
+        summary_json TEXT NOT NULL
+      )
+    `)
     db.run(`
       CREATE TABLE IF NOT EXISTS transaksi (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -306,6 +315,54 @@ app.whenReady().then(async () => {
     })
 
     // REGISTER IPC HANDLERS
+
+    // Handler untuk simpan summary keuangan dan saldo awal
+    ipcMain.handle('saveSummaryData', async (event, summaryData) => {
+      return new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO summary_log (waktu, summary_json) VALUES (?, ?)',
+          [summaryData.waktu, JSON.stringify(summaryData)],
+          function (err) {
+            if (err) {
+              console.error('❌ Gagal simpan summary_log:', err)
+              reject(err)
+            } else {
+              resolve({ success: true, id: this.lastID })
+            }
+          }
+        )
+      })
+    })
+
+    // Handler untuk ambil data summary_log
+    ipcMain.handle('getSummaryLog', async () => {
+      return new Promise((resolve, reject) => {
+        db.all('SELECT id, waktu, summary_json FROM summary_log ORDER BY id DESC', [], (err, rows) => {
+          if (err) {
+            console.error('❌ Gagal ambil summary_log:', err)
+            reject(err)
+          } else {
+            console.log('[DEBUG] summary_log rows:', rows)
+            // Parse summary_json agar langsung bisa dipakai di frontend
+            const parsedRows = rows.map(row => {
+              let parsed = {}
+              try {
+                parsed = JSON.parse(row.summary_json)
+              } catch (e) {
+                console.warn('[DEBUG] Gagal parse summary_json:', row.summary_json, e)
+              }
+              return {
+                id: row.id,
+                waktu_simpan: row.waktu,
+                ...parsed
+              }
+            })
+            console.log('[DEBUG] parsedRows:', parsedRows)
+            resolve(parsedRows)
+          }
+        })
+      })
+    })
 
     ipcMain.handle('get-users', () => {
       return new Promise((resolve, reject) => {

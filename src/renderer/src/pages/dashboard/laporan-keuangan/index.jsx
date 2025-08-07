@@ -1,8 +1,39 @@
+// Helper untuk konversi bulan ke format Indonesia
+const bulanIndo = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember'
+]
+
+// Format waktu simpan agar lebih mudah dibaca
+function formatWaktuSimpan(waktuStr) {
+  if (!waktuStr) return '-'
+  const d = new Date(waktuStr)
+  if (isNaN(d.getTime())) return waktuStr
+  // Format: 2025-08-03 12:58:13
+  const tahun = d.getFullYear()
+  const bulan = String(d.getMonth() + 1).padStart(2, '0')
+  const hari = String(d.getDate()).padStart(2, '0')
+  const jam = String(d.getHours()).padStart(2, '0')
+  const menit = String(d.getMinutes()).padStart(2, '0')
+  const detik = String(d.getSeconds()).padStart(2, '0')
+  return `${tahun}-${bulan}-${hari} ${jam}:${menit}:${detik}`
+}
+
 import * as XLSX from 'xlsx'
 
 import React, { useEffect, useState } from 'react'
 
-import TableContent from './../../../components/TableContent'
+import TableContent from '../../../components/TableContent'
 import TableRekapTahunan from '../../../components/TableRekapTahunan'
 import autoTable from 'jspdf-autotable'
 import html2canvas from 'html2canvas'
@@ -568,7 +599,59 @@ const LaporanKeuangan = () => {
     const blob = new Blob([buffer], { type: 'application/octet-stream' })
     saveAs(blob, 'laporan-keuangan.xlsx')
   }
-  // Filter keuntungan berdasarkan tanggal
+
+  // State untuk data summary_log
+  const [summaryLog, setSummaryLog] = useState([])
+
+  // Ambil data summary_log dari preload
+  useEffect(() => {
+    if (window.api && window.api.getSummaryLog) {
+      window.api.getSummaryLog().then((data) => {
+        console.log('[DEBUG] getSummaryLog result:', data)
+        setSummaryLog(Array.isArray(data) ? data : [])
+      })
+    } else {
+      console.warn('[DEBUG] window.api.getSummaryLog not found')
+    }
+  }, [])
+
+  // State dan filter untuk pencarian dan tanggal log summary
+  const [filterLogText, setFilterLogText] = useState('')
+  const [filterLogDate, setFilterLogDate] = useState('')
+  const [logItemsPerPage, setLogItemsPerPage] = useState(20)
+  const [logCurrentPage, setLogCurrentPage] = useState(1)
+  const filteredLog = summaryLog.filter(function (row) {
+    const financial = row.financialSummary || {}
+    const saldoAwalArr = Array.isArray(row.saldoAwal) ? row.saldoAwal : []
+    // Gabungkan semua string yang bisa dicari
+    let searchString = formatWaktuSimpan(row.waktu_simpan || row.waktu)
+    searchString += ' ' + Object.values(financial).map(String).join(' ')
+    searchString +=
+      ' ' +
+      saldoAwalArr
+        .map(function (item) {
+          return item.nama_sumber_dana + ' ' + item.saldo
+        })
+        .join(' ')
+    searchString = searchString.toLowerCase()
+    // Filter tanggal
+    let matchDate = true
+    if (filterLogDate) {
+      let tanggal = ''
+      if (row.waktu_simpan || row.waktu) {
+        const d = new Date(row.waktu_simpan || row.waktu)
+        if (!isNaN(d.getTime())) {
+          tanggal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        }
+      }
+      matchDate = tanggal === filterLogDate
+    }
+    return searchString.includes(filterLogText.toLowerCase()) && matchDate
+  })
+  const logTotalPages = logItemsPerPage === 'all' ? 1 : Math.ceil(filteredLog.length / logItemsPerPage)
+  const logIndexOfLastItem = logItemsPerPage === 'all' ? filteredLog.length : logCurrentPage * logItemsPerPage
+  const logIndexOfFirstItem = logItemsPerPage === 'all' ? 0 : logIndexOfLastItem - logItemsPerPage
+  const logCurrentData = filteredLog.slice(logIndexOfFirstItem, logIndexOfLastItem)
   return (
     <div>
       {/* Pilih tipe periode dan periode snapshot saldo awal */}
@@ -786,6 +869,186 @@ const LaporanKeuangan = () => {
         ) : (
           <TableRekapTahunan data={rekapTahunan} />
         )}
+        {/* Tabel log summary di paling bawah, dengan pagination */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden w-full mt-8 mb-4">
+          <div className="p-4 border-b flex flex-wrap items-center justify-between gap-4 border-gray-200 bg-gray-50">
+            <div className="flex flex-col w-full sm:w-auto">
+              <h2 className="text-lg font-medium text-gray-700">Riwayat Simpan Laporan Keuangan</h2>
+              <p className="text-sm text-gray-500">Total Data: {filteredLog.length}</p>
+            </div>
+            {/* Input filter tanggal dan pencarian */}
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={filterLogDate}
+                onChange={(e) => setFilterLogDate(e.target.value)}
+                className="border px-2 py-1 rounded text-sm"
+                style={{ minWidth: 120 }}
+              />
+              <input
+                type="text"
+                placeholder="Cari log..."
+                value={filterLogText}
+                onChange={(e) => setFilterLogText(e.target.value)}
+                className="border px-2 py-1 rounded text-sm"
+                style={{ minWidth: 180 }}
+              />
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Waktu Simpan
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Financial Summary
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Saldo Awal
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {logCurrentData.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="py-8 text-center text-gray-500">
+                      Belum ada riwayat simpan laporan keuangan.
+                    </td>
+                  </tr>
+                ) : (
+                  logCurrentData.map((row, idx) => {
+                    const financial = row.financialSummary || {}
+                    const saldoAwalArr = Array.isArray(row.saldoAwal) ? row.saldoAwal : []
+                    const totalSaldoAwal = saldoAwalArr.reduce(
+                      (sum, item) => sum + Number(item.saldo || 0),
+                      0
+                    )
+                    return (
+                      <tr key={row.id || idx} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {(row.waktu_simpan || row.waktu)
+                            ? (() => {
+                                const d = new Date(row.waktu_simpan || row.waktu)
+                                if (!isNaN(d.getTime())) {
+                                  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+                                }
+                                return row.waktu_simpan || row.waktu
+                              })()
+                            : '-'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-pre-wrap">
+                          <div className="mb-2 font-semibold">Ringkasan:</div>
+                          <ul className="list-disc pl-4">
+                            <li>
+                              Penarikan Tunai:{' '}
+                              <span className="font-mono">
+                                {formatRupiah(financial.cashWithdrawal)}
+                              </span>
+                            </li>
+                            <li>
+                              Transfer:{' '}
+                              <span className="font-mono">{formatRupiah(financial.transfer)}</span>
+                            </li>
+                            <li>
+                              Admin Bank:{' '}
+                              <span className="font-mono">{formatRupiah(financial.bankAdmin)}</span>
+                            </li>
+                            <li>
+                              Profit:{' '}
+                              <span className="font-mono">{formatRupiah(financial.profit)}</span>
+                            </li>
+                            <li>
+                              Mode Pulsa:{' '}
+                              <span className="font-mono">{formatRupiah(financial.modePulsa)}</span>
+                            </li>
+                            <li>
+                              Total Aset:{' '}
+                              <span className="font-mono">
+                                {formatRupiah(financial.totalAssets)}
+                              </span>
+                            </li>
+                          </ul>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-pre-wrap">
+                          <div className="mb-2 font-semibold">Saldo Awal:</div>
+                          <ul className="list-disc pl-4">
+                            {saldoAwalArr.map((item, i) => (
+                              <li key={i}>
+                                {item.nama_sumber_dana}:{' '}
+                                <span className="font-mono">{formatRupiah(item.saldo)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="mt-2 font-bold">
+                            Total Saldo Awal:{' '}
+                            <span className="font-mono">{formatRupiah(totalSaldoAwal)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          {/* Pagination controls moved below table */}
+          <div className="flex flex-wrap justify-between items-center px-6 py-3 gap-2 bg-gray-50 border-t">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Tampilkan:</span>
+              <select
+                value={logItemsPerPage}
+                onChange={e => {
+                  const val = e.target.value === 'all' ? 'all' : Number(e.target.value)
+                  setLogItemsPerPage(val)
+                  setLogCurrentPage(1)
+                }}
+                className="border rounded px-2 py-1 text-sm bg-white border-gray-300"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+                <option value="all">Semua</option>
+              </select>
+            </div>
+            <p className="text-sm text-gray-600">
+              Halaman {logCurrentPage} dari {logTotalPages}
+            </p>
+            {logItemsPerPage !== 'all' && (
+              <div className="flex gap-2 items-center">
+                <button
+                  onClick={() => setLogCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={logCurrentPage === 1}
+                  className="px-3 py-1 rounded text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Sebelumnya
+                </button>
+                {Array.from({ length: logTotalPages }, (_, i) => i + 1).map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => setLogCurrentPage(num)}
+                    className={`px-3 py-1 rounded text-sm ${
+                      num === logCurrentPage
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setLogCurrentPage((prev) => Math.min(prev + 1, logTotalPages))}
+                  disabled={logCurrentPage === logTotalPages}
+                  className="px-3 py-1 rounded text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Selanjutnya
+                </button>
+              </div>
+            )}
+          </div>
+     
+        </div>
       </div>
     </div>
   )

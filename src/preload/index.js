@@ -25,6 +25,11 @@ const api = {
   deleteHutang: (id) => ipcRenderer.invoke('delete-hutang', id),
   toggleStatusHutang: (data) => ipcRenderer.invoke('toggle-status-hutang', data ),
   
+  // save summary data
+  saveSummaryData: (data) => ipcRenderer.invoke('saveSummaryData', data),
+  // ambil summary_log
+  getSummaryLog: () => ipcRenderer.invoke('getSummaryLog'),
+  
   // pindah saldo
   getPindahSaldo: (params) => ipcRenderer.invoke('get-pindah-saldo', params),
   createPindahSaldo: (data) => ipcRenderer.invoke('create-pindah-saldo', data),
