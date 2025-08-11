@@ -96,18 +96,19 @@ app.whenReady().then(async () => {
 
     // Tabel toko
     db.run(`
-  CREATE TABLE IF NOT EXISTS toko (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nama_toko TEXT NOT NULL,
-    no_telepon TEXT,
-    alamat TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      CREATE TABLE IF NOT EXISTS toko (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nama_toko TEXT NOT NULL,
+        no_telepon TEXT,
+        alamat TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
   )
 `)
 
     // Tabel users
     db.run(`
-  CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nama TEXT NOT NULL,
     username TEXT UNIQUE NOT NULL,
@@ -122,14 +123,14 @@ app.whenReady().then(async () => {
 
     // Tabel karyawan
     db.run(`
-  CREATE TABLE IF NOT EXISTS karyawan (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    toko_id INTEGER,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (toko_id) REFERENCES toko(id)
-  )
-`)
+      CREATE TABLE IF NOT EXISTS karyawan (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        toko_id INTEGER,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (toko_id) REFERENCES toko(id)
+      )
+    `)
     db.run(`
       CREATE TABLE IF NOT EXISTS saldo_awal (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

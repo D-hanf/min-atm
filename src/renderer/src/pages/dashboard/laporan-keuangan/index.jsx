@@ -221,6 +221,17 @@ const LaporanKeuangan = () => {
     { key: 'selisih_masuk_keluar', label: 'Selisih Masuk/Keluar' }
   ]
 
+  // laporan harian
+  const [filterTanggal, setFilterTanggal] = useState('')
+    // Hitung keuntungan harian sesuai filterTanggal
+    const totalKeuntunganHarian = React.useMemo(() => {
+    if (!filterTanggal) return null;
+      // Asumsi item.tanggal format 'YYYY-MM-DD'
+      return laporan
+        .filter(item => item.tanggal === filterTanggal)
+        .reduce((sum, item) => sum + Number(item.keuntungan || 0), 0);
+    }, [laporan, filterTanggal]);
+
   // Untuk bulanan: filter data transaksi sesuai bulan
   const filteredData =
     periodeType === 'bulanan'
@@ -848,10 +859,14 @@ const LaporanKeuangan = () => {
             }}
           >
             <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>Keuntungan Harian</div>
-            <div style={{ fontSize: '1.3rem', color: '#6a1b9a' }}>
-              {/* {formatRupiah(totalKeuntunganHarian)} */}
-              Rp. 100.000
-            </div>
+              <div style={{ fontSize: '1.3rem', color: '#6a1b9a' }}>
+                {totalKeuntunganHarian === null
+                  ? 'Pilih tanggal'
+                  : formatRupiah(totalKeuntunganHarian)}
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#333', marginTop: 4 }}>
+                {filterTanggal ? `Tanggal: ${filterTanggal}` : ''}
+              </div>
           </div>
         </div>
         {periodeType === 'bulanan' ? (
@@ -865,6 +880,7 @@ const LaporanKeuangan = () => {
             userRole={userRole}
             editDelete={false}
             onFilterChange={(text) => setFilterText(text)}
+            onDateChange={(date) => setFilterTanggal(date)}
           />
         ) : (
           <TableRekapTahunan data={rekapTahunan} />

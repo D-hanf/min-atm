@@ -154,7 +154,11 @@ const TableContent = ({
                 <input
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setSelectedDate(e.target.value)
+                    onDateChange(value)
+                  }}
                   className={`border rounded px-2 py-1 text-sm ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
                 />
               </div>
