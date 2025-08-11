@@ -103,7 +103,6 @@ app.whenReady().then(async () => {
         alamat TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
-  )
 `)
 
     // Tabel users

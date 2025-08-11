@@ -12,8 +12,8 @@ import React, { useEffect, useState } from 'react'
 
 import { AiOutlineShop } from 'react-icons/ai'
 import ConfirmDialog from '../../components/ConfirmDialog'
-import { PiMoneyLight } from "react-icons/pi";
-import { TbReportMoney } from "react-icons/tb";
+import { PiMoneyLight } from 'react-icons/pi'
+import { TbReportMoney } from 'react-icons/tb'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 
@@ -54,7 +54,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigations = [
     {
       title: 'Menu',
-      items: [
+      items: 
+      [
         ...(isAdmin
           ? [
               {
@@ -80,16 +81,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             ...(isAdmin ? [{ label: 'Saldo Awal', to: '/dashboard/saldo-awal' }] : [])
           ]
         },
-        (isAdmin?{
-          label: 'Laporan Keuangan',
-          icon: <TbReportMoney size={18} />,
-          to: '/dashboard/laporan-keuangan'
-        }:{}),
-        (isAdmin?{
-          label: 'Keuntungan',
-          icon: <PiMoneyLight size={18} />,
-          to: '/dashboard/laporan-keuangan/keuntungan'
-        }:{}),
+        ...(isAdmin
+          ? [
+              {
+                label: 'Laporan Keuangan',
+                icon: <TbReportMoney size={18} />,
+                to: '/dashboard/laporan-keuangan'
+              },
+              {
+                label: 'Keuntungan',
+                icon: <PiMoneyLight size={18} />,
+                to: '/dashboard/laporan-keuangan/keuntungan'
+              }
+            ]
+          : [])
       ]
     },
     {
