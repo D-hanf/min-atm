@@ -42,9 +42,9 @@ function HalamanHutang() {
     const storedUser = JSON.parse(localStorage.getItem('user'))
     return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
   })
-  const getTodayWIB = () => {
-    return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-  }
+  const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  const toDateOnly = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD') : '')
+  const toDisplayDateTime = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : val || '')
   const [formData, setFormData] = useState({
     id: null,
     hutang_id: null,
@@ -240,7 +240,7 @@ function HalamanHutang() {
 
       return {
         ...item,
-        tanggal: dayjs(item.tanggal_transaksi).tz('Asia/Jakarta').format('YYYY-MM-DD'),
+  tanggal: toDisplayDateTime(item.tanggal_transaksi),
         petugas_id: petugasName,
         tanggal_bayar_hutang: item.tanggal_bayar_hutang,
         status_bayar: item.status_bayar ? 'Lunas' : 'Belum Lunas',
@@ -300,11 +300,11 @@ function HalamanHutang() {
 
     const today = getTodayWIB() // Get today's date in WIB format
 
-    const tanggalPembayaran = dayjs(itemToEdit.tanggal_bayar_hutang)
+    const tanggalTransaksi = dayjs(itemToEdit.tanggal_transaksi)
       .tz('Asia/Jakarta')
       .format('YYYY-MM-DD')
 
-    // Role kasir hanya bisa edit transaksi hari ini
+    // Role kasir hanya bisa edit transaksi hari ini (bandingkan tanggal saja)
     if (userRole.toLowerCase() === 'kasir' && tanggalTransaksi !== today) {
       setAlertMessage(
         'Kasir hanya bisa mengedit transaksi hutang hari ini. Hubungi admin untuk mengubah data lama.'

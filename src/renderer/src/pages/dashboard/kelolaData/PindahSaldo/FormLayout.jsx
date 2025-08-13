@@ -37,9 +37,21 @@ const FormLayout = ({
     amount: '',
     balance: ''
   })
-  const getTodayWIB = () => {
-  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-}
+  // Datetime (WIB) for datetime-local input
+  const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
+  const toDbDateTime = (val) => {
+    if (!val) return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
+    if (val.includes(' ')) {
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(val)) return `${val}:00`
+      return val
+    }
+    if (val.includes('T')) {
+      const base = val.replace('T', ' ')
+      return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(base) ? `${base}:00` : base
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return `${val} 00:00:00`
+    return val
+  }
 
   useEffect(() => {
     const userString = localStorage.getItem('user')
@@ -96,7 +108,7 @@ const FormLayout = ({
         ...prevData,
         user: loggedInUser?.username || loggedInUser?.nama || 'User ID: ' + loggedInUser?.id,
         user_id: loggedInUser?.id || 1,
-        tanggal: getTodayWIB() // Set default date to today in WIB
+  tanggal: getNowDateTimeLocalWIB() // default datetime (local WIB)
       }))
     }
   }, [modalOpen, saldoOptions, loggedInUser])
@@ -231,7 +243,8 @@ const FormLayout = ({
       receiverBalanceId: selectedDestSaldo?.id,
       amount: formData.amountRaw || extractNumeric(formData.amount),
       operational: formData.operationalRaw || extractNumeric(formData.operational),
-      user_id: loggedInUser?.id || 1
+      user_id: loggedInUser?.id || 1,
+      tanggal: toDbDateTime(formData.tanggal)
     }
 
     onSubmit(submissionData)
@@ -303,11 +316,11 @@ const FormLayout = ({
         {/* TANGGAL TRANSAKSI */}
         <InputField
           name="tanggal"
-          type="date"
-          value={formData.tanggal || getTodayWIB()}
+          type="datetime-local"
+          value={formData.tanggal || getNowDateTimeLocalWIB()}
           onChange={handleInputChange}
         >
-          Tanggal
+          Tanggal & Jam
         </InputField>
 
         <div className="col-span-2 flex gap-4 mb-4">

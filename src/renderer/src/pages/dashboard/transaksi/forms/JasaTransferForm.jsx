@@ -12,9 +12,7 @@ dayjs.extend(timezone)
 const JasaTransferForm = ({ formData, onChange }) => {
   const { isDark } = useTheme()
   const [sumberDanaList, setSumberDanaList] = useState([])
-  const getTodayWIB = () => {
-  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-}
+  const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
   useEffect(() => {
     const fetchSaldo = async () => {
       try {
@@ -74,11 +72,11 @@ const JasaTransferForm = ({ formData, onChange }) => {
 
       <InputField
         name="tanggal"
-        type="date"
-        value={formData.date ||getTodayWIB()}
+        type="datetime-local"
+        value={formData.tanggal || formData.date || getNowDateTimeLocalWIB()}
         onChange={onChange}
       >
-        Tanggal
+        Tanggal & Jam
       </InputField>
 
       <InputField

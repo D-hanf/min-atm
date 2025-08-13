@@ -47,12 +47,19 @@ const HalamanTransaksi = () => {
   })
   const [filterText, setFilterText] = useState('')
   const [selectedDate, setSelectedDate] = useState('26/12/2024')
-  const getTodayWIB = () => {
-    return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
+  const toDbDateTime = (val) => {
+    if (!val) return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
+    if (val.includes(' ')) { if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(val)) return `${val}:00`; return val }
+    if (val.includes('T')) { const base = val.replace('T',' '); return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(base)?`${base}:00`:base }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return `${val} 00:00:00`
+    return val
   }
+  const toDisplayDateTime = (val) => (dayjs(val).isValid()? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'): val || '')
 
   const [transactionFormData, setTransactionFormData] = useState({
-    tanggal: getTodayWIB(),
+  tanggal: getNowDateTimeLocalWIB(),
     no_transaksi: '',
     sumber_dana: '',
     terima_dana_id: '',
@@ -204,7 +211,7 @@ const HalamanTransaksi = () => {
 
         return {
           id: item.id,
-          tanggal: item.tanggal,
+          tanggal: toDisplayDateTime(item.tanggal),
           no_transaksi: item.no_transaksi,
           sumber_dana: item.sumber_dana,
           terima_dana_nama: item.terima_dana_nama || '-',
@@ -292,8 +299,8 @@ const HalamanTransaksi = () => {
 
   const submitTransaction = async (data) => {
     try {
-      // console.log('📥 Menambahkan transaksi:', data)
-      const newTransaction = await window.api.createTransaksi(data)
+      const normalized = { ...data, tanggal: toDbDateTime(data.tanggal) }
+      const newTransaction = await window.api.createTransaksi(normalized)
       // console.log('✅ Transaksi berhasil:', newTransaction)
 
       // Fetch ulang data setelah insert
@@ -321,7 +328,7 @@ const HalamanTransaksi = () => {
     const today = getTodayWIB()
 
     // Validasi khusus untuk kasir
-    if (userRole.toLowerCase() === 'kasir' && transactionToEdit.tanggal !== today) {
+  if (userRole.toLowerCase() === 'kasir' && toDisplayDateTime(transactionToEdit.tanggal).slice(0,10) !== today) {
       setAlertMessage(
         'Kasir hanya bisa mengedit transaksi hari ini. Hubungi admin untuk mengubah data lama.'
       )
@@ -332,7 +339,7 @@ const HalamanTransaksi = () => {
     // Jika lolos, ubah format rupiah ke angka
     const cleanedData = {
       ...transactionToEdit,
-      saldo_awal: parseRupiah(transactionToEdit.saldo_awal),
+  saldo_awal: parseRupiah(transactionToEdit.saldo_awal),
       nominal_transaksi: parseRupiah(transactionToEdit.nominal_transaksi),
       fee: parseRupiah(transactionToEdit.fee),
       biaya_admin_bank: parseRupiah(transactionToEdit.biaya_admin_bank),
@@ -348,7 +355,7 @@ const HalamanTransaksi = () => {
     try {
       const payload = {
         id: editingTransaction.id,
-        data: updatedData
+        data: { ...updatedData, tanggal: toDbDateTime(updatedData.tanggal) }
       }
 
       const result = await window.api.editTransaksi(payload)

@@ -46,9 +46,8 @@ const FormLayout = ({
     }
     return typeMap[transactionType] || ''
   }
-  const getTodayWIB = () => {
-  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-}
+  const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
 
   useEffect(() => {
     if (isEdit && editData) {
@@ -65,21 +64,20 @@ const FormLayout = ({
 
   useEffect(() => {
     if (modalOpen && formType === 'transaction' && !isEdit && !formData.no_transaksi) {
-      const today = getTodayWIB()
-      const dateStr = today.replace(/-/g, '')
+      const nowDate = getTodayWIB()
+      const dateStr = nowDate.replace(/-/g, '')
       const randomStr = Math.floor(Math.random() * 10000)
         .toString()
         .padStart(4, '0')
       const transactionNumber = `TRX-${dateStr}${randomStr}`
-
       setFormData((prev) => ({
         ...prev,
         no_transaksi: transactionNumber,
-        tanggal: prev.tanggal || today
-
+        // If prev.tanggal already provided (e.g. editing), keep it; else set current datetime-local
+        tanggal: prev.tanggal && prev.tanggal.includes('T') ? prev.tanggal : getNowDateTimeLocalWIB()
       }))
     }
-  }, [modalOpen, formType, isEdit])
+  }, [modalOpen, formType, isEdit, formData.no_transaksi])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -97,12 +95,23 @@ const FormLayout = ({
   }
 
   const handleSubmit = () => {
-    onSubmit(formData)
+    // Ensure tanggal saved in DB-friendly datetime format; leave formatting to higher layer if needed
+    const normalizedForm = { ...formData }
+    if (!normalizedForm.tanggal || !/T\d{2}:\d{2}/.test(normalizedForm.tanggal)) {
+      // If somehow only date provided, append current time
+      if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedForm.tanggal)) {
+        const timePart = dayjs().tz('Asia/Jakarta').format('HH:mm')
+        normalizedForm.tanggal = `${normalizedForm.tanggal}T${timePart}`
+      } else if (!normalizedForm.tanggal) {
+        normalizedForm.tanggal = getNowDateTimeLocalWIB()
+      }
+    }
+    onSubmit(normalizedForm)
     setModalOpen(false)
 
     if (formType === 'transaction' && !isEdit) {
       setFormData({
-        tanggal: getTodayWIB(),
+        tanggal: getNowDateTimeLocalWIB(),
         no_transaksi: '',
         sumber_dana_id: '',
         metode_pembayaran: '',
@@ -156,14 +165,12 @@ const FormLayout = ({
   }
   useEffect(() => {
     if (!isEdit && modalOpen && formType === 'transaction') {
-      const today = getTodayWIB()
-
       setFormData((prev) => ({
         ...prev,
-        tanggal: today
+        tanggal: prev.tanggal && prev.tanggal.includes('T') ? prev.tanggal : getNowDateTimeLocalWIB()
       }))
     }
-  }, [modalOpen])
+  }, [modalOpen, isEdit, formType])
 
   return (
     <>

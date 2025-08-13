@@ -36,9 +36,11 @@ const HalamanAmbilSaldo = () => {
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
 
-  const getTodayWIB = () => {
-    return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-  }
+  const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  const toDateOnly = (val) =>
+    dayjs(val).isValid()
+      ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD')
+      : ''
 
   const [formData, setFormData] = useState({
     id: null,
@@ -99,11 +101,7 @@ const HalamanAmbilSaldo = () => {
       console.log('📊 Data ambil saldo:', result)
       if (userRole.toLowerCase() === 'kasir') {
         const today = getTodayWIB()
-        filtered = result.filter((item) => {
-          const itemDate = dayjs(item.tanggal_pengambilan).tz('Asia/Jakarta').format('YYYY-MM-DD')
-
-          return itemDate === today
-        })
+        filtered = result.filter((item) => toDateOnly(item.tanggal_pengambilan) === today)
       }
 
       setAmbilSaldo(filtered)
@@ -323,12 +321,12 @@ const HalamanAmbilSaldo = () => {
   // Process data for display - don't add the index field
   const filteredData = ambilSaldo
     .filter((item) => {
-      // Jika role kasir, hanya tampilkan data hari ini
-       if (userRole.toLowerCase() === 'kasir') {
-          return item.date === getTodayWIB()
-        }
-        return true
-      })
+      // (Redundant with fetchAmbilSaldo role filter, but keep safe normalization)
+      if (userRole.toLowerCase() === 'kasir') {
+        return toDateOnly(item.tanggal_pengambilan) === getTodayWIB()
+      }
+      return true
+    })
     .filter((item) =>
       Object.values(item).some((val) =>
         String(val).toLowerCase().includes(filterText.toLowerCase())
@@ -344,7 +342,7 @@ const HalamanAmbilSaldo = () => {
       }
       return {
         ...item,
-        tanggal_pengambilan: dayjs(item.tanggal_pengambilan).tz('Asia/Jakarta').format('YYYY-MM-DD'),
+  tanggal_pengambilan: dayjs(item.tanggal_pengambilan).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
         petugas_pengambil_id: petugasName,
         saldo_platform: formatRupiah(item.saldo_platform),
         nominal_pengambilan: formatRupiah(item.nominal_pengambilan),

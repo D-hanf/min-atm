@@ -27,9 +27,9 @@ dayjs.extend(utc)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [deleteId, setDeleteId] = useState(null)
     const [modalOpen, setModalOpen] = useState(false)
-    const getTodayWIB = () => {
-      return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-    }
+  const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  const toDateOnly = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD') : '')
+  const toDisplayDateTime = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : val || '')
     const [formData, setFormData] = useState({
       user: '',
       platformSource: '',
@@ -131,7 +131,7 @@ dayjs.extend(utc)
     // Updated columns definition to match our database structure
     const columns = [
       { key: 'user', label: 'User Pemindah' },
-      { key: 'date', label: 'Tanggal' },
+  { key: 'date', label: 'Tanggal' },
       { key: 'platformSource', label: 'Platform Sumber' },
       { key: 'platformDestination', label: 'Platform Penerima' },
       { key: 'senderBalance', label: 'Saldo Pengirim' },
@@ -299,10 +299,10 @@ dayjs.extend(utc)
       const itemToEdit = transfers.find((item) => item.id === id)
       if (!itemToEdit) return
 
-      const today = getTodayWIB()
+  const today = getTodayWIB()
 
-      // Validasi: kasir hanya boleh edit transaksi hari ini
-      if (userRole.toLowerCase() === 'kasir' && itemToEdit.date !== today) {
+  // Validasi: kasir hanya boleh edit transaksi hari ini (bandingkan tanggal saja)
+  if (userRole.toLowerCase() === 'kasir' && toDateOnly(itemToEdit.date) !== today) {
         setAlertMessage(
           'Kasir hanya bisa mengedit pemindahan saldo hari ini. Hubungi admin untuk mengubah data lama.'
         )
@@ -360,9 +360,8 @@ dayjs.extend(utc)
     // FILTER DATA: kasir hanya lihat data hari ini
     const filteredData = transfers
       .filter((item) => {
-        // role kasir hanya tampilkan data hari ini
         if (userRole.toLowerCase() === 'kasir') {
-          return item.date === getTodayWIB()
+          return toDateOnly(item.date) === getTodayWIB()
         }
         return true
       })
@@ -373,7 +372,8 @@ dayjs.extend(utc)
       )
       .map((item, index) => ({
         ...item,
-        tanggal: dayjs(item.date).tz('Asia/Jakarta').format('YYYY-MM-DD'),
+        date: toDisplayDateTime(item.date),
+        tanggal: toDisplayDateTime(item.date),
         no: index + 1,
         formattedAmount: formatRupiah(item.amount),
         formattedOperational: formatRupiah(item.operational)
@@ -448,7 +448,8 @@ dayjs.extend(utc)
           saldo_sumber: latestSourceSaldo.saldo,
           saldo_tujuan: latestDestSaldo.saldo,
           keterangan: updatedData.description,
-          tanggal: formData.tanggal || getTodayWIB()
+          tanggal: formData.tanggal || getTodayWIB(),
+          role: userRole
         }
 
         const result = await window.api.updatePindahSaldo(transferData)
@@ -576,11 +577,11 @@ dayjs.extend(utc)
           </div>
           <InputField
             name="tanggal"
-            type="date"
-            value={formData.tanggal || getTodayWIB}
+            type="datetime-local"
+            value={formData.tanggal?.includes('T') ? formData.tanggal : (formData.tanggal ? dayjs(formData.tanggal).format('YYYY-MM-DDTHH:mm') : dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm'))}
             onChange={(e) => setFormData({ ...formData, tanggal: e.target.value })}
           >
-            Tanggal
+            Tanggal & Jam
           </InputField>
 
           {/* Platform section with flex layout */}

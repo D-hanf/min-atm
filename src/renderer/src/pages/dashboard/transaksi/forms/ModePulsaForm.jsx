@@ -16,9 +16,7 @@ const ModePulsaForm = ({ formData, onChange, onValidChange }) => {
   const [manualFee, setManualFee] = useState(false)
   const [manualAdmin, setManualAdmin] = useState(false)
   const [nominalError, setNominalError] = useState('')
-const getTodayWIB = () => {
-  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-}
+const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
   useEffect(() => {
     const fetchSaldo = async () => {
       try {
@@ -86,11 +84,11 @@ const getTodayWIB = () => {
 
       <InputField
         name="tanggal"
-        type="date"
-        value={formData.tanggal ||getTodayWIB()}
+        type="datetime-local"
+        value={formData.tanggal || getNowDateTimeLocalWIB()}
         onChange={onChange}
       >
-        Tanggal
+        Tanggal & Jam
       </InputField>
 
       <InputField

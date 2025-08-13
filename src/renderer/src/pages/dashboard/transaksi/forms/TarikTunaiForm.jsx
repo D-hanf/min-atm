@@ -26,9 +26,7 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
       console.error('❌ Gagal ambil data saldo:', error)
     }
   }
-  const getTodayWIB = () => {
-  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-}
+  const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
   useEffect(() => {
     fetchSaldo()
   }, [])
@@ -82,11 +80,11 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
 
       <InputField
         name="tanggal"
-        type="date"
-        value={formData.tanggal || getTodayWIB()  }
+        type="datetime-local"
+        value={formData.tanggal || getNowDateTimeLocalWIB()}
         onChange={onChange}
       >
-        Tanggal
+        Tanggal & Jam
       </InputField>
       <SelectItems
         options={sumberDanaList

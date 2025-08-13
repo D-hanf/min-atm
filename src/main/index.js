@@ -755,7 +755,7 @@ app.whenReady().then(async () => {
             }
 
             const isBayarNow = latestRecord.status_bayar === 0
-            const tanggalLama = String(latestRecord.tanggal_transaksi || '').split('T')[0]
+            const tanggalLama = String(latestRecord.tanggal_transaksi || '').slice(0, 10)
             if (role === 'kasir' && tanggalLama !== today) {
               return resolve({ success: false, error: 'Kasir hanya bisa mengedit hutang hari ini' })
             }
@@ -937,7 +937,7 @@ app.whenReady().then(async () => {
             return reject(new Error('Record not found'))
           }
 
-          const tanggalLama = String(oldRecord.tanggal_transaksi || '').split('T')[0]
+          const tanggalLama = String(oldRecord.tanggal_transaksi || '').slice(0, 10)
           if (role === 'kasir' && tanggalLama !== today) {
             console.warn('⛔ Kasir hanya bisa mengedit hutang hari ini')
             return reject(new Error('Kasir hanya bisa mengedit hutang hari ini'))
@@ -1287,7 +1287,8 @@ app.whenReady().then(async () => {
               return reject(new Error('Record not found'))
             }
 
-            const tanggalLama = String(oldRecord.tanggal || '').split('T')[0]
+            // Normalize to date-only to support 'YYYY-MM-DD HH:mm:ss' or 'YYYY-MM-DDTHH:mm:ss'
+            const tanggalLama = String(oldRecord.tanggal || '').slice(0, 10)
             if (role === 'kasir' && tanggalLama !== today) {
               console.warn('⛔ Kasir hanya bisa mengedit transaksi yang dibuat hari ini')
               return reject(new Error('Kasir hanya bisa mengedit transaksi yang dibuat hari ini'))

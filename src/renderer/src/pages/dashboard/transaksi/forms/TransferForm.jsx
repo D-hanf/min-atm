@@ -27,9 +27,7 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
       console.error('❌ Gagal ambil data saldo:', error)
     }
   }
-const getTodayWIB = () => {
-  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-}
+const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
   useEffect(() => {
     fetchSaldo()
   }, [])
@@ -88,11 +86,11 @@ const getTodayWIB = () => {
       </div>
       <InputField
         name="tanggal"
-        type="date"
-        value={formData.date ||getTodayWIB()}
+        type="datetime-local"
+        value={formData.tanggal || formData.date || getNowDateTimeLocalWIB()}
         onChange={onChange}
       >
-        Tanggal
+        Tanggal & Jam
       </InputField>
       
       <InputField

@@ -17,9 +17,10 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
   const { isDark } = useTheme()
   const [modalOpen, setModalOpen] = useState(false)
   const [loggedInUser, setLoggedInUser] = useState(null)
-    const getTodayWIB = () => {
-      return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-    }
+  // Return current datetime (WIB) formatted for <input type="datetime-local"> (YYYY-MM-DDTHH:mm)
+  const getNowDateTimeLocalWIB = () => {
+    return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
+  }
   // Add state to persist the previously selected platform
   const [lastSelectedPlatform, setLastSelectedPlatform] = useState('')
   const [formData, setFormData] = useState({
@@ -30,7 +31,8 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
     fee: '',
     withdrawalMethod: '',
     withdrawalAccount: '',
-    withdrawalDate: getTodayWIB(),
+  // Store datetime-local value (user can adjust time)
+  withdrawalDate: getNowDateTimeLocalWIB(),
     description: ''
   })
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
@@ -111,7 +113,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         fee: '',
         withdrawalMethod: '',
         withdrawalAccount: '',
-        withdrawalDate: getTodayWIB(),
+  withdrawalDate: getNowDateTimeLocalWIB(),
         description: ''
       })
 
@@ -256,10 +258,27 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       return false
     }
 
-    // Prepare data for submission
+    // Normalize datetime-local value to DB format (YYYY-MM-DD HH:mm:ss)
+    const toDbDateTime = (val) => {
+      if (!val) return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
+      // Already in DB style with space
+      if (val.includes(' ')) {
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(val)) return `${val}:00`
+        return val
+      }
+      // datetime-local style
+      if (val.includes('T')) {
+        const base = val.replace('T', ' ')
+        return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(base) ? `${base}:00` : base
+      }
+      // date only
+      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return `${val} 00:00:00`
+      return val
+    }
+
+    // Prepare data for submission (store full datetime)
     const submissionData = {
       ...formData,
-      // Map form fields to database fields
       petugas_pengambil_id: parseInt(formData.user_id, 10) || 1,
       platform: formData.platform,
       saldo_platform: parseFloat(formData.currentBalanceRaw || 0),
@@ -267,7 +286,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       biaya_admin: parseFloat(formData.feeRaw || extractNumeric(formData.fee) || 0),
       metode_pengambilan: formData.withdrawalMethod,
       tujuan_pengambilan: formData.withdrawalAccount,
-      tanggal_pengambilan: formData.withdrawalDate,
+      tanggal_pengambilan: toDbDateTime(formData.withdrawalDate),
       keterangan: formData.description
     }
 
@@ -311,11 +330,11 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
         </div>
         <InputField
           name="withdrawalDate"
-          type="date"
-          value={formData.withdrawalDate || getTodayWIB()}
+          type="datetime-local"
+          value={formData.withdrawalDate || getNowDateTimeLocalWIB()}
           onChange={handleInputChange}
         >
-          Tanggal Pengambilan
+          Tanggal & Jam Pengambilan
         </InputField>
 
           {/* Platform dropdown */}

@@ -223,14 +223,23 @@ const LaporanKeuangan = () => {
 
   // laporan harian
   const [filterTanggal, setFilterTanggal] = useState('')
-    // Hitung keuntungan harian sesuai filterTanggal
-    const totalKeuntunganHarian = React.useMemo(() => {
-    if (!filterTanggal) return null;
-      // Asumsi item.tanggal format 'YYYY-MM-DD'
-      return laporan
-        .filter(item => item.tanggal === filterTanggal)
-        .reduce((sum, item) => sum + Number(item.keuntungan || 0), 0);
-    }, [laporan, filterTanggal]);
+  // Hitung keuntungan harian sesuai filterTanggal
+  const totalKeuntunganHarian = React.useMemo(() => {
+    if (!filterTanggal) return null
+    return laporan
+      .filter((item) => {
+        if (!item.tanggal) return false
+        // Ambil hanya bagian tanggal (support format 'YYYY-MM-DD HH:mm:ss' atau sudah date only)
+        const itemDate = item.tanggal.slice(0, 10)
+        return itemDate === filterTanggal
+      })
+      .reduce((sum, item) => {
+        const explicit = item.keuntungan
+        // Jika backend belum sediakan field keuntungan, hitung dari nominal masuk - keluar
+        const fallback = Number(item.nominal_masuk || 0) - Number(item.nominal_transaksi || 0)
+        return sum + Number(explicit !== undefined ? explicit : fallback || 0)
+      }, 0)
+  }, [laporan, filterTanggal])
 
   // Untuk bulanan: filter data transaksi sesuai bulan
   const filteredData =

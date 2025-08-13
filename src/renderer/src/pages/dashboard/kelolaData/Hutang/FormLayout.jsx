@@ -19,17 +19,28 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
   const [loggedInUser, setLoggedInUser] = useState(null)
   // Add state to persist the previously selected platform
   const [lastSelectedPlatform, setLastSelectedPlatform] = useState('')
-  const getTodayWIB = () => {
-  return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-}
+  const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
+  const toDbDateTime = (val) => {
+    if (!val) return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
+    if (val.includes(' ')) {
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(val)) return `${val}:00`
+      return val
+    }
+    if (val.includes('T')) {
+      const base = val.replace('T',' ')
+      return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(base) ? `${base}:00` : base
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return `${val} 00:00:00`
+    return val
+  }
   const [formData, setFormData] = useState({
     user_id: 1, // Will be replaced with current user ID
     platform: '',
     platformId: null, // Store the platform ID for the database
     currentBalance: '',
     amount: '',
-    transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
-    tanggal: getTodayWIB(), // Default to today's date in WIB
+  transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
+  tanggal: getNowDateTimeLocalWIB(), // Default to current datetime WIB
     description: ''
   })
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
@@ -106,8 +117,8 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
         platformId: null,
         currentBalance: '',
         amount: '',
-        transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
-        tanggal: getTodayWIB(), // Default to today's date in WIB
+  transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
+  tanggal: getNowDateTimeLocalWIB(), // Default datetime WIB
         description: ''
       })
 
@@ -246,7 +257,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
       saldo_platform: parseFloat(formData.currentBalanceRaw || 0),
       nominal_transaksi: parseFloat(formData.amountRaw || extractNumeric(formData.amount) || 0),
       biaya_admin: parseFloat(extractNumeric(formData.biaya_admin) || 0), // Include biaya_admin field
-      tanggal_transaksi: formData.tanggal,
+  tanggal_transaksi: toDbDateTime(formData.tanggal),
       keterangan: formData.description,
       // Add the transaction type
       jenis_transaksi: formData.transactionType
@@ -294,11 +305,11 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
         </div>
         <InputField
           name="tanggal"
-          type="date"
-          value={formData.tanggal || getTodayWIB()}
+          type="datetime-local"
+          value={formData.tanggal || getNowDateTimeLocalWIB()}
           onChange={handleInputChange}
         >
-          Tanggal Transaksi
+          Tanggal & Jam Transaksi
         </InputField>
 
         {/* Platform dropdown */}
