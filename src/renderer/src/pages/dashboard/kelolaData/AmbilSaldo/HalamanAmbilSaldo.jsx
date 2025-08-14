@@ -37,10 +37,30 @@ const HalamanAmbilSaldo = () => {
   const [alertMessage, setAlertMessage] = useState('')
 
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
   const toDateOnly = (val) =>
     dayjs(val).isValid()
       ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD')
       : ''
+  const toInputDateTimeLocal = (val) => {
+    if (!val) return getNowDateTimeLocalWIB()
+    return dayjs(val).isValid()
+      ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
+      : getNowDateTimeLocalWIB()
+  }
+  const toDbDateTime = (val) => {
+    if (!val) return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
+    if (val.includes(' ')) {
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(val)) return `${val}:00`
+      return val
+    }
+    if (val.includes('T')) {
+      const base = val.replace('T', ' ')
+      return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(base) ? `${base}:00` : base
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return `${val} 00:00:00`
+    return val
+  }
 
   const [formData, setFormData] = useState({
     id: null,
@@ -141,7 +161,7 @@ const HalamanAmbilSaldo = () => {
       // Update form data with selected platform, its current saldo, and biaya_admin
       setFormData({
         ...formData,
-        tanggal_pengambilan: getTodayWIB(), // Reset date to today
+        // Keep existing datetime; do not reset to date-only
         platform: selectedItem.nama_sumber_dana,
         saldo_platform: selectedItem.saldo.toString(),
         biaya_admin: formatRupiah(selectedItem.biaya_admin) // Format biaya_admin as Rupiah
@@ -226,12 +246,10 @@ const HalamanAmbilSaldo = () => {
 
     let formattedDate
     try {
-      formattedDate = itemToEdit.tanggal_pengambilan.includes('T')
-        ? itemToEdit.tanggal_pengambilan.split('T')[0]
-        : itemToEdit.tanggal_pengambilan
+      formattedDate = toInputDateTimeLocal(itemToEdit.tanggal_pengambilan)
     } catch (error) {
       console.error('❌ Error formatting date:', error)
-      formattedDate = getTodayWIB()
+      formattedDate = getNowDateTimeLocalWIB()
     }
 
     setFormData({
@@ -271,17 +289,8 @@ const HalamanAmbilSaldo = () => {
 
   const handleSubmitEdit = async () => {
     try {
-      // Ensure the date is in the correct format
-      let formattedDate
-      try {
-        // Make sure we have a valid date string
-        formattedDate = formData.tanggal_pengambilan
-          ? new Date(formData.tanggal_pengambilan).toISOString().split('T')[0]
-          : getTodayWIB()
-      } catch (error) {
-        console.error('❌ Error formatting date for submission:', error)
-        formattedDate = getTodayWIB()
-      }
+  // Normalize to full WIB timestamp for DB
+  const formattedDate = toDbDateTime(formData.tanggal_pengambilan)
 
       console.log('📅 Date before submission:', formData.tanggal_pengambilan)
       console.log('📅 Formatted date for submission:', formattedDate)
@@ -300,7 +309,7 @@ const HalamanAmbilSaldo = () => {
         biaya_admin: parseFloat(numericBiayaAdmin) || 0,
         metode_pengambilan: formData.metode_pengambilan,
         tujuan_pengambilan: formData.tujuan_pengambilan,
-        tanggal_pengambilan: formattedDate, // Use the properly formatted date
+  tanggal_pengambilan: formattedDate, // Store full datetime
         keterangan: formData.keterangan
       }
 
@@ -450,14 +459,13 @@ const HalamanAmbilSaldo = () => {
         </div>
         <InputField
           name="tanggal_pengambilan"
-          type="date"
-          value={formData.tanggal_pengambilan || getTodayWIB()}
+          type="datetime-local"
+          value={formData.tanggal_pengambilan || getNowDateTimeLocalWIB()}
           onChange={(e) => {
-            console.log('📅 Date selected in form:', e.target.value)
             setFormData({ ...formData, tanggal_pengambilan: e.target.value })
           }}
         >
-          Tanggal Pengambilan
+          Tanggal & Jam Pengambilan
         </InputField>
         {/* Platform dropdown */}
         <div className="col-span-2 mb-4">

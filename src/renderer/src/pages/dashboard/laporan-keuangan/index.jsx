@@ -29,6 +29,30 @@ function formatWaktuSimpan(waktuStr) {
   return `${tahun}-${bulan}-${hari} ${jam}:${menit}:${detik}`
 }
 
+// Format tanggal transaksi tanpa detik (YYYY-MM-DD HH:mm)
+function formatTanggalTanpaDetik(val) {
+  if (!val) return ''
+  // ganti 'T' jadi spasi kalau ada
+  const s = String(val).replace('T', ' ')
+  // Jika sudah YYYY-MM-DD HH:mm:ss -> potong detik
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(s)) return s.slice(0, 16)
+  // Jika sudah YYYY-MM-DD HH:mm biarkan
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(s)) return s
+  // Jika hanya tanggal YYYY-MM-DD, kembalikan apa adanya
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  // fallback: coba parse Date
+  const d = new Date(s)
+  if (!isNaN(d.getTime())) {
+    const tahun = d.getFullYear()
+    const bulan = String(d.getMonth() + 1).padStart(2, '0')
+    const hari = String(d.getDate()).padStart(2, '0')
+    const jam = String(d.getHours()).padStart(2, '0')
+    const menit = String(d.getMinutes()).padStart(2, '0')
+    return `${tahun}-${bulan}-${hari} ${jam}:${menit}`
+  }
+  return s
+}
+
 import * as XLSX from 'xlsx'
 
 import React, { useEffect, useState } from 'react'
@@ -244,7 +268,7 @@ const LaporanKeuangan = () => {
   // Untuk bulanan: filter data transaksi sesuai bulan
   const filteredData =
     periodeType === 'bulanan'
-      ? laporan
+  ? laporan
           .filter((item) => {
             // Asumsi item.tanggal format 'YYYY-MM-DD'
             if (!item.tanggal) return false
@@ -258,6 +282,7 @@ const LaporanKeuangan = () => {
           })
           .map((item) => ({
             ...item,
+    tanggal: formatTanggalTanpaDetik(item.tanggal),
             nominal_transaksi: formatRupiah(item.nominal_transaksi),
             nominal_masuk: formatRupiah(item.nominal_masuk),
             selisih_masuk_keluar: formatRupiah(

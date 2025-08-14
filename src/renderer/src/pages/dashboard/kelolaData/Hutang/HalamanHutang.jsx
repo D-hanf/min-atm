@@ -45,6 +45,14 @@ function HalamanHutang() {
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const toDateOnly = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD') : '')
   const toDisplayDateTime = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : val || '')
+  const toDisplayDateOnly = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD') : val || '')
+  const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
+  const toInputDateTimeLocal = (val) => {
+    if (!val) return getNowDateTimeLocalWIB()
+    return dayjs(val).isValid()
+      ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
+      : getNowDateTimeLocalWIB()
+  }
   const [formData, setFormData] = useState({
     id: null,
     hutang_id: null,
@@ -170,14 +178,12 @@ function HalamanHutang() {
       return
     }
 
-    // Format tanggal untuk input
+    // Format tanggal & jam untuk input datetime-local
     let formattedDate
     try {
-      formattedDate = itemToEdit.tanggal_transaksi.includes('T')
-        ? itemToEdit.tanggal_transaksi.split('T')[0]
-        : dayjs(itemToEdit.tanggal_transaksi).tz('Asia/Jakarta').format('YYYY-MM-DD')
+      formattedDate = toInputDateTimeLocal(itemToEdit.tanggal_transaksi)
     } catch {
-      formattedDate = today
+      formattedDate = getNowDateTimeLocalWIB()
     }
 
     setFormData({
@@ -189,7 +195,7 @@ function HalamanHutang() {
       nominal_transaksi: formatRupiah(itemToEdit.nominal_transaksi),
       jenis_transaksi: itemToEdit.jenis_transaksi || 'Ambil Hutang',
       biaya_admin: formatRupiah(itemToEdit.biaya_admin || 0),
-      tanggal_transaksi: formattedDate,
+  tanggal_transaksi: formattedDate,
       keterangan: itemToEdit.keterangan || ''
     })
 
@@ -238,11 +244,11 @@ function HalamanHutang() {
         petugasName = loggedInUser.nama || loggedInUser.username || petugasName
       }
 
-      return {
-        ...item,
+  return {
+    ...item,
   tanggal: toDisplayDateTime(item.tanggal_transaksi),
-        petugas_id: petugasName,
-        tanggal_bayar_hutang: item.tanggal_bayar_hutang,
+    petugas_id: petugasName,
+  tanggal_bayar_hutang: toDisplayDateTime(item.tanggal_bayar_hutang),
         status_bayar: item.status_bayar ? 'Lunas' : 'Belum Lunas',
         saldo_platform: formatRupiah(item.saldo_platform),
         nominal_transaksi: formatRupiah(item.nominal_transaksi),
@@ -259,9 +265,25 @@ function HalamanHutang() {
     })
   }
 
+  // Ubah platform/sumber dana dari dropdown
+  const handleSelectPlatform = (eOrVal) => {
+    const value = eOrVal?.target ? eOrVal.target.value : eOrVal
+    const selected = saldoAwalOptions.find((p) => String(p.id) === String(value))
+    setFormData((prev) => ({
+      ...prev,
+      platform_id: value,
+      platform_name: selected?.nama_sumber_dana || '',
+      saldo_platform: selected?.saldo ?? prev.saldo_platform
+    }))
+    setSelectedPlatform(selected || null)
+  }
+
   const handleSubmitEdit = async () => {
     try {
-      const formattedDate = dayjs(formData.tanggal_transaksi).format('YYYY-MM-DD')
+      // Normalize 'YYYY-MM-DDTHH:mm' to DB 'YYYY-MM-DD HH:mm:ss' in WIB
+      const formattedDate = dayjs(formData.tanggal_transaksi)
+        .tz('Asia/Jakarta')
+        .format('YYYY-MM-DD HH:mm:ss')
 
       const updatedEntry = {
         id: formData.id,
@@ -271,7 +293,7 @@ function HalamanHutang() {
         nominal_transaksi: parseFloat(extractNumeric(formData.nominal_transaksi)) || 0,
         jenis_transaksi: formData.jenis_transaksi,
         biaya_admin: parseFloat(extractNumeric(formData.biaya_admin) || 0),
-        tanggal_transaksi: formattedDate,
+  tanggal_transaksi: formattedDate,
         keterangan: formData.keterangan,
         role: userRole
       }
@@ -313,14 +335,12 @@ function HalamanHutang() {
       return
     }
 
-    // Format tanggal untuk input
+    // Siapkan nilai untuk input datetime-local
     let formattedDatePay
     try {
-      formattedDatePay = itemToEdit.tanggal_bayar_hutang.includes('T')
-        ? itemToEdit.tanggal_bayar_hutang.split('T')[0]
-        : dayjs(itemToEdit.tanggal_bayar_hutang).tz('Asia/Jakarta').format('YYYY-MM-DD')
+      formattedDatePay = toInputDateTimeLocal(itemToEdit.tanggal_bayar_hutang)
     } catch {
-      formattedDatePay = today
+      formattedDatePay = getNowDateTimeLocalWIB()
     }
 
     setFormData({
@@ -342,7 +362,10 @@ function HalamanHutang() {
 
   const handleStatusHutang = async (id) => {
     try {
-      const formattedDate = dayjs(formData.tanggal_bayar_hutang).format('YYYY-MM-DD')
+      // Normalisasi dari 'YYYY-MM-DDTHH:mm' ke format DB 'YYYY-MM-DD HH:mm:ss' (WIB)
+      const formattedDate = dayjs(formData.tanggal_bayar_hutang)
+        .tz('Asia/Jakarta')
+        .format('YYYY-MM-DD HH:mm:ss')
 
       const updatedEntry = {
         id: formData.id,
@@ -438,26 +461,24 @@ function HalamanHutang() {
         </div>
         <InputField
           name="tanggal_bayar_hutang"
-          type="date"
-          value={formData.tanggal_bayar_hutang || getTodayWIB()}
-          onChange={(e) => setFormData({ ...formData, tanggal_transaksi: e.target.value })}
+          type="datetime-local"
+          value={formData.tanggal_bayar_hutang || getNowDateTimeLocalWIB()}
+          onChange={(e) => setFormData({ ...formData, tanggal_bayar_hutang: e.target.value })}
         >
-          Tanggal Transaksi
+          Tanggal & Jam Bayar
         </InputField>
         {/* Platform/Sumber Dana */}
-        <div className="col-span-2 mb-4">
-          <label
-            className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
-          >
-            Platform/Sumber Dana
-          </label>
-          <input
-            type="text"
-            value={formData.platform_name}
-            disabled
-            className={`w-full p-2 border rounded-md ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-gray-100 text-gray-800'}`}
-          />
-        </div>
+        <SelectItems
+          options={saldoAwalOptions.map((item) => ({
+            label: item.nama_sumber_dana,
+            value: item.id
+          }))}
+          label="Platform/Sumber Dana"
+          name="platform_id"
+          value={formData.platform_id || ''}
+          onChange={handleSelectPlatform}
+          required
+        />
 
         {/* Saldo Platform */}
         <div className="col-span-2 mb-4">
@@ -548,26 +569,24 @@ function HalamanHutang() {
         </div>
         <InputField
           name="tanggal_transaksi"
-          type="date"
-          value={formData.tanggal_transaksi}
+          type="datetime-local"
+          value={formData.tanggal_transaksi || getNowDateTimeLocalWIB()}
           onChange={(e) => setFormData({ ...formData, tanggal_transaksi: e.target.value })}
         >
-          Tanggal Transaksi
+          Tanggal & Jam Transaksi
         </InputField>
         {/* Platform/Sumber Dana */}
-        <div className="col-span-2 mb-4">
-          <label
-            className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
-          >
-            Platform/Sumber Dana
-          </label>
-          <input
-            type="text"
-            value={formData.platform_name}
-            disabled
-            className={`w-full p-2 border rounded-md ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-gray-100 text-gray-800'}`}
-          />
-        </div>
+        <SelectItems
+          options={saldoAwalOptions.map((item) => ({
+            label: item.nama_sumber_dana,
+            value: item.id
+          }))}
+          label="Platform/Sumber Dana"
+          name="platform_id"
+          value={formData.platform_id || ''}
+          onChange={handleSelectPlatform}
+          required
+        />
 
         {/* Saldo Platform */}
         <div className="col-span-2 mb-4">

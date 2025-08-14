@@ -792,7 +792,7 @@ app.whenReady().then(async () => {
               const updateQuery = isBayarNow
                 ? `UPDATE hutang
                SET status_bayar = 1,
-                   tanggal_bayar_hutang = DATE('now'),
+                   tanggal_bayar_hutang = ?,
                    jenis_transaksi = ?
              WHERE id = ?`
                 : `UPDATE hutang
@@ -800,7 +800,16 @@ app.whenReady().then(async () => {
                    jenis_transaksi = ?
              WHERE id = ?`
 
-              db.run(updateQuery, [jenis_transaksi, hutang_id], function (err) {
+              const bayarAt =
+                updatedData.tanggal_bayar_hutang && String(updatedData.tanggal_bayar_hutang).trim()
+                  ? updatedData.tanggal_bayar_hutang
+                  : dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
+
+              const params = isBayarNow
+                ? [bayarAt, jenis_transaksi, hutang_id]
+                : [jenis_transaksi, hutang_id]
+
+              db.run(updateQuery, params, function (err) {
                 if (err) {
                   db.run('ROLLBACK')
                   console.error('❌ Gagal update status bayar:', err)
