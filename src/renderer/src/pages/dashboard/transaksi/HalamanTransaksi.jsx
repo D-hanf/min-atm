@@ -417,6 +417,32 @@ const HalamanTransaksi = () => {
     printWindow.close()
   }
 
+  // Simpan summary + saldo awal ke summary_log, lalu cetak
+  const getNowWIBDateTime = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
+  const handleSaveSummaryAndPrint = async () => {
+    try {
+      const payload = {
+        waktu: getNowWIBDateTime(),
+        financialSummary: { ...financialSummary },
+        saldoAwal: (fundSources || []).map((s) => ({
+          nama_sumber_dana: s.nama_sumber_dana,
+          saldo: Number(s.saldo || 0)
+        }))
+      }
+      if (window.api && window.api.saveSummaryData) {
+        await window.api.saveSummaryData(payload)
+        console.log('✅ Summary disimpan')
+      } else {
+        console.warn('⚠️ API saveSummaryData tidak tersedia')
+      }
+    } catch (err) {
+      console.error('❌ Gagal simpan summary sebelum print:', err)
+    } finally {
+      // Tetap lanjutkan proses print meski simpan gagal
+      printSummaryOnly()
+    }
+  }
+
   return (
     <PageContainer title="Transaksi">
       <div className="flex w-full gap-4 items-center mb-6">
@@ -427,7 +453,7 @@ const HalamanTransaksi = () => {
             </h1>
           </div>
           <div className="flex gap-6 max-w-xs">
-            <ButtonInput size="xs" color={'indigo'} onClick={printSummaryOnly}>
+            <ButtonInput size="xs" color={'indigo'} onClick={handleSaveSummaryAndPrint}>
               <IoMdPrint size={20} />
               Print
             </ButtonInput>

@@ -31,6 +31,7 @@ function HalamanHutang() {
   const [alertMessage, setAlertMessage] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [totalBelumDibayar, setTotalBelumDibayar] = useState(0)
+  const [filterTanggal, setFilterTanggal] = useState('')
 
   const [showModalConfirm, setShowModalConfirm] = useState(false)
   const [jenisTransaksiOptions] = useState(['Ambil Hutang', 'Bayar Hutang'])
@@ -106,13 +107,11 @@ function HalamanHutang() {
       })
       setStatusBayarMap(initialMap)
 
-      // Jumlahkan total nominal hutang yang belum dibayar
-      const totalBelumDibayar = result
-        .filter((item) => item.status_bayar == 0) // sesuaikan nilai status
+      // Catat log saja; perhitungan total akan mengikuti filterTanggal via useMemo di bawah
+      const totalAwal = result
+        .filter((item) => item.status_bayar == 0)
         .reduce((total, item) => total + Number(item.nominal_transaksi || 0), 0)
-
-      console.log('Total hutang belum dibayar:', totalBelumDibayar)
-      setTotalBelumDibayar(totalBelumDibayar)
+      console.log('Total hutang belum dibayar (semua tanggal):', totalAwal)
       return result
     } catch (error) {
       console.error('❌ Gagal ambil data hutang:', error)
@@ -256,6 +255,23 @@ function HalamanHutang() {
         jenis_transaksi: item.jenis_transaksi || 'Ambil Hutang'
       }
     })
+
+  // Hitung total belum dibayar mengikuti filterTanggal (tanggal transaksi)
+  const totalBelumDibayarDisplay = React.useMemo(() => {
+    try {
+      let data = hutang.filter((item) => item.status_bayar == 0)
+      if (filterTanggal) {
+        data = data.filter((item) => {
+          if (!item.tanggal_transaksi) return false
+          const tgl = dayjs(item.tanggal_transaksi).tz('Asia/Jakarta').format('YYYY-MM-DD')
+          return tgl === filterTanggal
+        })
+      }
+      return data.reduce((sum, item) => sum + Number(item.nominal_transaksi || 0), 0)
+    } catch (e) {
+      return 0
+    }
+  }, [hutang, filterTanggal])
   const handleCurrencyInputChange = (e, field) => {
     const value = e.target.value
     const numericValue = extractNumeric(value)
@@ -413,13 +429,14 @@ function HalamanHutang() {
           </div>
         ) : (
           <TableContent
-          info={`Total Hutang Belum Dibayar: ${formatRupiah(totalBelumDibayar)}`}
+          info={`Total Hutang Belum Dibayar${filterTanggal ? ` (${filterTanggal})` : ''}: ${formatRupiah(totalBelumDibayarDisplay)}`}
             title={'Hutang'}
             bayar={true}
             statusHutang={statusBayarMap}
             userRole={userRole}
             columns={columns}
             showDateFilter={true}
+            onDateChange={(date) => setFilterTanggal(date)}
             data={filteredData}
             onAdd={<FormLayout onSubmit={handleAddhutang} buttonText="Transaksi Hutang" />}
             onEdit={handleEdit}

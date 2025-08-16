@@ -1052,11 +1052,11 @@ app.whenReady().then(async () => {
       })
     })
 
-    ipcMain.handle('delete-hutang', (event, id) => {
+  ipcMain.handle('delete-hutang', (event, id) => {
       return new Promise((resolve, reject) => {
         // First get the record to be deleted so we can adjust the saldo
         db.get(
-          'SELECT platform_id, nominal_transaksi, biaya_admin, jenis_transaksi FROM hutang WHERE id = ?',
+      'SELECT platform_id, nominal_transaksi, biaya_admin, jenis_transaksi, status_bayar FROM hutang WHERE id = ?',
           [id],
           (err, record) => {
             if (err) {
@@ -1073,46 +1073,61 @@ app.whenReady().then(async () => {
                 // Start transaction
                 db.run('BEGIN TRANSACTION')
 
-                // Reverse the effect on saldo based on the transaction type
-                const wasAddition = record.jenis_transaksi === 'Ambil Hutang'
-                const reverseOperation = wasAddition ? '-' : '+'
+                const isPaid = Number(record.status_bayar) === 1
 
-                // Calculate total amount (transaction + admin fee)
-                const totalAmount = wasAddition
-                  ? parseFloat(record.nominal_transaksi)
-                  : parseFloat(record.nominal_transaksi) + parseFloat(record.biaya_admin || 0)
-
-                db.run(
-                  `UPDATE saldo_awal SET saldo = saldo ${reverseOperation} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
-                  [totalAmount, record.platform_id],
-                  function (err) {
+                const proceedDeleteOnly = () => {
+                  // Delete the hutang record without changing saldo
+                  db.run('DELETE FROM hutang WHERE id = ?', [id], function (err) {
                     if (err) {
                       db.run('ROLLBACK')
-                      console.error('❌ Error reversing saldo effect:', err)
+                      console.error('❌ Error deleting hutang record:', err)
                       return reject(err)
                     }
 
-                    // Delete the hutang record
-                    db.run('DELETE FROM hutang WHERE id = ?', [id], function (err) {
+                    // Commit transaction
+                    db.run('COMMIT', (err) => {
                       if (err) {
-                        db.run('ROLLBACK')
-                        console.error('❌ Error deleting hutang record:', err)
+                        console.error('❌ Error committing transaction:', err)
                         return reject(err)
                       }
 
-                      // Commit transaction
-                      db.run('COMMIT', (err) => {
-                        if (err) {
-                          console.error('❌ Error committing transaction:', err)
-                          return reject(err)
-                        }
-
-                        console.log('✅ Hutang deleted successfully and saldo adjusted')
-                        resolve({ changes: this.changes })
-                      })
+                      console.log(
+                        isPaid
+                          ? '✅ Hutang deleted successfully (paid record, no saldo change)'
+                          : '✅ Hutang deleted successfully and saldo adjusted'
+                      )
+                      resolve({ changes: this.changes })
                     })
-                  }
-                )
+                  })
+                }
+
+                if (isPaid) {
+                  // Already settled: net effect is zero; don't touch saldo
+                  proceedDeleteOnly()
+                } else {
+                  // Reverse the effect on saldo based on the transaction type
+                  const wasAddition = record.jenis_transaksi === 'Ambil Hutang'
+                  const reverseOperation = wasAddition ? '-' : '+'
+
+                  // Calculate total amount (transaction + admin fee)
+                  const totalAmount = wasAddition
+                    ? parseFloat(record.nominal_transaksi)
+                    : parseFloat(record.nominal_transaksi) + parseFloat(record.biaya_admin || 0)
+
+                  db.run(
+                    `UPDATE saldo_awal SET saldo = saldo ${reverseOperation} ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
+                    [totalAmount, record.platform_id],
+                    function (err) {
+                      if (err) {
+                        db.run('ROLLBACK')
+                        console.error('❌ Error reversing saldo effect:', err)
+                        return reject(err)
+                      }
+
+                      proceedDeleteOnly()
+                    }
+                  )
+                }
               })
             } catch (error) {
               console.error('❌ Transaction error in delete-hutang:', error)

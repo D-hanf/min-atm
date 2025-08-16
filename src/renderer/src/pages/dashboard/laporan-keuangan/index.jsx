@@ -238,7 +238,7 @@ const LaporanKeuangan = () => {
   }, [userRole, periodeSnapshot, periodeType])
 
   const transactionColumns = [
-    { key: 'tanggal', label: 'Tanggal' },
+    { key: 'tanggal_display', label: 'Tanggal' },
     { key: 'jenis_transaksi', label: 'Jenis Transaksi' },
     { key: 'nominal_transaksi', label: 'Nominal Keluar' },
     { key: 'nominal_masuk', label: 'Nominal Masuk' },
@@ -282,7 +282,8 @@ const LaporanKeuangan = () => {
           })
           .map((item) => ({
             ...item,
-    tanggal: formatTanggalTanpaDetik(item.tanggal),
+            // Display-only tanggal without seconds for the table
+            tanggal_display: formatTanggalTanpaDetik(item.tanggal),
             nominal_transaksi: formatRupiah(item.nominal_transaksi),
             nominal_masuk: formatRupiah(item.nominal_masuk),
             selisih_masuk_keluar: formatRupiah(
@@ -978,14 +979,8 @@ const LaporanKeuangan = () => {
                     return (
                       <tr key={row.id || idx} className="hover:bg-gray-50">
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {(row.waktu_simpan || row.waktu)
-                            ? (() => {
-                                const d = new Date(row.waktu_simpan || row.waktu)
-                                if (!isNaN(d.getTime())) {
-                                  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-                                }
-                                return row.waktu_simpan || row.waktu
-                              })()
+                          {row.waktu_simpan || row.waktu
+                            ? formatTanggalTanpaDetik(row.waktu_simpan || row.waktu)
                             : '-'}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-pre-wrap">
