@@ -39,6 +39,7 @@ function HalamanHutang() {
   const [confirmMessage, setConfirmMessage] = useState('')
   const [statusBayarMap, setStatusBayarMap] = useState({})
   const [selectedHutangId, setSelectedHutangId] = useState(null)
+  const [isEditingPaid, setIsEditingPaid] = useState(false)
   const [userRole, setUserRole] = useState(() => {
     const storedUser = JSON.parse(localStorage.getItem('user'))
     return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
@@ -198,6 +199,9 @@ function HalamanHutang() {
       keterangan: itemToEdit.keterangan || ''
     })
 
+  // Mark if the record is already paid to restrict transaction type in edit modal
+  setIsEditingPaid(itemToEdit.status_bayar === 1)
+
     const match = saldoAwalOptions.find((item) => item.id === itemToEdit.platform_id)
     setSelectedPlatform(match || null)
     setModalOpen(true)
@@ -307,7 +311,8 @@ function HalamanHutang() {
         platform_id: formData.platform_id,
         saldo_platform: parseFloat(formData.saldo_platform) || 0,
         nominal_transaksi: parseFloat(extractNumeric(formData.nominal_transaksi)) || 0,
-        jenis_transaksi: formData.jenis_transaksi,
+  // If editing a paid record, force 'Bayar Hutang' to align with backend delta logic
+  jenis_transaksi: isEditingPaid ? 'Bayar Hutang' : formData.jenis_transaksi,
         biaya_admin: parseFloat(extractNumeric(formData.biaya_admin) || 0),
   tanggal_transaksi: formattedDate,
         keterangan: formData.keterangan,
@@ -335,6 +340,9 @@ function HalamanHutang() {
     const itemToEdit = hutang.find((item) => item.id === id)
     setShowModalConfirm(true)
     if (!itemToEdit) return
+
+  // Keep selected id for submit handler clarity
+  setSelectedHutangId(id)
 
     const today = getTodayWIB() // Get today's date in WIB format
 
@@ -627,32 +635,50 @@ function HalamanHutang() {
             Jenis Transaksi
           </label>
           <div className="flex gap-4">
-            <label
-              className={`inline-flex items-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
-            >
-              <input
-                type="radio"
-                name="jenis_transaksi"
-                value="Ambil Hutang"
-                checked={formData.jenis_transaksi === 'Ambil Hutang'}
-                onChange={(e) => setFormData({ ...formData, jenis_transaksi: e.target.value })}
-                className="form-radio h-4 w-4 text-blue-600"
-              />
-              <span className="ml-2">Ambil Hutang</span>
-            </label>
-            <label
-              className={`inline-flex items-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
-            >
-              <input
-                type="radio"
-                name="jenis_transaksi"
-                value="Bayar Hutang"
-                checked={formData.jenis_transaksi === 'Bayar Hutang'}
-                onChange={(e) => setFormData({ ...formData, jenis_transaksi: e.target.value })}
-                className="form-radio h-4 w-4 text-blue-600"
-              />
-              <span className="ml-2">Bayar Hutang</span>
-            </label>
+            {isEditingPaid ? (
+              <label
+                className={`inline-flex items-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+              >
+                <input
+                  type="radio"
+                  name="jenis_transaksi"
+                  value="Bayar Hutang"
+                  checked
+                  readOnly
+                  className="form-radio h-4 w-4 text-blue-600"
+                />
+                <span className="ml-2">Bayar Hutang</span>
+              </label>
+            ) : (
+              <>
+                <label
+                  className={`inline-flex items-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+                >
+                  <input
+                    type="radio"
+                    name="jenis_transaksi"
+                    value="Ambil Hutang"
+                    checked={formData.jenis_transaksi === 'Ambil Hutang'}
+                    onChange={(e) => setFormData({ ...formData, jenis_transaksi: e.target.value })}
+                    className="form-radio h-4 w-4 text-blue-600"
+                  />
+                  <span className="ml-2">Ambil Hutang</span>
+                </label>
+                <label
+                  className={`inline-flex items-center ${isDark ? 'text-gray-300' : 'text-gray-700'}`}
+                >
+                  <input
+                    type="radio"
+                    name="jenis_transaksi"
+                    value="Bayar Hutang"
+                    checked={formData.jenis_transaksi === 'Bayar Hutang'}
+                    onChange={(e) => setFormData({ ...formData, jenis_transaksi: e.target.value })}
+                    className="form-radio h-4 w-4 text-blue-600"
+                  />
+                  <span className="ml-2">Bayar Hutang</span>
+                </label>
+              </>
+            )}
           </div>
         </div>
 

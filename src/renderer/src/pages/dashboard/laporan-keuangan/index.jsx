@@ -1069,19 +1069,29 @@ const LaporanKeuangan = () => {
                 >
                   Sebelumnya
                 </button>
-                {Array.from({ length: logTotalPages }, (_, i) => i + 1).map((num) => (
-                  <button
-                    key={num}
-                    onClick={() => setLogCurrentPage(num)}
-                    className={`px-3 py-1 rounded text-sm ${
-                      num === logCurrentPage
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    {num}
-                  </button>
-                ))}
+                {(() => {
+                  const maxVisible = 5
+                  let start = Math.max(1, logCurrentPage - Math.floor(maxVisible / 2))
+                  let end = Math.min(logTotalPages, start + maxVisible - 1)
+                  if (end - start + 1 < maxVisible) {
+                    start = Math.max(1, end - maxVisible + 1)
+                  }
+                  const pages = []
+                  for (let p = start; p <= end; p++) pages.push(p)
+                  return pages.map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => setLogCurrentPage(num)}
+                      className={`px-3 py-1 rounded text-sm ${
+                        num === logCurrentPage
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))
+                })()}
                 <button
                   onClick={() => setLogCurrentPage((prev) => Math.min(prev + 1, logTotalPages))}
                   disabled={logCurrentPage === logTotalPages}

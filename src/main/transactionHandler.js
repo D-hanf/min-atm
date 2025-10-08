@@ -51,6 +51,7 @@ export function createTransaksi(_event, data) {
       metode_pembayaran = '',
       keterangan = '',
       biaya_admin,
+      biaya_admin_bank,
       nama_pelanggan = '',
       nomor_tujuan = ''
     } = data
@@ -58,7 +59,10 @@ export function createTransaksi(_event, data) {
 
     const nominal = parseFloat(nominal_transaksi) || 0
     const feeTransaksi = parseFloat(fee) || 0
-    const biayaAdminFinal = parseFloat(biaya_admin) || 0
+    // Fallback: accept either biaya_admin (preferred) or biaya_admin_bank from payload
+    const biayaAdminFinal = parseFloat(
+      (biaya_admin ?? biaya_admin_bank ?? 0)
+    ) || 0
 
     const randomSuffix = Math.floor(10000 + Math.random() * 9000)
     const datetimePart = new Date()

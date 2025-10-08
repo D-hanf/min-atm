@@ -69,7 +69,7 @@ const HalamanTransaksi = () => {
     nominal_transaksi: 0,
     fee: 0,
     metode_pembayaran: '',
-    biaya_admin_bank: 0,
+  biaya_admin: 0,
     saldo_akhir: 0,
     keterangan: '',
     nama_pelanggan: '',
@@ -182,7 +182,7 @@ const HalamanTransaksi = () => {
       const formatted = data.map((item) => {
         const nominal = Number(item.nominal_transaksi || 0)
         const fee = Number(item.fee || 0)
-        const adminBank = Number(item.biaya_admin_bank || 0)
+        const adminBank = Number(item.biaya_admin_bank || item.biaya_admin || 0)
         const saldoAwal = Number(item.saldo_awal || 0)
         const jenis = item.jenis_transaksi?.toLowerCase() || ''
         const metode = item.tipe_transaksi?.toLowerCase() || ''
@@ -225,7 +225,7 @@ const HalamanTransaksi = () => {
           fee: formatRupiah(fee),
           metode_pembayaran: Number(item.metode_pembayaran) || null,
           metode_pembayaran_nama: getNamaSumberDanaById(item.metode_pembayaran) || '-',
-          biaya_admin_bank: formatRupiah(adminBank),
+          biaya_admin: formatRupiah(adminBank),
           saldo_akhir: formatRupiah(final),
           keterangan: item.keterangan || '-'
         }
@@ -255,7 +255,7 @@ const HalamanTransaksi = () => {
     { key: 'saldo_awal', label: 'Saldo Awal' },
     { key: 'nominal_transaksi', label: 'Nominal' },
     { key: 'fee', label: 'Fee' },
-    { key: 'biaya_admin_bank', label: 'Adm Bank' },
+  { key: 'biaya_admin', label: 'Adm Bank' },
     { key: 'saldo_akhir', label: 'Saldo Akhir' },
     { key: 'terima_dana_nama', label: 'Terima Dana' },
     { key: 'metode_pembayaran_nama', label: 'Pembayaran Fee' },
@@ -342,7 +342,7 @@ const HalamanTransaksi = () => {
   saldo_awal: parseRupiah(transactionToEdit.saldo_awal),
       nominal_transaksi: parseRupiah(transactionToEdit.nominal_transaksi),
       fee: parseRupiah(transactionToEdit.fee),
-      biaya_admin_bank: parseRupiah(transactionToEdit.biaya_admin_bank),
+      biaya_admin: parseRupiah(transactionToEdit.biaya_admin || transactionToEdit.biaya_admin_bank),
       saldo_akhir: parseRupiah(transactionToEdit.saldo_akhir),
       metode_pembayaran: transactionToEdit.metode_pembayaran || ''
     }

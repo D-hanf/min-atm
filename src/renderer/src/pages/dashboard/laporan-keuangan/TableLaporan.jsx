@@ -108,21 +108,31 @@ const TableContent = ({
         >
           Sebelumnya
         </button>
-        {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
-          <button
-            key={num}
-            onClick={() => setCurrentPage(num)}
-            className={`px-3 py-1 rounded text-sm ${
-              num === currentPage
-                ? 'bg-blue-500 text-white'
-                : isDark
-                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            {num}
-          </button>
-        ))}
+        {(() => {
+          const maxVisible = 5
+          let start = Math.max(1, currentPage - Math.floor(maxVisible / 2))
+          let end = Math.min(totalPages, start + maxVisible - 1)
+          if (end - start + 1 < maxVisible) {
+            start = Math.max(1, end - maxVisible + 1)
+          }
+          const pages = []
+          for (let p = start; p <= end; p++) pages.push(p)
+          return pages.map((num) => (
+            <button
+              key={num}
+              onClick={() => setCurrentPage(num)}
+              className={`px-3 py-1 rounded text-sm ${
+                num === currentPage
+                  ? 'bg-blue-500 text-white'
+                  : isDark
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {num}
+            </button>
+          ))
+        })()}
         <button
           onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
           disabled={currentPage === totalPages}

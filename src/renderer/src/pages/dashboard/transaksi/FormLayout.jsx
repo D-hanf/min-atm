@@ -119,7 +119,7 @@ const FormLayout = ({
         saldo_awal: 0,
         nominal_transaksi: 0,
         fee: 0,
-        biaya_admin_bank: 0,
+        biaya_admin: 0,
         saldo_akhir: 0,
         keterangan: ''
       })
