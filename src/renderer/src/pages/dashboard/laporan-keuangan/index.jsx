@@ -907,6 +907,7 @@ const LaporanKeuangan = () => {
         {periodeType === 'bulanan' ? (
           <TableContent
             data={filteredData}
+            showJenisTransaksiFilter={true}
             showDateFilter={true}
             columns={transactionColumns}
             title="Laporan Keuangan"

@@ -206,7 +206,8 @@ const HalamanAwalSaldo = () => {
     .map((item) => ({
       ...item,
       saldo: formatRupiah(item.saldo),
-      biaya_admin: formatRupiah(item.biaya_admin)
+      biaya_admin: formatRupiah(item.biaya_admin),
+      sumber_dana: item.nama_sumber_dana // Add for filter compatibility
     }))
 
   return (
@@ -231,6 +232,7 @@ const HalamanAwalSaldo = () => {
 
       <div>
         <TableContent
+        showSumberDanaFilter={true}
           searchValue={filterText}
           onSearchChange={setFilterText}
           data={filteredData}

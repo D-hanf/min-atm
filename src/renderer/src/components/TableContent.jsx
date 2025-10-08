@@ -26,15 +26,30 @@ const TableContent = ({
   btnSize,
   searchValue = '',
   userRole = 'admin',
-  showDateFilter = false // << TAMBAHAN DI SINI
+  showDateFilter = false,
+  showSumberDanaFilter = false,
+  showJenisTransaksiFilter = false,
+  onSumberDanaChange = () => {},
+  onJenisTransaksiChange = () => {}
 }) => {
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedDate, setSelectedDate] = useState('')
+  const [selectedSumberDana, setSelectedSumberDana] = useState('')
+  const [selectedJenisTransaksi, setSelectedJenisTransaksi] = useState('')
   const itemsPerPage = 20
   const { isDark } = useTheme()
+
+  // Get unique values for filter options
+  const uniqueSumberDana = [...new Set(data.map(item => 
+    item.sumber_dana || item.platform_name || item.sumber_nama || ''
+  ).filter(Boolean))]
+  
+  const uniqueJenisTransaksi = [...new Set(data.map(item => 
+    item.jenis_transaksi || ''
+  ).filter(Boolean))]
 
   useEffect(() => {
     const userString = localStorage.getItem('user')
@@ -69,7 +84,7 @@ const TableContent = ({
     }
     onStatus(id)
   }
-  // Filtering berdasarkan tanggal dan search
+  // Filtering berdasarkan tanggal, sumber dana, jenis transaksi dan search
   const DataItems = data
   const filteredData = DataItems.filter((item) => {
     const rawDate = item.tanggal || item.tanggal_pengambilan || ''
@@ -77,11 +92,19 @@ const TableContent = ({
 
     const matchDate = showDateFilter && selectedDate ? itemDate === selectedDate : true
 
+    const matchSumberDana = showSumberDanaFilter && selectedSumberDana 
+      ? (item.sumber_dana || item.platform_name || item.sumber_nama || '') === selectedSumberDana
+      : true
+
+    const matchJenisTransaksi = showJenisTransaksiFilter && selectedJenisTransaksi
+      ? (item.jenis_transaksi || '') === selectedJenisTransaksi
+      : true
+
     const matchSearch = searchValue
       ? JSON.stringify(item).toLowerCase().includes(searchValue.toLowerCase())
       : true
 
-    return matchDate && matchSearch
+    return matchDate && matchSumberDana && matchJenisTransaksi && matchSearch
   })
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage)
@@ -171,6 +194,48 @@ const TableContent = ({
                   }}
                   className={`border rounded px-2 py-1 text-sm ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
                 />
+              </div>
+            )}
+            {showSumberDanaFilter && (
+              <div className="flex flex-col">
+                <label className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                  Filter Sumber Dana
+                </label>
+                <select
+                  value={selectedSumberDana}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setSelectedSumberDana(value)
+                    onSumberDanaChange(value)
+                  }}
+                  className={`border rounded px-2 py-1 text-sm ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                >
+                  <option value="">Semua Sumber Dana</option>
+                  {uniqueSumberDana.map(sumber => (
+                    <option key={sumber} value={sumber}>{sumber}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {showJenisTransaksiFilter && (
+              <div className="flex flex-col">
+                <label className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                  Filter Jenis Transaksi
+                </label>
+                <select
+                  value={selectedJenisTransaksi}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setSelectedJenisTransaksi(value)
+                    onJenisTransaksiChange(value)
+                  }}
+                  className={`border rounded px-2 py-1 text-sm ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                >
+                  <option value="">Semua Jenis Transaksi</option>
+                  {uniqueJenisTransaksi.map(jenis => (
+                    <option key={jenis} value={jenis}>{jenis}</option>
+                  ))}
+                </select>
               </div>
             )}
             <div className="flex-1 max-w-xs">

@@ -355,7 +355,8 @@ const HalamanAmbilSaldo = () => {
         petugas_pengambil_id: petugasName,
         saldo_platform: formatRupiah(item.saldo_platform),
         nominal_pengambilan: formatRupiah(item.nominal_pengambilan),
-        biaya_admin: formatRupiah(item.biaya_admin)
+        biaya_admin: formatRupiah(item.biaya_admin),
+        sumber_dana: item.platform // Add for filter compatibility
       }
     })
   const columns = [
@@ -393,6 +394,7 @@ const HalamanAmbilSaldo = () => {
       
          <TableContent
               searchValue={filterText}
+              showSumberDanaFilter={true}
               onSearchChange={setFilterText}
               btnSize={'xs'}
               data={filteredData}

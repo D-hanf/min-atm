@@ -256,7 +256,8 @@ function HalamanHutang() {
         saldo_platform: formatRupiah(item.saldo_platform),
         nominal_transaksi: formatRupiah(item.nominal_transaksi),
         biaya_admin: formatRupiah(item.biaya_admin),
-        jenis_transaksi: item.jenis_transaksi || 'Ambil Hutang'
+        jenis_transaksi: item.jenis_transaksi || 'Ambil Hutang',
+        sumber_dana: item.platform_name // Add for filter compatibility
       }
     })
 
@@ -440,6 +441,7 @@ function HalamanHutang() {
           info={`Total Hutang Belum Dibayar${filterTanggal ? ` (${filterTanggal})` : ''}: ${formatRupiah(totalBelumDibayarDisplay)}`}
             title={'Hutang'}
             bayar={true}
+            showSumberDanaFilter={true}
             statusHutang={statusBayarMap}
             userRole={userRole}
             columns={columns}

@@ -380,9 +380,10 @@ const HalamanTransaksi = () => {
     setEditingTransaction(null)
   }
 
-  const filteredData = transactions.filter((item) =>
-    Object.values(item).some((val) => String(val).toLowerCase().includes(filterText.toLowerCase()))
-  )
+  const filteredData = transactions
+    .filter((item) =>
+      Object.values(item).some((val) => String(val).toLowerCase().includes(filterText.toLowerCase()))
+    )
   const printRef = useRef(null)
 
   const printSummaryOnly = () => {
@@ -502,6 +503,8 @@ const HalamanTransaksi = () => {
         info={`Total Transaksi: ${transactions.length}`}
         btnSize={'xs'}
         userRole={userRole}
+        showJenisTransaksiFilter={true}
+        showSumberDanaFilter={true}
         showDateFilter={true}
         onDelete={handleDelete}
         onEdit={handleTransactionEdit}
