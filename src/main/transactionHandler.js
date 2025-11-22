@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import db from './db'
+import db, { saveAssetSnapshot, calculateTotalAssets } from './db'
 import timezone from 'dayjs/plugin/timezone'
 import utc from 'dayjs/plugin/utc'
 
@@ -196,7 +196,29 @@ export function createTransaksi(_event, data) {
             }
 
             Promise.all(updateQueries)
-              .then(() => resolve({ id: transaksi_id, no_transaksi }))
+              .then(async () => {
+                // 📊 Otomatis simpan snapshot aset setelah transaksi berhasil
+                try {
+                  const totalAsset = await calculateTotalAssets()
+                  const snapshotData = {
+                    tanggal: dayjs(tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD'),
+                    waktu_transaksi: dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
+                    total_aset: totalAsset,
+                    transaksi_id: transaksi_id,
+                    keterangan: `Snapshot otomatis setelah ${jenis_transaksi} - ${no_transaksi}`,
+                    user_role: data.user_role || 'kasir',
+                    user_name: data.user_name || 'System'
+                  }
+                  
+                  await saveAssetSnapshot(snapshotData)
+                  console.log('✅ Asset snapshot saved for transaction:', no_transaksi)
+                } catch (snapshotErr) {
+                  console.error('⚠️ Gagal simpan asset snapshot:', snapshotErr)
+                  // Tidak reject karena transaksi utama sudah berhasil
+                }
+                
+                resolve({ id: transaksi_id, no_transaksi })
+              })
               .catch(reject)
           }
         }

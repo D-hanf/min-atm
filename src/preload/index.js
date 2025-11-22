@@ -72,7 +72,13 @@ const api = {
   createTransaksi: (data) => ipcRenderer.invoke('create-transaksi', data),
   editTransaksi: (data) => ipcRenderer.invoke('edit-transaksi', data),
   deleteTransaksi: (id) => ipcRenderer.invoke('delete-transaksi', id),
-  getTransaksiSummary: (role) => ipcRenderer.invoke('get-transaksi-summary', role)
+  getTransaksiSummary: (role) => ipcRenderer.invoke('get-transaksi-summary', role),
+
+  // asset snapshots
+  getAssetSnapshots: () => ipcRenderer.invoke('get-asset-snapshots'),
+  saveAssetSnapshot: (data) => ipcRenderer.invoke('save-asset-snapshot', data),
+  deleteAssetSnapshot: (id) => ipcRenderer.invoke('delete-asset-snapshot', id),
+  calculateTotalAssets: () => ipcRenderer.invoke('calculate-total-assets')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

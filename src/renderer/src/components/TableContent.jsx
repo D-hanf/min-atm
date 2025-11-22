@@ -18,6 +18,7 @@ const TableContent = ({
   onAdd = () => {},
   onSearchChange = () => {},
   showView = false,
+  hidden = true,
   editDelete = true,
   title,
   statusHutang,
@@ -29,8 +30,12 @@ const TableContent = ({
   showDateFilter = false,
   showSumberDanaFilter = false,
   showJenisTransaksiFilter = false,
+  showTerimaDanaFilter = false,
+  showPembayarFeeFilter = false,
   onSumberDanaChange = () => {},
-  onJenisTransaksiChange = () => {}
+  onJenisTransaksiChange = () => {},
+  onTerimaDanaChange = () => {},
+  onPembayarFeeChange = () => {}
 }) => {
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
@@ -39,6 +44,8 @@ const TableContent = ({
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedSumberDana, setSelectedSumberDana] = useState('')
   const [selectedJenisTransaksi, setSelectedJenisTransaksi] = useState('')
+  const [selectedTerimaDana, setSelectedTerimaDana] = useState('')
+  const [selectedPembayarFee, setSelectedPembayarFee] = useState('')
   const itemsPerPage = 20
   const { isDark } = useTheme()
 
@@ -49,6 +56,14 @@ const TableContent = ({
   
   const uniqueJenisTransaksi = [...new Set(data.map(item => 
     item.jenis_transaksi || ''
+  ).filter(Boolean))]
+
+  const uniqueTerimaDana = [...new Set(data.map(item => 
+    item.terima_dana_nama || ''
+  ).filter(Boolean))]
+
+  const uniquePembayarFee = [...new Set(data.map(item => 
+    item.metode_pembayaran_nama || ''
   ).filter(Boolean))]
 
   useEffect(() => {
@@ -84,7 +99,7 @@ const TableContent = ({
     }
     onStatus(id)
   }
-  // Filtering berdasarkan tanggal, sumber dana, jenis transaksi dan search
+  // Filtering berdasarkan tanggal, sumber dana, jenis transaksi, terima dana, pembayar fee dan search
   const DataItems = data
   const filteredData = DataItems.filter((item) => {
     const rawDate = item.tanggal || item.tanggal_pengambilan || ''
@@ -100,11 +115,19 @@ const TableContent = ({
       ? (item.jenis_transaksi || '') === selectedJenisTransaksi
       : true
 
+    const matchTerimaDana = showTerimaDanaFilter && selectedTerimaDana
+      ? (item.terima_dana_nama || '') === selectedTerimaDana
+      : true
+
+    const matchPembayarFee = showPembayarFeeFilter && selectedPembayarFee
+      ? (item.metode_pembayaran_nama || '') === selectedPembayarFee
+      : true
+
     const matchSearch = searchValue
       ? JSON.stringify(item).toLowerCase().includes(searchValue.toLowerCase())
       : true
 
-    return matchDate && matchSumberDana && matchJenisTransaksi && matchSearch
+    return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchSearch
   })
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage)
@@ -178,77 +201,134 @@ const TableContent = ({
             </h2>
             <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{info}</p>
           </div>
-          <div className="flex flex-wrap gap-3 w-full sm:w-auto items-center justify-end">
-            {showDateFilter && (
-              <div className="flex flex-col">
-                <label className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Filter Tanggal
-                </label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setSelectedDate(e.target.value)
-                    onDateChange(value)
-                  }}
-                  className={`border rounded px-2 py-1 text-sm ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
-                />
-              </div>
+          <div className="flex items-center gap-3">
+            {onAdd && (
+              <div className="flex">{typeof onAdd === 'function' ? onAdd() : onAdd}</div>
             )}
-            {showSumberDanaFilter && (
-              <div className="flex flex-col">
-                <label className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Filter Sumber Dana
-                </label>
-                <select
-                  value={selectedSumberDana}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setSelectedSumberDana(value)
-                    onSumberDanaChange(value)
-                  }}
-                  className={`border rounded px-2 py-1 text-sm ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
-                >
-                  <option value="">Semua Sumber Dana</option>
-                  {uniqueSumberDana.map(sumber => (
-                    <option key={sumber} value={sumber}>{sumber}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {showJenisTransaksiFilter && (
-              <div className="flex flex-col">
-                <label className={`text-xs ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Filter Jenis Transaksi
-                </label>
-                <select
-                  value={selectedJenisTransaksi}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setSelectedJenisTransaksi(value)
-                    onJenisTransaksiChange(value)
-                  }}
-                  className={`border rounded px-2 py-1 text-sm ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
-                >
-                  <option value="">Semua Jenis Transaksi</option>
-                  {uniqueJenisTransaksi.map(jenis => (
-                    <option key={jenis} value={jenis}>{jenis}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="flex-1 max-w-xs">
+          </div>
+        </div>
+
+        {/* Filters Section */}
+        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter) && (
+          <div className={`p-4 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-25'}`}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 mb-4">
+              {showDateFilter && (
+                <div className="flex flex-col min-w-0">
+                  <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Filter Tanggal
+                  </label>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSelectedDate(e.target.value)
+                      onDateChange(value)
+                    }}
+                    className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                  />
+                </div>
+              )}
+              {showSumberDanaFilter && (
+                <div className="flex flex-col min-w-0">
+                  <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Filter Sumber Dana
+                  </label>
+                  <select
+                    value={selectedSumberDana}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSelectedSumberDana(value)
+                      onSumberDanaChange(value)
+                    }}
+                    className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                  >
+                    <option value="">Semua Sumber Dana</option>
+                    {uniqueSumberDana.map(sumber => (
+                      <option key={sumber} value={sumber}>{sumber}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {showJenisTransaksiFilter && (
+                <div className="flex flex-col min-w-0">
+                  <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Filter Jenis Transaksi
+                  </label>
+                  <select
+                    value={selectedJenisTransaksi}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSelectedJenisTransaksi(value)
+                      onJenisTransaksiChange(value)
+                    }}
+                    className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                  >
+                    <option value="">Semua Jenis Transaksi</option>
+                    {uniqueJenisTransaksi.map(jenis => (
+                      <option key={jenis} value={jenis}>{jenis}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {showTerimaDanaFilter && (
+                <div className="flex flex-col min-w-0">
+                  <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Filter Terima Dana
+                  </label>
+                  <select
+                    value={selectedTerimaDana}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSelectedTerimaDana(value)
+                      onTerimaDanaChange(value)
+                    }}
+                    className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                  >
+                    <option value="">Semua Terima Dana</option>
+                    {uniqueTerimaDana.map(terima => (
+                      <option key={terima} value={terima}>{terima}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {showPembayarFeeFilter && (
+                <div className="flex flex-col min-w-0">
+                  <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Filter Pembayar Fee
+                  </label>
+                  <select
+                    value={selectedPembayarFee}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSelectedPembayarFee(value)
+                      onPembayarFeeChange(value)
+                    }}
+                    className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                  >
+                    <option value="">Semua Pembayar Fee</option>
+                    {uniquePembayarFee.map(pembayar => (
+                      <option key={pembayar} value={pembayar}>{pembayar}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+            
+            {/* Search Field - Full width below filters */}
+            <div className="w-full">
+              <label className={`text-xs font-medium mb-1 block ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                Pencarian
+              </label>
               <SearchField
-                placeholder="Cari Data"
-                className={`w-full border ${isDark ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-300'} rounded-lg px-3 py-2`}
+                placeholder="Cari data..."
+                className={`w-full border focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white'} rounded-md px-3 py-2`}
                 value={searchValue}
                 onChange={(e) => onSearchChange?.(e.target.value)}
               />
             </div>
-            <div>{onAdd}</div>
           </div>
-        </div>
+        )}
 
         {/* Table */}
         <div className="overflow-x-auto">
@@ -325,7 +405,8 @@ const TableContent = ({
                       )}
                       {editDelete && (
                         <>
-                          <ButtonInput
+                          {hidden &&(
+                            <ButtonInput
                             color="yellow"
                             size={btnSize}
                             onClick={() => handleEdit(item.id)}
@@ -333,6 +414,7 @@ const TableContent = ({
                             <HiPencilSquare className="mr-1" size={16} />
                             Edit
                           </ButtonInput>
+                          )}
                           <ButtonInput
                             color="red"
                             size={btnSize}

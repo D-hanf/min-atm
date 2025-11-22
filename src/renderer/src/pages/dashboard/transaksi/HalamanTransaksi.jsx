@@ -299,7 +299,15 @@ const HalamanTransaksi = () => {
 
   const submitTransaction = async (data) => {
     try {
-      const normalized = { ...data, tanggal: toDbDateTime(data.tanggal) }
+      const storedUser = JSON.parse(localStorage.getItem('user'))
+      console.log('🔍 Stored user data:', storedUser) // Debug log
+      const normalized = { 
+        ...data, 
+        tanggal: toDbDateTime(data.tanggal),
+        user_role: storedUser?.role || 'kasir',
+        user_name: storedUser?.name || storedUser?.username || storedUser?.fullName || 'System'
+      }
+      console.log('🔍 User info being sent:', { user_role: normalized.user_role, user_name: normalized.user_name }) // Debug log
       const newTransaction = await window.api.createTransaksi(normalized)
       // console.log('✅ Transaksi berhasil:', newTransaction)
 
@@ -505,6 +513,8 @@ const HalamanTransaksi = () => {
         userRole={userRole}
         showJenisTransaksiFilter={true}
         showSumberDanaFilter={true}
+        showTerimaDanaFilter={true}
+        showPembayarFeeFilter={true}
         showDateFilter={true}
         onDelete={handleDelete}
         onEdit={handleTransactionEdit}

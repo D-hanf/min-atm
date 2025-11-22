@@ -1,0 +1,191 @@
+import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus, HiTrash } from 'react-icons/hi'
+import React, { us, useCallback, useEffect, useRef, useState } from 'react'
+
+import ConfirmDialog from '../../../../components/ConfirmDialog'
+import PageContainer from '../../../../components/PageContainer'
+import TableContent from '../../../../components/TableContent'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
+import { useTheme } from '../../../../context/ThemeContext'
+import utc from 'dayjs/plugin/utc'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
+
+const LaporanAset = () => {
+  const { isDark } = useTheme()
+  const [assetSnapshots, setAssetSnapshots] = useState([])
+  const [filterText, setFilterText] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [currentTotalAsset, setCurrentTotalAsset] = useState(0)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [selectedSnapshot, setSelectedSnapshot] = useState(null)
+  const [userRole, setUserRole] = useState(() => {
+    const storedUser = JSON.parse(localStorage.getItem('user'))
+    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
+  })
+
+  const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+  const toDisplayDateTime = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : val || '')
+
+  const formatRupiah = (value) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0
+    }).format(value)
+  }
+
+  const fetchAssetSnapshots = async () => {
+    try {
+      setIsLoading(true)
+      const snapshots = await window.api.getAssetSnapshots()
+      
+      if (snapshots && snapshots.length > 0) {
+        // Urutkan berdasarkan waktu terbaru
+        const sortedSnapshots = snapshots.sort((a, b) => 
+          new Date(b.waktu_transaksi || b.tanggal) - new Date(a.waktu_transaksi || a.tanggal)
+        )
+        setAssetSnapshots(sortedSnapshots)
+      } else {
+        setAssetSnapshots([])
+      }
+    } catch (error) {
+      console.error('❌ Gagal mengambil snapshot aset:', error)
+      setAssetSnapshots([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const fetchCurrentTotalAsset = async () => {
+    try {
+      const total = await window.api.calculateTotalAssets()
+      setCurrentTotalAsset(total || 0)
+    } catch (error) {
+      console.error('❌ Gagal mengambil total aset:', error)
+      setCurrentTotalAsset(0)
+    }
+  }
+
+
+  
+  const handleDeleteSnapshot = async (snapshotId) => {
+    try {
+      console.log('🔄 Menghapus snapshot dengan ID:', snapshotId)
+      setIsLoading(true)
+      
+      const result = await window.api.deleteAssetSnapshot(snapshotId)
+      console.log('✅ Result hapus snapshot:', result)
+      
+      // Refresh data setelah hapus
+      console.log('🔄 Refresh data setelah hapus...')
+      await fetchAssetSnapshots()
+      
+      setShowDeleteDialog(false)
+      setSelectedSnapshot(null)
+    } catch (error) {
+      console.error('❌ Gagal menghapus snapshot:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDelete = (snapshotId) => {
+    console.log('🔍 ID snapshot yang akan dihapus:', snapshotId)
+    // Cari data snapshot berdasarkan ID
+    const snapshot = assetSnapshots.find(s => s.id === snapshotId)
+    console.log('🔍 Data snapshot ditemukan:', snapshot)
+    setSelectedSnapshot(snapshot)
+    setShowDeleteDialog(true)
+  }
+  
+  const confirmDelete = (snapshot) => {
+    setSelectedSnapshot(snapshot)
+    setShowDeleteDialog(true)
+  }
+
+  useEffect(() => {
+    const loadData = async () => {
+      await fetchCurrentTotalAsset()
+      await fetchAssetSnapshots()
+    }
+    loadData()
+  }, [])
+  // Format data untuk tampilan tabel
+  const formattedSnapshots = assetSnapshots.map(snapshot => ({
+    ...snapshot,
+    tanggalFormatted: toDisplayDateTime(snapshot.waktu_transaksi || snapshot.tanggal),
+    totalAsetFormatted: formatRupiah(snapshot.total_aset || snapshot.totalAset || 0),
+    transaksiInfo: snapshot.transaksi_id ? `Transaksi #${snapshot.transaksi_id}` : 'Manual',
+    keteranganInfo: snapshot.keterangan || '-',
+    userInfo: `${snapshot.user_name || 'System'} (${snapshot.user_role || 'kasir'})`,
+    roleOnly: snapshot.user_role || 'kasir',
+    actions: (
+      <div className="flex justify-center">
+        <button
+          onClick={() => confirmDelete(snapshot)}
+          className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
+            isDark 
+              ? 'bg-red-600 hover:bg-red-700 text-white border border-red-500 hover:border-red-600' 
+              : 'bg-red-500 hover:bg-red-600 text-white border border-red-400 hover:border-red-500'
+          } hover:scale-105 active:scale-95 shadow-sm hover:shadow-md`}
+          disabled={isLoading}
+          title="Hapus snapshot ini"
+        >
+          <HiTrash className="w-4 h-4" />
+          <span>Hapus</span>
+        </button>
+      </div>
+    )
+  }))
+
+  const columns = [
+    { key: 'tanggalFormatted', label: 'Tanggal & Waktu' },
+    { key: 'totalAsetFormatted', label: 'Total Aset Keseluruhan' },
+    { key: 'transaksiInfo', label: 'Sumber' },
+    { key: 'keteranganInfo', label: 'Keterangan' },
+    { key: 'userInfo', label: 'Pengguna' },
+    { key: 'actions', label: 'Aksi' }
+  ]
+  return (
+    <PageContainer title="Laporan Aset" subtitle="Daftar snapshot total aset">
+
+      {isLoading ? (
+        <div className={`text-center py-8 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          <p>Memuat data snapshot aset...</p>
+        </div>
+      ) : (
+        <TableContent 
+          data={formattedSnapshots}
+          columns={columns}
+          title={'Riwayat Snapshot Total Aset'}
+          info={`Total Snapshot: ${assetSnapshots.length} records`}
+          btnSize={'xs'}
+          userRole={userRole}
+          showDateFilter={true}
+          searchValue={filterText}
+          onSearchChange={setFilterText}
+          onDelete={handleDelete}
+          hidden={false}
+        />
+      )}
+
+      {/* Dialog Konfirmasi Hapus */}
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        onClose={() => {
+          setShowDeleteDialog(false)
+          setSelectedSnapshot(null)
+        }}
+        onConfirm={() => handleDeleteSnapshot(selectedSnapshot?.id)}
+        title="Hapus Snapshot Aset"
+        message={`Apakah Anda yakin ingin menghapus snapshot tanggal ${selectedSnapshot?.tanggalFormatted || selectedSnapshot?.tanggal || ''} dengan total aset ${selectedSnapshot ? formatRupiah(selectedSnapshot.total_aset || selectedSnapshot.totalAset || 0) : ''}?`}
+        confirmText="Hapus"
+        cancelText="Batal"
+        type="danger"
+      />
+    </PageContainer>
+  )
+}
+export default LaporanAset

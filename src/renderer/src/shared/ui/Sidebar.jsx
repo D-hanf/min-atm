@@ -66,9 +66,20 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             ]
           : []),
         {
-          label: 'Transaksi',
-          icon: <HiOutlineShoppingBag size={18} />,
-          to: '/dashboard/transaksi'
+          ...isAdmin
+          ? {
+              label: 'Transaksi',
+              icon: <HiOutlineShoppingBag size={18} />,
+              hasSubmenu: true,
+              submenu: [
+                { label: 'Halaman Transaksi', to: '/dashboard/transaksi' },
+                ...(isAdmin ? [{ label: 'Laporan Aset', to: '/dashboard/transaksi/laporan-aset' }] : []),
+              ]
+          } : {
+              label: 'Transaksi',
+              icon: <HiOutlineShoppingBag size={18} />,
+              to: '/dashboard/transaksi',
+              }
         },
         {
           label: 'Kelola Data',

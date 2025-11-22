@@ -2301,6 +2301,52 @@ app.whenReady().then(async () => {
         return { success: false, error: error.message }
       }
     })
+
+    // 📊 ASSET SNAPSHOTS IPC HANDLERS
+    ipcMain.handle('get-asset-snapshots', async () => {
+      try {
+        const { getAssetSnapshots } = await import('./db.js')
+        const snapshots = await getAssetSnapshots()
+        console.log('📊 Fetched asset snapshots:', snapshots.length)
+        return snapshots
+      } catch (error) {
+        console.error('❌ Error get-asset-snapshots:', error)
+        return []
+      }
+    })
+
+    ipcMain.handle('save-asset-snapshot', async (event, data) => {
+      try {
+        const { saveAssetSnapshot } = await import('./db.js')
+        const result = await saveAssetSnapshot(data)
+        return result
+      } catch (error) {
+        console.error('❌ Error save-asset-snapshot:', error)
+        throw error
+      }
+    })
+
+    ipcMain.handle('delete-asset-snapshot', async (event, id) => {
+      try {
+        const { deleteAssetSnapshot } = await import('./db.js')
+        const result = await deleteAssetSnapshot(id)
+        return result
+      } catch (error) {
+        console.error('❌ Error delete-asset-snapshot:', error)
+        throw error
+      }
+    })
+
+    ipcMain.handle('calculate-total-assets', async () => {
+      try {
+        const { calculateTotalAssets } = await import('./db.js')
+        const total = await calculateTotalAssets()
+        return total
+      } catch (error) {
+        console.error('❌ Error calculate-total-assets:', error)
+        return 0
+      }
+    })
   })
   await updateSchema()
 

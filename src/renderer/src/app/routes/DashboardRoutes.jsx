@@ -13,6 +13,7 @@ import { HalamanTema } from '../../pages/dashboard/tema' // Import the theme pag
 import { HalamanTransaksi } from '../../pages/dashboard/transaksi'
 import KelolaToko from '../../pages/dashboard/kelolaToko/KelolaToko'
 import Keuntungan from '../../pages/dashboard/laporan-keuangan/Keuntungan'
+import LaporanAset from '../../pages/dashboard/transaksi/laporan-aset'
 import LaporanKeuangan from '../../pages/dashboard/laporan-keuangan'
 import LoginForm from '../../pages/Login'
 import React from 'react'
@@ -27,6 +28,7 @@ const DashboardRoutes = () => {
       <Route path="/dashboard" element={<DashboardLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="transaksi" element={<HalamanTransaksi />} />
+        <Route path="transaksi/laporan-aset" element={<LaporanAset />} />
         <Route path="pindah-saldo" element={<HalamanPindahSaldo />} />
         <Route path="ambil-saldo" element={<HalamanAmbilSaldo />} />
         <Route path="saldo-awal" element={<HalamanAwalSaldo />} />
