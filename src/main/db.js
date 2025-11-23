@@ -68,6 +68,10 @@ export async function updateSchema() {
     const results = await Promise.all([
       addColumnIfNotExists('transaksi', 'nama_pelanggan', 'TEXT'),
       addColumnIfNotExists('transaksi', 'nomor_tujuan', 'TEXT'),
+      
+      // Kolom untuk tracking edit transaksi
+      addColumnIfNotExists('transaksi', 'is_edited', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('transaksi', 'edited_at', 'DATETIME'),
 
       // Tambahan kolom tanggal di tabel yang kamu minta
       addColumnIfNotExists('pindah_saldo', 'tanggal', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
@@ -149,6 +153,25 @@ export function deleteAssetSnapshot(id) {
           success: true,
           changes: this.changes,
           message: 'Snapshot berhasil dihapus'
+        })
+      }
+    })
+  })
+}
+
+// Menghapus semua snapshot aset
+export function deleteAllAssetSnapshots() {
+  return new Promise((resolve, reject) => {
+    db.run('DELETE FROM asset_snapshots', [], function(err) {
+      if (err) {
+        console.error('❌ Error deleteAllAssetSnapshots:', err)
+        reject(err)
+      } else {
+        console.log('✅ All asset snapshots deleted, changes:', this.changes)
+        resolve({
+          success: true,
+          changes: this.changes,
+          message: `${this.changes} snapshot berhasil dihapus`
         })
       }
     })

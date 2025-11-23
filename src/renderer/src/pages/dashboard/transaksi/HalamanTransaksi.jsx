@@ -30,12 +30,30 @@ const HalamanTransaksi = () => {
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
   const [transactions, setTransactions] = useState([]) // Awalnya kosong, akan diisi dari DB
+  const [showOnlyEdited, setShowOnlyEdited] = useState(false)
+  const [showEmptyBalanceAlert, setShowEmptyBalanceAlert] = useState(true)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [userRole, setUserRole] = useState(() => {
     const storedUser = JSON.parse(localStorage.getItem('user'))
     return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
+  })
+
+  // State untuk melacak kasir yang print dan logic lock
+  const [isTransactionLocked, setIsTransactionLocked] = useState(() => {
+    const currentUser = JSON.parse(localStorage.getItem('user'))
+    const lockedKasirId = localStorage.getItem('locked_kasir_id')
+    
+    // Jika admin, tidak pernah lock
+    if (currentUser?.role?.toLowerCase() === 'admin') return false
+    
+    // Jika ada kasir yang terkunci dan ID sama dengan user saat ini
+    if (lockedKasirId && currentUser?.id && lockedKasirId === currentUser.id.toString()) {
+      return true
+    }
+    
+    return false
   })
 
   const [formData, setFormData] = useState({
@@ -98,7 +116,35 @@ const HalamanTransaksi = () => {
   useEffect(() => {
     fetchToko()
     fetchFundSources()
+    
+    // Cek lock status saat komponen mount
+    checkTransactionLock()
   }, [])
+
+  // Fungsi untuk cek apakah transaksi harus di-lock
+  const checkTransactionLock = () => {
+    const currentUser = JSON.parse(localStorage.getItem('user'))
+    const lockedKasirId = localStorage.getItem('locked_kasir_id')
+    
+    console.log('🔍 Check lock - Current user:', currentUser?.id, 'Role:', currentUser?.role)
+    console.log('🔍 Check lock - Locked kasir ID:', lockedKasirId)
+    
+    // Admin tidak pernah kena lock
+    if (currentUser?.role?.toLowerCase() === 'admin') {
+      console.log('👤 Admin login - No lock applied')
+      setIsTransactionLocked(false)
+      return
+    }
+    
+    // Jika ada kasir yang terkunci dan ID sama dengan user saat ini
+    if (lockedKasirId && currentUser?.id && lockedKasirId === currentUser.id.toString()) {
+      console.log('🔒 Same kasir as locked - Transaction locked')
+      setIsTransactionLocked(true)
+    } else {
+      console.log('🔓 Different kasir or no lock - Transaction unlocked')
+      setIsTransactionLocked(false)
+    }
+  }
   const [currentDate, setCurrentDate] = useState(getTodayWIB())
 
   useEffect(() => {
@@ -227,7 +273,9 @@ const HalamanTransaksi = () => {
           metode_pembayaran_nama: getNamaSumberDanaById(item.metode_pembayaran) || '-',
           biaya_admin: formatRupiah(adminBank),
           saldo_akhir: formatRupiah(final),
-          keterangan: item.keterangan || '-'
+          keterangan: item.keterangan || '-',
+          is_edited: !!item.is_edited,
+          edited_at: item.edited_at || null
         }
       })
 
@@ -370,13 +418,11 @@ const HalamanTransaksi = () => {
 
       // console.log('✅ Transaksi berhasil diedit:', result)
 
-      // Ambil ulang data transaksi setelah edit
-      const updatedTransactions = await window.api.getTransaksi(userRole)
-      setTransactions(updatedTransactions)
+      // Ambil ulang data transaksi setelah edit (is_edited sudah diset di backend)
+      await fetchTransaksi()
 
       setShowEditModal(false)
       setEditingTransaction(null)
-      fetchTransaksi()
       fetchFundSources()
     } catch (error) {
       console.error('❌ Gagal mengedit transaksi:', error)
@@ -392,6 +438,7 @@ const HalamanTransaksi = () => {
     .filter((item) =>
       Object.values(item).some((val) => String(val).toLowerCase().includes(filterText.toLowerCase()))
     )
+    .filter((item) => (showOnlyEdited ? !!item.is_edited : true))
   const printRef = useRef(null)
 
   const printSummaryOnly = () => {
@@ -447,6 +494,15 @@ const HalamanTransaksi = () => {
     } catch (err) {
       console.error('❌ Gagal simpan summary sebelum print:', err)
     } finally {
+      // Lock kasir setelah print (kecuali admin)
+      const currentUser = JSON.parse(localStorage.getItem('user'))
+      if (currentUser && currentUser.role !== 'admin') {
+        localStorage.setItem('locked_kasir_id', currentUser.id.toString())
+        console.log('🔒 Kasir terkunci setelah print:', currentUser.id)
+        // Trigger recheck untuk update UI
+        checkTransactionLock()
+      }
+      
       // Tetap lanjutkan proses print meski simpan gagal
       printSummaryOnly()
     }
@@ -454,6 +510,20 @@ const HalamanTransaksi = () => {
 
   return (
     <PageContainer title="Transaksi">
+      {isTransactionLocked && (
+        <div className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🔒</span>
+            <div>
+              <strong>Transaksi Terkunci!</strong>
+              <p className="text-sm mt-1">
+                Kasir ID {localStorage.getItem('locked_kasir_id')} telah mencetak laporan. 
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
@@ -462,9 +532,15 @@ const HalamanTransaksi = () => {
             </h1>
           </div>
           <div className="flex gap-6 max-w-xs">
-            <ButtonInput size="xs" color={'indigo'} onClick={handleSaveSummaryAndPrint}>
+            <ButtonInput 
+              size="xs" 
+              color={isTransactionLocked ? 'gray' : 'indigo'} 
+              onClick={isTransactionLocked ? undefined : handleSaveSummaryAndPrint}
+              disabled={isTransactionLocked}
+              title={isTransactionLocked ? 'Transaksi terkunci - kasir lain harus login untuk membuka' : ''}
+            >
               <IoMdPrint size={20} />
-              Print
+              {isTransactionLocked ? 'Terkunci' : 'Print'}
             </ButtonInput>
           </div>
         </div>
@@ -492,23 +568,33 @@ const HalamanTransaksi = () => {
 
       {emptyBalances.length > 0 && (
         <div
-          className={`${isDark ? 'bg-yellow-900 border-yellow-800 text-yellow-200' : 'bg-yellow-100 border-yellow-300 text-yellow-800'} border px-4 py-3 rounded mb-4 mx-4`}
+          className={`${isDark ? 'bg-yellow-900 border-yellow-800 text-yellow-200' : 'bg-yellow-100 border-yellow-300 text-yellow-800'} border px-4 py-3 rounded mb-4 mx-4 transition-all duration-300 ease-in-out`}
         >
-          <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya hampir
-          habis/kosong:
-          <ul className="list-disc list-inside ml-4 mt-1">
-            {emptyBalances.map((item) => (
-              <li key={item.id}>{item.nama_sumber_dana}</li>
-            ))}
-          </ul>
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowEmptyBalanceAlert(!showEmptyBalanceAlert)}>
+            <div>
+              <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya hampir habis/kosong
+            </div>
+            <button className={`ml-2 text-lg transform transition-transform duration-300 ${showEmptyBalanceAlert ? 'rotate-180' : 'rotate-0'}`}>
+              ▼
+            </button>
+          </div>
+          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showEmptyBalanceAlert ? 'max-h-96 opacity-100 mt-2' : 'max-h-0 opacity-0 mt-0'}`}>
+            <ul className="list-disc list-inside ml-4">
+              {emptyBalances.map((item) => (
+                <li key={item.id}>{item.nama_sumber_dana}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
+
+
 
       <TableContent
         data={filteredData}
         columns={transactionColumns}
         title={'Data Transaksi'}
-        info={`Total Transaksi: ${transactions.length}`}
+        info={`Total Transaksi: ${transactions.length}${isTransactionLocked ? ' (Terkunci - kasir lain harus login)' : ''}`}
         btnSize={'xs'}
         userRole={userRole}
         showJenisTransaksiFilter={true}
@@ -516,22 +602,25 @@ const HalamanTransaksi = () => {
         showTerimaDanaFilter={true}
         showPembayarFeeFilter={true}
         showDateFilter={true}
-        onDelete={handleDelete}
-        onEdit={handleTransactionEdit}
+        showEditedFilter={true}
+        onDelete={isTransactionLocked ? null : handleDelete}
+        onEdit={isTransactionLocked ? null : handleTransactionEdit}
         onAdd={
-          <FormLayout
-            onValidChange={setFormValid}
-            onSubmit={submitTransaction}
-            buttonText="Tambah Transaksi"
-            formType="transaction"
-            initialData={transactionFormData}
-          />
+          isTransactionLocked ? null : (
+            <FormLayout
+              onValidChange={setFormValid}
+              onSubmit={submitTransaction}
+              buttonText="Tambah Transaksi"
+              formType="transaction"
+              initialData={transactionFormData}
+            />
+          )
         }
         searchValue={filterText}
         onSearchChange={setFilterText}
       />
 
-      {showEditModal && editingTransaction && (
+      {showEditModal && editingTransaction && !isTransactionLocked && (
         <div>
           <FormLayout
             onSubmit={handleEditSubmit}

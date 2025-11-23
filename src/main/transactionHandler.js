@@ -1,5 +1,6 @@
+import db, { calculateTotalAssets, saveAssetSnapshot } from './db'
+
 import dayjs from 'dayjs'
-import db, { saveAssetSnapshot, calculateTotalAssets } from './db'
 import timezone from 'dayjs/plugin/timezone'
 import utc from 'dayjs/plugin/utc'
 
@@ -375,4 +376,37 @@ export async function getTransaksiSummary(role) {
     bankAdmin: biayaAdmin,
     ...(role === 'admin' && { profit }) // hanya dikembalikan jika admin
   }
+}
+
+// Edit transaksi dengan menandai sebagai edited
+export function editTransaksi(_event, { id, data }) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Pertama, rollback transaksi lama
+      await deleteTransaksi(_event, id)
+      
+      // Kemudian buat transaksi baru dengan data yang diupdate
+      const result = await createTransaksi(_event, data)
+      
+      // Update transaksi baru untuk menandai bahwa ini adalah hasil edit
+      const updateEditQuery = `
+        UPDATE transaksi 
+        SET is_edited = 1, edited_at = datetime('now', 'localtime')
+        WHERE id = ?
+      `
+      
+      db.run(updateEditQuery, [result.id], function(err) {
+        if (err) {
+          console.error('❌ Error marking transaction as edited:', err)
+          reject(err)
+        } else {
+          console.log('✅ Transaction marked as edited:', result.id)
+          resolve(result)
+        }
+      })
+    } catch (error) {
+      console.error('❌ Error in editTransaksi:', error)
+      reject(error)
+    }
+  })
 }

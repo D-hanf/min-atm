@@ -21,6 +21,14 @@ const LoginCard = () => {
       if (result.success) {
         const user = result.user
         localStorage.setItem('user', JSON.stringify(user))
+        
+        // Reset kasir lock jika user yang login berbeda dengan yang terkunci
+        const lockedKasirId = localStorage.getItem('locked_kasir_id')
+        if (lockedKasirId && lockedKasirId !== user.id.toString()) {
+          localStorage.removeItem('locked_kasir_id')
+          console.log('🔓 Lock kasir direset karena kasir berbeda login:', user.id)
+        }
+        
         setError('')
 
         if (user.role === 'admin') {

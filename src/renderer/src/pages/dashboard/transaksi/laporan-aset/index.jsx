@@ -20,6 +20,7 @@ const LaporanAset = () => {
   const [currentTotalAsset, setCurrentTotalAsset] = useState(0)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedSnapshot, setSelectedSnapshot] = useState(null)
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false)
   const [userRole, setUserRole] = useState(() => {
     const storedUser = JSON.parse(localStorage.getItem('user'))
     return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
@@ -105,6 +106,26 @@ const LaporanAset = () => {
     setShowDeleteDialog(true)
   }
 
+  const handleDeleteAll = async () => {
+    try {
+      console.log('🔄 Menghapus semua snapshot...')
+      setIsLoading(true)
+      
+      const result = await window.api.deleteAllAssetSnapshots()
+      console.log('✅ Result hapus semua snapshot:', result)
+      
+      // Refresh data setelah hapus
+      console.log('🔄 Refresh data setelah hapus semua...')
+      await fetchAssetSnapshots()
+      
+      setShowDeleteAllDialog(false)
+    } catch (error) {
+      console.error('❌ Gagal menghapus semua snapshot:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
     const loadData = async () => {
       await fetchCurrentTotalAsset()
@@ -150,6 +171,25 @@ const LaporanAset = () => {
   ]
   return (
     <PageContainer title="Laporan Aset" subtitle="Daftar snapshot total aset">
+      
+      {/* Tombol Delete All */}
+      {assetSnapshots.length > 0 && (
+        <div className="flex justify-end mb-4 px-4">
+          <button
+            onClick={() => setShowDeleteAllDialog(true)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              isDark 
+                ? 'bg-red-600 hover:bg-red-700 text-white border border-red-500 hover:border-red-600' 
+                : 'bg-red-500 hover:bg-red-600 text-white border border-red-400 hover:border-red-500'
+            } hover:scale-105 active:scale-95 shadow-sm hover:shadow-md`}
+            disabled={isLoading}
+            title="Hapus semua data laporan aset"
+          >
+            <HiTrash className="w-4 h-4" />
+            <span>Delete All ({assetSnapshots.length})</span>
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className={`text-center py-8 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
@@ -182,6 +222,18 @@ const LaporanAset = () => {
         title="Hapus Snapshot Aset"
         message={`Apakah Anda yakin ingin menghapus snapshot tanggal ${selectedSnapshot?.tanggalFormatted || selectedSnapshot?.tanggal || ''} dengan total aset ${selectedSnapshot ? formatRupiah(selectedSnapshot.total_aset || selectedSnapshot.totalAset || 0) : ''}?`}
         confirmText="Hapus"
+        cancelText="Batal"
+        type="danger"
+      />
+
+      {/* Dialog Konfirmasi Delete All */}
+      <ConfirmDialog
+        isOpen={showDeleteAllDialog}
+        onClose={() => setShowDeleteAllDialog(false)}
+        onConfirm={handleDeleteAll}
+        title="Hapus Semua Data Laporan Aset"
+        message={`Apakah Anda yakin ingin menghapus SEMUA data laporan aset? Total ${assetSnapshots.length} snapshot akan dihapus secara permanen dan tidak dapat dikembalikan.`}
+        confirmText="Hapus Semua"
         cancelText="Batal"
         type="danger"
       />

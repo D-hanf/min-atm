@@ -78,6 +78,7 @@ const api = {
   getAssetSnapshots: () => ipcRenderer.invoke('get-asset-snapshots'),
   saveAssetSnapshot: (data) => ipcRenderer.invoke('save-asset-snapshot', data),
   deleteAssetSnapshot: (id) => ipcRenderer.invoke('delete-asset-snapshot', id),
+  deleteAllAssetSnapshots: () => ipcRenderer.invoke('delete-all-asset-snapshots'),
   calculateTotalAssets: () => ipcRenderer.invoke('calculate-total-assets')
 }
 

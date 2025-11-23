@@ -32,10 +32,12 @@ const TableContent = ({
   showJenisTransaksiFilter = false,
   showTerimaDanaFilter = false,
   showPembayarFeeFilter = false,
+  showEditedFilter = false,
   onSumberDanaChange = () => {},
   onJenisTransaksiChange = () => {},
   onTerimaDanaChange = () => {},
-  onPembayarFeeChange = () => {}
+  onPembayarFeeChange = () => {},
+  onEditedFilterChange = () => {}
 }) => {
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
@@ -46,6 +48,7 @@ const TableContent = ({
   const [selectedJenisTransaksi, setSelectedJenisTransaksi] = useState('')
   const [selectedTerimaDana, setSelectedTerimaDana] = useState('')
   const [selectedPembayarFee, setSelectedPembayarFee] = useState('')
+  const [selectedEditedFilter, setSelectedEditedFilter] = useState('')
   const itemsPerPage = 20
   const { isDark } = useTheme()
 
@@ -65,6 +68,10 @@ const TableContent = ({
   const uniquePembayarFee = [...new Set(data.map(item => 
     item.metode_pembayaran_nama || ''
   ).filter(Boolean))]
+
+  // Hitung jumlah transaksi yang pernah diedit
+  const editedCount = data.filter(item => item.is_edited || item.edited).length
+  const totalCount = data.length
 
   useEffect(() => {
     const userString = localStorage.getItem('user')
@@ -123,11 +130,16 @@ const TableContent = ({
       ? (item.metode_pembayaran_nama || '') === selectedPembayarFee
       : true
 
+    const matchEditedFilter = showEditedFilter && selectedEditedFilter
+      ? (selectedEditedFilter === 'edited' ? !!(item.is_edited || item.edited) : 
+         selectedEditedFilter === 'not-edited' ? !(item.is_edited || item.edited) : true)
+      : true
+
     const matchSearch = searchValue
       ? JSON.stringify(item).toLowerCase().includes(searchValue.toLowerCase())
       : true
 
-    return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchSearch
+    return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchSearch
   })
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage)
@@ -209,7 +221,7 @@ const TableContent = ({
         </div>
 
         {/* Filters Section */}
-        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter) && (
+        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter || showEditedFilter) && (
           <div className={`p-4 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-25'}`}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 mb-4">
               {showDateFilter && (
@@ -313,6 +325,30 @@ const TableContent = ({
                   </select>
                 </div>
               )}
+              {showEditedFilter && (
+                <div className="flex flex-col min-w-0">
+                  <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Filter Data Edit {editedCount > 0 && (
+                      <span className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 ml-2 rounded-full text-xs font-bold ${isDark ? 'bg-yellow-500 text-yellow-900' : 'bg-yellow-400 text-yellow-900'}`}>
+                        {editedCount}
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    value={selectedEditedFilter}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSelectedEditedFilter(value)
+                      onEditedFilterChange(value)
+                    }}
+                    className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                  >
+                    <option value="">Semua Data</option>
+                    <option value="edited">Hanya Yang Diedit ({editedCount})</option>
+                    <option value="not-edited">Belum Diedit ({totalCount - editedCount})</option>
+                  </select>
+                </div>
+              )}
             </div>
             
             {/* Search Field - Full width below filters */}
@@ -367,7 +403,7 @@ const TableContent = ({
               {currentData.map((item, index) => (
                 <tr
                   key={item.id ?? index}
-                  className={isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}
+                  className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} ${item.is_edited || item.edited ? (isDark ? 'bg-yellow-900 text-yellow-200' : 'bg-yellow-50') : ''}`}
                 >
                   {editDelete && (
                     <td

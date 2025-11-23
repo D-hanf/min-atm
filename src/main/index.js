@@ -2,6 +2,7 @@ import { BrowserWindow, app, screen } from 'electron'
 import {
   createTransaksi,
   deleteTransaksi,
+  editTransaksi,
   getTransaksi,
   getTransaksiSummary
 } from './transactionHandler.js'
@@ -2274,17 +2275,11 @@ app.whenReady().then(async () => {
       return await deleteTransaksi(_event, id)
     })
 
-    // EDIT TRANSAKSI (Rollback + Update baru)
-    // EDIT TRANSAKSI (Rollback + Update baru)
+    // EDIT TRANSAKSI (Rollback + Update baru + Mark as edited)
     ipcMain.handle('edit-transaksi', async (_event, { id, data }) => {
       try {
-        // Hapus transaksi lama + rollback saldo
-        await deleteTransaksi(_event, id)
-        console.log('📦 metode_pembayaran dikirim ke createTransaksi:', data.metode_pembayaran)
-
-        // Tambahkan transaksi baru (dengan ID berbeda dan saldo baru)
-        const result = await createTransaksi(_event, data)
-
+        console.log('📦 metode_pembayaran dikirim ke editTransaksi:', data.metode_pembayaran)
+        const result = await editTransaksi(_event, { id, data })
         return result // Berisi id & no_transaksi baru
       } catch (error) {
         console.error('❌ Gagal edit transaksi:', error)
@@ -2333,6 +2328,17 @@ app.whenReady().then(async () => {
         return result
       } catch (error) {
         console.error('❌ Error delete-asset-snapshot:', error)
+        throw error
+      }
+    })
+
+    ipcMain.handle('delete-all-asset-snapshots', async () => {
+      try {
+        const { deleteAllAssetSnapshots } = await import('./db.js')
+        const result = await deleteAllAssetSnapshots()
+        return result
+      } catch (error) {
+        console.error('❌ Error delete-all-asset-snapshots:', error)
         throw error
       }
     })
