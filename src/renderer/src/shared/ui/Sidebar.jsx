@@ -6,7 +6,8 @@ import {
   HiOutlineCube,
   HiOutlineHome,
   HiOutlineShoppingBag,
-  HiOutlineSwatch
+  HiOutlineSwatch,
+  HiOutlineViewColumns
 } from 'react-icons/hi2'
 import { Link, useLocation } from 'react-router-dom'
 import React, { useEffect, useState } from 'react'
@@ -71,10 +72,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           to: '/dashboard/transaksi'
         },
         {
-          label: "Semua transaksi",
-          icon: <HiOutlineShoppingBag size={18} />,
-          to: '/dashboard/transaksi/semua-transaksi'
+          label: "Koreksi transaksi",
+          icon: <HiOutlineViewColumns size={18} />,
+          to: '/dashboard/koreksi-transaksi'
         },
+        {
+          label: "Semua transaksi",
+          icon: <HiOutlineViewColumns size={18} />,
+          to: '/dashboard/semua-transaksi'
+        },
+        
         {
           label: 'Kelola Data',
           icon: <HiOutlineCube size={18} />,

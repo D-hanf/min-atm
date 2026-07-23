@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react'
 
-import PageContainer from '../../../../components/PageContainer'
-import TableContent from '../../../../components/TableContent'
+import PageContainer from '../../../components/PageContainer'
+import TableContent from '../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
 import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
+const user = JSON.parse(localStorage.getItem('user'))
 
 const formatRupiah = (value) =>
 	new Intl.NumberFormat('id-ID', {
@@ -27,7 +28,7 @@ const asArray = (value) => (Array.isArray(value) ? value : [])
 const normalizeJenisTransaksi = (value) => {
 	const text = (value || '').toString().toLowerCase()
 	if (!text) return '-'
-	if (text.includes('jasa')) return 'jasa tf'
+	if (text.includes('jasa')) return 'jasa transfer'
 	if (text.includes('tarik')) return 'tarik tunai'
 	if (text.includes('mode pulsa')) return 'mode pulsa'
 	if (text.includes('transfer')) return 'transfer'
@@ -39,18 +40,17 @@ const normalizeJenisTransaksi = (value) => {
 
 const parseMoney = (value) => Number(String(value || 0).replace(/[^0-9]/g, '')) || 0
 
-const SemuaTransaksi = () => {
-	const [userRole, setUserRole] = useState('kasir')
+const KoreksiTransaksi = () => {
+	const [userRole] = useState(() => {
+		const storedUser = JSON.parse(localStorage.getItem('user'))
+		return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
+	})
 	const [isLoading, setIsLoading] = useState(true)
 	const [loadError, setLoadError] = useState('')
 	const [searchValue, setSearchValue] = useState('')
 	const [rows, setRows] = useState([])
-
-	useEffect(() => {
-		const storedUser = JSON.parse(localStorage.getItem('user'))
-		setUserRole(storedUser?.role ? storedUser.role.toLowerCase() : 'kasir')
-	}, [])
-
+    const isAdmin = user?.role === 'admin'
+    console.log('User role:', user?.role, 'isAdmin:', isAdmin)
 	useEffect(() => {
 		const fetchAll = async () => {
 			try {
@@ -135,8 +135,8 @@ const SemuaTransaksi = () => {
 
 				setRows(mergedRows)
 			} catch (error) {
-				console.error('❌ Gagal memuat data gabungan:', error)
-				setLoadError('Gagal memuat data gabungan.')
+				console.error('❌ Gagal memuat data:', error)
+				setLoadError('Gagal memuat data.')
 			} finally {
 				setIsLoading(false)
 			}
@@ -146,7 +146,48 @@ const SemuaTransaksi = () => {
 	}, [userRole])
 
 	const totalRows = useMemo(() => rows.length, [rows.length])
+	const summaryCards = useMemo(() => {
+		const isTransaksi = (jenis) => ['tarik tunai', 'transfer', 'jasa transfer', 'mode pulsa'].includes(jenis)
+		const transaksiRows = rows.filter((row) => isTransaksi((row.jenis_transaksi || row.jenis || '').toLowerCase()))
+		const hutangRows = rows.filter((row) => (row.jenis_transaksi || row.jenis) === 'hutang')
+		const mutasiSaldoRows = rows.filter((row) => ['pindah saldo', 'ambil saldo'].includes((row.jenis_transaksi || row.jenis || '').toLowerCase()))
 
+		return [
+			{
+				label: 'Total Data',
+				value: rows.length,
+				subtitle: 'Semua pencatatan gabungan',
+				tone: 'from-slate-900 via-slate-800 to-slate-700'
+			},
+			{
+				label: 'Transaksi',
+				value: transaksiRows.length,
+				subtitle: `Nominal ${formatRupiah(transaksiRows.reduce((sum, row) => sum + parseMoney(row.nominal), 0))}`,
+				tone: 'from-blue-700 via-blue-600 to-cyan-500'
+			},
+			{
+				label: 'Hutang',
+				value: hutangRows.length,
+				subtitle: `Nominal ${formatRupiah(hutangRows.reduce((sum, row) => sum + parseMoney(row.nominal), 0))}`,
+				tone: 'from-amber-700 via-amber-600 to-orange-500'
+			},
+			{
+				label: 'Mutasi Saldo',
+				value: mutasiSaldoRows.length,
+				subtitle: `Nominal ${formatRupiah(mutasiSaldoRows.reduce((sum, row) => sum + parseMoney(row.nominal), 0))}`,
+				tone: 'from-emerald-700 via-emerald-600 to-teal-500'
+			}
+		]
+	}, [rows])
+
+    const handleEdit = (row) => {
+        // Implement the edit functionality here
+        console.log('Edit row:', row);
+    }
+    const handleDelete = (row) => {
+        // Implement the delete functionality here
+        console.log('Delete row:', row);
+    }
 	return (
 		<PageContainer title="Semua Transaksi">
 			<div className="px-4 pb-6">
@@ -154,6 +195,19 @@ const SemuaTransaksi = () => {
 					<p className="text-sm text-gray-500">
 						Semua informasi transaksi, hutang, pindah saldo, dan ambil saldo.
 					</p>
+				</div>
+
+				<div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+					{summaryCards.map((card) => (
+						<div
+							key={card.label}
+							className={`rounded-2xl bg-gradient-to-br ${card.tone} p-4 text-white shadow-md`}
+						>
+							<div className="text-sm/5 opacity-80">{card.label}</div>
+							<div className="mt-2 text-2xl font-semibold">{card.value}</div>
+							<div className="mt-1 text-xs opacity-80">{card.subtitle}</div>
+						</div>
+					))}
 				</div>
 
 				{loadError && (
@@ -164,7 +218,7 @@ const SemuaTransaksi = () => {
 
 				{isLoading ? (
 					<div className="rounded-lg border bg-white px-4 py-10 text-center text-gray-600">
-						Memuat data gabungan...
+						Memuat data...
 					</div>
 				) : (
 					<TableContent
@@ -178,13 +232,15 @@ const SemuaTransaksi = () => {
 							{ key: 'sumber_dana', label: 'Sumber Dana' },
 							{ key: 'tujuan_dana', label: 'Tujuan Dana' }
 						]}
-						
+						onEdit={isAdmin ? handleEdit : null}
+                        onDelete={isAdmin ? handleDelete : null}
 						info={`Total data: ${totalRows}`}
 						btnSize="xs"
+                        marked={true}
 						userRole={userRole}
 						searchValue={searchValue}
 						onSearchChange={setSearchValue}
-						editDelete={false}
+						editDelete={isAdmin ? true : false}
 						showDateFilter
 						showSumberDanaFilter
 						showJenisTransaksiFilter
@@ -195,4 +251,4 @@ const SemuaTransaksi = () => {
 	)
 }
 
-export default SemuaTransaksi
+export default KoreksiTransaksi

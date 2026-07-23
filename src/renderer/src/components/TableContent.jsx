@@ -1,13 +1,13 @@
-import { HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
-import React, { useEffect, useState } from 'react'
+import { HiBookmark, HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react'
 
 import AlertDialog from './AlertDialog'
 import ButtonInput from './ButtonInput'
 import { FaCheck } from 'react-icons/fa6'
 import SearchField from './SearchField'
-import { useTheme } from '../context/ThemeContext'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useTheme } from '../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
@@ -26,6 +26,7 @@ const TableContent = ({
   showView = false,
   hidden = true,
   editDelete = true,
+  marked = false,
   title,
   statusHutang,
   bayar = false,
@@ -57,26 +58,29 @@ const TableContent = ({
   const [selectedEditedFilter, setSelectedEditedFilter] = useState('')
   const itemsPerPage = 20
   const { isDark } = useTheme()
+  const deferredSearchValue = useDeferredValue(searchValue)
 
-  // Get unique values for filter options
-  const uniqueSumberDana = [...new Set(data.map(item => 
-    item.sumber_dana || item.platform_name || item.sumber_nama || ''
-  ).filter(Boolean))]
-  
-  const uniqueJenisTransaksi = [...new Set(data.map(item => 
-    item.jenis_transaksi || ''
-  ).filter(Boolean))]
+  const uniqueSumberDana = useMemo(
+    () => [...new Set(data.map((item) => item.sumber_dana || item.platform_name || item.sumber_nama || '').filter(Boolean))],
+    [data]
+  )
 
-  const uniqueTerimaDana = [...new Set(data.map(item => 
-    item.terima_dana_nama || ''
-  ).filter(Boolean))]
+  const uniqueJenisTransaksi = useMemo(
+    () => [...new Set(data.map((item) => item.jenis_transaksi || '').filter(Boolean))],
+    [data]
+  )
 
-  const uniquePembayarFee = [...new Set(data.map(item => 
-    item.metode_pembayaran_nama || ''
-  ).filter(Boolean))]
+  const uniqueTerimaDana = useMemo(
+    () => [...new Set(data.map((item) => item.terima_dana_nama || '').filter(Boolean))],
+    [data]
+  )
 
-  // Hitung jumlah transaksi yang pernah diedit
-  const editedCount = data.filter(item => item.is_edited || item.edited).length
+  const uniquePembayarFee = useMemo(
+    () => [...new Set(data.map((item) => item.metode_pembayaran_nama || '').filter(Boolean))],
+    [data]
+  )
+
+  const editedCount = useMemo(() => data.filter((item) => item.is_edited || item.edited).length, [data])
   const totalCount = data.length
 
   useEffect(() => {
@@ -112,49 +116,102 @@ const TableContent = ({
     }
     onStatus(id)
   }
-  // Filtering berdasarkan tanggal, sumber dana, jenis transaksi, terima dana, pembayar fee dan search
-  const DataItems = data
-  const filteredData = DataItems.filter((item) => {
-    const rawDate = item.tanggal || item.tanggal_pengambilan || ''
-    // Perbaikan: gunakan dayjs dengan timezone WIB untuk konsistensi
-    const itemDate = rawDate && dayjs(rawDate).isValid() 
-      ? dayjs(rawDate).tz('Asia/Jakarta').format('YYYY-MM-DD') 
-      : ''
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [
+    data,
+    deferredSearchValue,
+    selectedDate,
+    selectedSumberDana,
+    selectedJenisTransaksi,
+    selectedTerimaDana,
+    selectedPembayarFee,
+    selectedEditedFilter,
+    showDateFilter,
+    showSumberDanaFilter,
+    showJenisTransaksiFilter,
+    showTerimaDanaFilter,
+    showPembayarFeeFilter,
+    showEditedFilter
+  ])
 
-    const matchDate = showDateFilter && selectedDate ? itemDate === selectedDate : true
+  const filteredData = useMemo(() => {
+    const query = deferredSearchValue.trim().toLowerCase()
 
-    const matchSumberDana = showSumberDanaFilter && selectedSumberDana 
-      ? (item.sumber_dana || item.platform_name || item.sumber_nama || '').toLowerCase() === (selectedSumberDana || '').toLowerCase()
-      : true
+    return data.filter((item) => {
+      const rawDate = item.tanggal || item.tanggal_pengambilan || ''
+      const itemDate = rawDate && dayjs(rawDate).isValid()
+        ? dayjs(rawDate).tz('Asia/Jakarta').format('YYYY-MM-DD')
+        : ''
 
-    const matchJenisTransaksi = showJenisTransaksiFilter && selectedJenisTransaksi
-      ? (item.jenis_transaksi || '').toLowerCase() === (selectedJenisTransaksi || '').toLowerCase()
-      : true
+      const matchDate = showDateFilter && selectedDate ? itemDate === selectedDate : true
+      const matchSumberDana = showSumberDanaFilter && selectedSumberDana
+        ? (item.sumber_dana || item.platform_name || item.sumber_nama || '').toLowerCase() === (selectedSumberDana || '').toLowerCase()
+        : true
+      const matchJenisTransaksi = showJenisTransaksiFilter && selectedJenisTransaksi
+        ? (item.jenis_transaksi || '').toLowerCase() === (selectedJenisTransaksi || '').toLowerCase()
+        : true
+      const matchTerimaDana = showTerimaDanaFilter && selectedTerimaDana
+        ? (item.terima_dana_nama || '').toLowerCase() === (selectedTerimaDana || '').toLowerCase()
+        : true
+      const matchPembayarFee = showPembayarFeeFilter && selectedPembayarFee
+        ? (item.metode_pembayaran_nama || '').toLowerCase() === (selectedPembayarFee || '').toLowerCase()
+        : true
+      const matchEditedFilter = showEditedFilter && selectedEditedFilter
+        ? (selectedEditedFilter === 'edited'
+            ? !!(item.is_edited || item.edited)
+            : selectedEditedFilter === 'not-edited'
+              ? !(item.is_edited || item.edited)
+              : true)
+        : true
+      const matchSearch = query
+        ? [
+            item.tanggal,
+            item.tanggal_pengambilan,
+            item.sumber_dana,
+            item.platform_name,
+            item.sumber_nama,
+            item.jenis_transaksi,
+            item.terima_dana_nama,
+            item.metode_pembayaran_nama,
+            item.keterangan,
+            item.deskripsi,
+            item.oleh,
+            item.nama,
+            item.user_name
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+            .includes(query)
+        : true
 
-    const matchTerimaDana = showTerimaDanaFilter && selectedTerimaDana
-      ? (item.terima_dana_nama || '').toLowerCase() === (selectedTerimaDana || '').toLowerCase()
-      : true
+      return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchSearch
+    })
+  }, [
+    data,
+    deferredSearchValue,
+    selectedDate,
+    selectedSumberDana,
+    selectedJenisTransaksi,
+    selectedTerimaDana,
+    selectedPembayarFee,
+    selectedEditedFilter,
+    showDateFilter,
+    showSumberDanaFilter,
+    showJenisTransaksiFilter,
+    showTerimaDanaFilter,
+    showPembayarFeeFilter,
+    showEditedFilter
+  ])
 
-    const matchPembayarFee = showPembayarFeeFilter && selectedPembayarFee
-      ? (item.metode_pembayaran_nama || '').toLowerCase() === (selectedPembayarFee || '').toLowerCase()
-      : true
-
-    const matchEditedFilter = showEditedFilter && selectedEditedFilter
-      ? (selectedEditedFilter === 'edited' ? !!(item.is_edited || item.edited) : 
-         selectedEditedFilter === 'not-edited' ? !(item.is_edited || item.edited) : true)
-      : true
-
-    const matchSearch = searchValue
-      ? JSON.stringify(item).toLowerCase().includes(searchValue.toLowerCase())
-      : true
-
-    return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchSearch
-  })
-
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage)
+  const totalPages = useMemo(() => Math.ceil(filteredData.length / itemsPerPage), [filteredData.length])
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentData = filteredData.slice(indexOfFirstItem, indexOfLastItem)
+  const currentData = useMemo(
+    () => filteredData.slice(indexOfFirstItem, indexOfLastItem),
+    [filteredData, indexOfFirstItem, indexOfLastItem]
+  )
 
   const renderPagination = () => (
     <div
@@ -164,6 +221,14 @@ const TableContent = ({
         Halaman {currentPage} dari {totalPages}
       </p>
       <div className="flex gap-2 items-center">
+        <button
+          onClick={() => setCurrentPage(1)}
+          disabled={currentPage === 1}
+          className={`px-3 py-1 rounded text-sm ${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50'}`}
+          aria-label="Halaman pertama"
+        >
+          &lt;&lt;
+        </button>
         <button
           onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
           disabled={currentPage === 1}
@@ -203,10 +268,17 @@ const TableContent = ({
         >
           Selanjutnya
         </button>
+        <button
+          onClick={() => setCurrentPage(totalPages)}
+          disabled={currentPage === totalPages}
+          className={`px-3 py-1 rounded text-sm ${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50'}`}
+          aria-label="Halaman terakhir"
+        >
+          &gt;&gt;
+        </button>
       </div>
     </div>
   )
-
   return (
     <>
       <div
@@ -328,7 +400,7 @@ const TableContent = ({
                     className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
                   >
                     <option value="">Semua Pembayar Fee</option>
-                    {uniquePembayarFee.map(pembayar => (
+                    {uniquePembayarFee.map((pembayar) => (
                       <option key={pembayar} value={pembayar}>{pembayar}</option>
                     ))}
                   </select>
@@ -486,6 +558,18 @@ const TableContent = ({
                             </ButtonInput>
                           )}
                         </>
+                      )}
+                      { marked && (
+                        <ButtonInput
+                          color="white"
+                          outline={true}
+                          size={btnSize}
+                          textColor="black"
+                          onClick={() => onMark(item.id)}
+                        >
+                          <HiBookmark size={16} />
+                          Tandai salah
+                        </ButtonInput>
                       )}
                     </div>
                   </td>
