@@ -12,9 +12,10 @@ import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
-import { useTheme } from '../../../../context/ThemeContext'
-import { useLock } from '../../../../context/LockContext'
+import { useAuth } from '../../../../context/AuthContext'
 import { useColumnSettings } from '../../../../hooks/useColumnSettings'
+import { useLock } from '../../../../context/LockContext'
+import { useTheme } from '../../../../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
@@ -52,13 +53,10 @@ const HalamanPindahSaldo = () => {
   const [platformDestinationOptions, setPlatformDestinationOptions] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [confirmMessage, setConfirmMessage] = useState('')
-  const [userRole, setUserRole] = useState(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'))
-    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
-  })
+  const { user: loggedInUser } = useAuth()
+  const userRole = loggedInUser?.role?.toLowerCase() || 'kasir'
 
   // Add new states for logged in user and alert dialog
-  const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
   const [showInfoDialog, setShowInfoDialog] = useState(false)
@@ -72,15 +70,6 @@ const HalamanPindahSaldo = () => {
     const fetchData = async () => {
       try {
         setIsLoading(true)
-
-        // Get user data from localStorage
-        const userString = localStorage.getItem('user')
-        if (userString) {
-          const userObj = JSON.parse(userString)
-          setLoggedInUser(userObj)
-          // always lowercase
-          setUserRole((userObj.role || 'kasir').toLowerCase())
-        }
 
         // Fetch stores data
         const storesData = await window.api.getTokoWithEmployeeCount()
@@ -153,7 +142,7 @@ const HalamanPindahSaldo = () => {
   ]
 
   // Filter kolom berdasarkan setting
-  const columns = allColumns.filter(col => isColumnVisible(col.key))
+  const columns = allColumns.filter((col) => isColumnVisible(col.key))
 
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -183,9 +172,13 @@ const HalamanPindahSaldo = () => {
       const cleanedAmount = parseInt(String(formData.amount).replace(/[^0-9]/g, ''), 10)
       const cleanedOperational = parseInt(String(formData.operational).replace(/[^0-9]/g, ''), 10)
       const platformString = `${formData.platformSource} > ${formData.platformDestination}`
-      const currentUserId = formData.user_id || (loggedInUser ? loggedInUser.id : 1)
-      const sourceSaldo = saldoData.find((s) => s.nama_sumber_dana?.toLowerCase() === formData.senderBalance?.toLowerCase())
-      const destSaldo = saldoData.find((s) => s.nama_sumber_dana?.toLowerCase() === formData.receiverBalance?.toLowerCase())
+      const currentUserId = formData.user_id ?? loggedInUser?.id
+      const sourceSaldo = saldoData.find(
+        (s) => s.nama_sumber_dana?.toLowerCase() === formData.senderBalance?.toLowerCase()
+      )
+      const destSaldo = saldoData.find(
+        (s) => s.nama_sumber_dana?.toLowerCase() === formData.receiverBalance?.toLowerCase()
+      )
 
       if (!sourceSaldo || !destSaldo) {
         console.error('Saldo source or destination not found')
@@ -320,9 +313,9 @@ const HalamanPindahSaldo = () => {
     if (!itemToEdit) return
 
     const today = getTodayWIB()
-    const currentUser = JSON.parse(localStorage.getItem('user'))
-    const currentUserId = currentUser?.id || currentUser?.userId || ''
-    const currentUserRole = (currentUser?.role || 'kasir').toLowerCase()
+    const currentUser = loggedInUser
+    const currentUserId = currentUser?.id
+    const currentUserRole = currentUser?.role?.toLowerCase() || 'kasir'
 
     // Debug logging untuk cek data user
     console.log('🔍 Debug Edit Check PindahSaldo:', {
@@ -344,11 +337,16 @@ const HalamanPindahSaldo = () => {
         setShowInfoDialog(true)
         return
       }
-      
+
       // Cek user ID atau nama - kasir hanya bisa edit data milik sendiri
-      const currentUserName = (currentUser?.nama || currentUser?.name || currentUser?.username || '').toLowerCase()
+      const currentUserName = (
+        currentUser?.nama ||
+        currentUser?.name ||
+        currentUser?.username ||
+        ''
+      ).toLowerCase()
       const itemUserName = (itemToEdit.user || '').toLowerCase()
-      
+
       // Cek apakah data dibuat oleh admin
       if (itemUserName.includes('admin')) {
         setInfoMessage(
@@ -357,11 +355,12 @@ const HalamanPindahSaldo = () => {
         setShowInfoDialog(true)
         return
       }
-      
+
       // Cek apakah data milik user lain (ID ATAU nama harus cocok)
-      const isOwner = (itemToEdit.userId && itemToEdit.userId === currentUserId) || 
-                      (itemUserName && itemUserName === currentUserName)
-      
+      const isOwner =
+        (itemToEdit.userId && itemToEdit.userId === currentUserId) ||
+        (itemUserName && itemUserName === currentUserName)
+
       if (!isOwner && (itemToEdit.userId || itemUserName)) {
         setInfoMessage(
           `Anda tidak dapat mengedit pemindahan saldo yang dibuat oleh karyawan lain. (Dibuat oleh: ${itemToEdit.user || 'Unknown'})`
@@ -460,7 +459,7 @@ const HalamanPindahSaldo = () => {
         return
       }
 
-      const userId = formData.userId || (loggedInUser ? loggedInUser.id : 1)
+      const userId = formData.userId ?? loggedInUser?.id
       const platformString = `${platformSourceOptions} > ${platformDestinationOptions}`
 
       if (!selectedSourceSaldo || !selectedDestSaldo) {
@@ -566,19 +565,22 @@ const HalamanPindahSaldo = () => {
   return (
     <>
       {isGloballyLocked && (
-        <div className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}>
+        <div
+          className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}
+        >
           <div className="flex items-center gap-2">
             <span className="text-lg">🔒</span>
             <div>
               <strong>Sistem Terkunci!</strong>
               <p className="text-sm mt-1">
-                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur terkunci kecuali logout dan ganti tema.
+                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur
+                terkunci kecuali logout dan ganti tema.
               </p>
             </div>
           </div>
         </div>
       )}
-      
+
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
@@ -655,7 +657,7 @@ const HalamanPindahSaldo = () => {
           <input
             type="hidden"
             name="userId"
-            value={formData.userId || (loggedInUser ? loggedInUser.id : 1)}
+            value={formData.userId ?? loggedInUser?.id ?? ''}
           />
         </div>
         <InputField

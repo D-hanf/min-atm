@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react'
 
+import { useAuth } from '../../../context/AuthContext'
+
 const LaporanKeuntungan = () => {
   const [laporan, setLaporan] = useState([])
   const [filteredKeuntungan, setFilteredKeuntungan] = useState([])
   const [tanggalDari, setTanggalDari] = useState('')
   const [tanggalSampai, setTanggalSampai] = useState('')
   const [totalKeuntungan, setTotalKeuntungan] = useState(0)
-
+  const { user } = useAuth()
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -18,7 +20,6 @@ const LaporanKeuntungan = () => {
   // Ambil semua data keuntungan
   const fetchLaporanKeuangan = async () => {
     try {
-      const user = JSON.parse(localStorage.getItem('user'))
       const role = user?.role?.toLowerCase() || 'kasir'
       const data = await window.api.getLaporanKeuangan(role)
       setLaporan(data)
@@ -28,8 +29,10 @@ const LaporanKeuntungan = () => {
   }
 
   useEffect(() => {
+  if (user) {
     fetchLaporanKeuangan()
-  }, [])
+  }
+}, [user])
 
   // Filter saat tanggal berubah
   useEffect(() => {

@@ -1,3 +1,16 @@
+import * as XLSX from 'xlsx'
+
+import React, { useEffect, useState } from 'react'
+
+import TableContent from '../../../components/TableContent'
+import TableRekapTahunan from '../../../components/TableRekapTahunan'
+import autoTable from 'jspdf-autotable'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
+import { saveAs } from 'file-saver'
+import { useAuth } from '../../../context/AuthContext'
+import { useRef } from 'react'
+
 // Helper untuk konversi bulan ke format Indonesia
 const bulanIndo = [
   'Januari',
@@ -53,19 +66,8 @@ function formatTanggalTanpaDetik(val) {
   return s
 }
 
-import * as XLSX from 'xlsx'
-
-import React, { useEffect, useState } from 'react'
-
-import TableContent from '../../../components/TableContent'
-import TableRekapTahunan from '../../../components/TableRekapTahunan'
-import autoTable from 'jspdf-autotable'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
-import { saveAs } from 'file-saver'
-import { useRef } from 'react'
-
 const LaporanKeuangan = () => {
+  
   // Helper untuk konversi periode ke format 'Agustus 2025'
   const bulanIndo = [
     'Januari',
@@ -181,10 +183,8 @@ const LaporanKeuangan = () => {
   }, [periodeSnapshot, periodeType])
   const [laporan, setLaporan] = useState([])
   const [filterText, setFilterText] = useState('')
-  const [userRole, setUserRole] = useState(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'))
-    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
-  })
+  const { user } = useAuth()
+  const userRole = user?.role?.toLowerCase() || 'kasir'
   const [totalKeuntungan, setTotalKeuntungan] = useState(0)
   const [totalHutang, setTotalHutang] = useState(0)
 
@@ -268,7 +268,7 @@ const LaporanKeuangan = () => {
   // Untuk bulanan: filter data transaksi sesuai bulan
   const filteredData =
     periodeType === 'bulanan'
-  ? laporan
+      ? laporan
           .filter((item) => {
             // Asumsi item.tanggal format 'YYYY-MM-DD'
             if (!item.tanggal) return false
@@ -694,8 +694,10 @@ const LaporanKeuangan = () => {
     }
     return searchString.includes(filterLogText.toLowerCase()) && matchDate
   })
-  const logTotalPages = logItemsPerPage === 'all' ? 1 : Math.ceil(filteredLog.length / logItemsPerPage)
-  const logIndexOfLastItem = logItemsPerPage === 'all' ? filteredLog.length : logCurrentPage * logItemsPerPage
+  const logTotalPages =
+    logItemsPerPage === 'all' ? 1 : Math.ceil(filteredLog.length / logItemsPerPage)
+  const logIndexOfLastItem =
+    logItemsPerPage === 'all' ? filteredLog.length : logCurrentPage * logItemsPerPage
   const logIndexOfFirstItem = logItemsPerPage === 'all' ? 0 : logIndexOfLastItem - logItemsPerPage
   const logCurrentData = filteredLog.slice(logIndexOfFirstItem, logIndexOfLastItem)
   return (
@@ -894,14 +896,14 @@ const LaporanKeuangan = () => {
             }}
           >
             <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>Keuntungan Harian</div>
-              <div style={{ fontSize: '1.3rem', color: '#6a1b9a' }}>
-                {totalKeuntunganHarian === null
-                  ? 'Pilih tanggal'
-                  : formatRupiah(totalKeuntunganHarian)}
-              </div>
-              <div style={{ fontSize: '0.9rem', color: '#333', marginTop: 4 }}>
-                {filterTanggal ? `Tanggal: ${filterTanggal}` : ''}
-              </div>
+            <div style={{ fontSize: '1.3rem', color: '#6a1b9a' }}>
+              {totalKeuntunganHarian === null
+                ? 'Pilih tanggal'
+                : formatRupiah(totalKeuntunganHarian)}
+            </div>
+            <div style={{ fontSize: '0.9rem', color: '#333', marginTop: 4 }}>
+              {filterTanggal ? `Tanggal: ${filterTanggal}` : ''}
+            </div>
           </div>
         </div>
         {periodeType === 'bulanan' ? (
@@ -1045,7 +1047,7 @@ const LaporanKeuangan = () => {
               <span className="text-sm text-gray-600">Tampilkan:</span>
               <select
                 value={logItemsPerPage}
-                onChange={e => {
+                onChange={(e) => {
                   const val = e.target.value === 'all' ? 'all' : Number(e.target.value)
                   setLogItemsPerPage(val)
                   setLogCurrentPage(1)
@@ -1103,7 +1105,6 @@ const LaporanKeuangan = () => {
               </div>
             )}
           </div>
-     
         </div>
       </div>
     </div>

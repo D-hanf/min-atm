@@ -4,6 +4,7 @@ import PageContainer from '../../../components/PageContainer'
 import TableContent from '../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAuth } from '../../../context/AuthContext'
 import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
@@ -40,16 +41,15 @@ const normalizeJenisTransaksi = (value) => {
 const parseMoney = (value) => Number(String(value || 0).replace(/[^0-9]/g, '')) || 0
 
 const SemuaTransaksi = () => {
-	const [userRole] = useState(() => {
-		const storedUser = JSON.parse(localStorage.getItem('user'))
-		return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
-	})
+	const { user } = useAuth()
+	const userRole = user?.role?.toLowerCase() || 'kasir'
 	const [isLoading, setIsLoading] = useState(true)
 	const [loadError, setLoadError] = useState('')
 	const [searchValue, setSearchValue] = useState('')
 	const [rows, setRows] = useState([])
 
 	useEffect(() => {
+		if (!user?.role) return
 		const fetchAll = async () => {
 			try {
 				setIsLoading(true)
@@ -141,7 +141,7 @@ const SemuaTransaksi = () => {
 		}
 
 		fetchAll()
-	}, [userRole])
+	}, [user?.role])
 
 	const totalRows = useMemo(() => rows.length, [rows.length])
 	const summaryCards = useMemo(() => {
@@ -225,7 +225,6 @@ const SemuaTransaksi = () => {
 						
 						info={`Total data: ${totalRows}`}
 						btnSize="xs"
-						userRole={userRole}
 						searchValue={searchValue}
 						onSearchChange={setSearchValue}
 						editDelete={false}

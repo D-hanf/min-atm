@@ -7,6 +7,7 @@ import { FaCheck } from 'react-icons/fa6'
 import SearchField from './SearchField'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
 
@@ -46,7 +47,7 @@ const TableContent = ({
   onPembayarFeeChange = () => {},
   onEditedFilterChange = () => {}
 }) => {
-  const [loggedInUser, setLoggedInUser] = useState(null)
+  // const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -83,12 +84,7 @@ const TableContent = ({
   const editedCount = useMemo(() => data.filter((item) => item.is_edited || item.edited).length, [data])
   const totalCount = data.length
 
-  useEffect(() => {
-    const userString = localStorage.getItem('user')
-    if (userString) {
-      setLoggedInUser(JSON.parse(userString))
-    }
-  }, [])
+  const { user: loggedInUser } = useAuth()
 
   const handleEdit = (id) => {
     if (loggedInUser?.role?.toLowerCase() !== 'admin' && userRole?.toLowerCase() !== 'kasir') {

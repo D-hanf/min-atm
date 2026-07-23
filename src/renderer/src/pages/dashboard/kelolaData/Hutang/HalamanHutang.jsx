@@ -12,9 +12,10 @@ import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
-import { useTheme } from '../../../../context/ThemeContext'
-import { useLock } from '../../../../context/LockContext'
+import { useAuth } from '../../../../context/AuthContext'
 import { useColumnSettings } from '../../../../hooks/useColumnSettings'
+import { useLock } from '../../../../context/LockContext'
+import { useTheme } from '../../../../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
@@ -27,7 +28,7 @@ function HalamanHutang() {
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
   const [selectedPlatform, setSelectedPlatform] = useState(null)
   const [users, setUsers] = useState([])
-  const [loggedInUser, setLoggedInUser] = useState(null)
+
   const [filterText, setFilterText] = useState('')
   const [deleteId, setDeleteId] = useState(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -46,14 +47,15 @@ function HalamanHutang() {
   const [statusBayarMap, setStatusBayarMap] = useState({})
   const [selectedHutangId, setSelectedHutangId] = useState(null)
   const [isEditingPaid, setIsEditingPaid] = useState(false)
-  const [userRole, setUserRole] = useState(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'))
-    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
-  })
+  const { user: loggedInUser } = useAuth()
+  const userRole = loggedInUser?.role?.toLowerCase() || 'kasir'
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
-  const toDateOnly = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD') : '')
-  const toDisplayDateTime = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : val || '')
-  const toDisplayDateOnly = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD') : val || '')
+  const toDateOnly = (val) =>
+    dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD') : ''
+  const toDisplayDateTime = (val) =>
+    dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : val || ''
+  const toDisplayDateOnly = (val) =>
+    dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD') : val || ''
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
   const toInputDateTimeLocal = (val) => {
     if (!val) return getNowDateTimeLocalWIB()
@@ -89,7 +91,7 @@ function HalamanHutang() {
   ]
 
   // Filter kolom berdasarkan setting
-  const columns = allColumns.filter(col => isColumnVisible(col.key))
+  const columns = allColumns.filter((col) => isColumnVisible(col.key))
 
   const formatRupiah = (value) => {
     if (!value && value !== 0) return ''
@@ -153,10 +155,6 @@ function HalamanHutang() {
     fetchHutang()
     fetchSaldoAwal()
     fetchUsers()
-    const userString = localStorage.getItem('user')
-    if (userString) {
-      setLoggedInUser(JSON.parse(userString))
-    }
   }, [])
 
   const handleAddhutang = async (formData) => {
@@ -177,10 +175,10 @@ function HalamanHutang() {
     const tanggalTransaksi = dayjs(itemToEdit.tanggal_transaksi)
       .tz('Asia/Jakarta')
       .format('YYYY-MM-DD')
-    
-    const currentUser = JSON.parse(localStorage.getItem('user'))
-    const currentUserId = currentUser?.id || currentUser?.userId || ''
-    const currentUserRole = (currentUser?.role || 'kasir').toLowerCase()
+
+    const currentUser = loggedInUser
+    const currentUserId = currentUser?.id
+    const currentUserRole = currentUser?.role?.toLowerCase() || 'kasir'
 
     // Debug logging untuk cek data user
     console.log('🔍 Debug Edit Check Hutang:', {
@@ -202,11 +200,16 @@ function HalamanHutang() {
         setShowAlertDialog(true)
         return
       }
-      
+
       // Cek user ID atau nama - kasir hanya bisa edit transaksi milik sendiri
-      const currentUserName = (currentUser?.nama || currentUser?.name || currentUser?.username || '').toLowerCase()
+      const currentUserName = (
+        currentUser?.nama ||
+        currentUser?.name ||
+        currentUser?.username ||
+        ''
+      ).toLowerCase()
       const itemUserName = (itemToEdit.user_name || '').toLowerCase()
-      
+
       // Cek apakah transaksi dibuat oleh admin
       if (itemUserName.includes('admin')) {
         setInfoMessage(
@@ -215,11 +218,12 @@ function HalamanHutang() {
         setShowInfoDialog(true)
         return
       }
-      
+
       // Cek apakah transaksi milik user lain (ID ATAU nama harus cocok)
-      const isOwner = (itemToEdit.user_id && itemToEdit.user_id === currentUserId) || 
-                      (itemUserName && itemUserName === currentUserName)
-      
+      const isOwner =
+        (itemToEdit.user_id && itemToEdit.user_id === currentUserId) ||
+        (itemUserName && itemUserName === currentUserName)
+
       if (!isOwner && (itemToEdit.user_id || itemUserName)) {
         setInfoMessage(
           `Anda tidak dapat mengedit transaksi hutang yang dibuat oleh karyawan lain. (Dibuat oleh: ${itemToEdit.user_name || 'Unknown'})`
@@ -247,12 +251,12 @@ function HalamanHutang() {
       nominal_transaksi: formatRupiah(itemToEdit.nominal_transaksi),
       jenis_transaksi: itemToEdit.jenis_transaksi || 'Ambil Hutang',
       biaya_admin: formatRupiah(itemToEdit.biaya_admin || 0),
-  tanggal_transaksi: formattedDate,
+      tanggal_transaksi: formattedDate,
       keterangan: itemToEdit.keterangan || ''
     })
 
-  // Mark if the record is already paid to restrict transaction type in edit modal
-  setIsEditingPaid(itemToEdit.status_bayar === 1)
+    // Mark if the record is already paid to restrict transaction type in edit modal
+    setIsEditingPaid(itemToEdit.status_bayar === 1)
 
     const match = saldoAwalOptions.find((item) => item.id === itemToEdit.platform_id)
     setSelectedPlatform(match || null)
@@ -299,11 +303,11 @@ function HalamanHutang() {
         petugasName = loggedInUser.nama || loggedInUser.username || petugasName
       }
 
-  return {
-    ...item,
-  tanggal: toDisplayDateTime(item.tanggal_transaksi),
-    petugas_id: petugasName,
-  tanggal_bayar_hutang: toDisplayDateTime(item.tanggal_bayar_hutang),
+      return {
+        ...item,
+        tanggal: toDisplayDateTime(item.tanggal_transaksi),
+        petugas_id: petugasName,
+        tanggal_bayar_hutang: toDisplayDateTime(item.tanggal_bayar_hutang),
         status_bayar: item.status_bayar ? 'Lunas' : 'Belum Lunas',
         saldo_platform: formatRupiah(item.saldo_platform),
         nominal_transaksi: formatRupiah(item.nominal_transaksi),
@@ -364,10 +368,10 @@ function HalamanHutang() {
         platform_id: formData.platform_id,
         saldo_platform: parseFloat(formData.saldo_platform) || 0,
         nominal_transaksi: parseFloat(extractNumeric(formData.nominal_transaksi)) || 0,
-  // If editing a paid record, force 'Bayar Hutang' to align with backend delta logic
-  jenis_transaksi: isEditingPaid ? 'Bayar Hutang' : formData.jenis_transaksi,
+        // If editing a paid record, force 'Bayar Hutang' to align with backend delta logic
+        jenis_transaksi: isEditingPaid ? 'Bayar Hutang' : formData.jenis_transaksi,
         biaya_admin: parseFloat(extractNumeric(formData.biaya_admin) || 0),
-  tanggal_transaksi: formattedDate,
+        tanggal_transaksi: formattedDate,
         keterangan: formData.keterangan,
         role: userRole
       }
@@ -394,18 +398,18 @@ function HalamanHutang() {
     setShowModalConfirm(true)
     if (!itemToEdit) return
 
-  // Keep selected id for submit handler clarity
-  setSelectedHutangId(id)
+    // Keep selected id for submit handler clarity
+    setSelectedHutangId(id)
 
     const today = getTodayWIB() // Get today's date in WIB format
 
     const tanggalTransaksi = dayjs(itemToEdit.tanggal_transaksi)
       .tz('Asia/Jakarta')
       .format('YYYY-MM-DD')
-    
-    const currentUser = JSON.parse(localStorage.getItem('user'))
-    const currentUserId = currentUser?.id || currentUser?.userId || ''
-    const currentUserRole = (currentUser?.role || 'kasir').toLowerCase()
+
+    const currentUser = loggedInUser
+    const currentUserId = currentUser?.id
+    const currentUserRole = currentUser?.role?.toLowerCase() || 'kasir'
 
     // Debug logging untuk cek data user
     console.log('🔍 Debug Toggle Status Hutang:', {
@@ -427,7 +431,7 @@ function HalamanHutang() {
         setShowAlertDialog(true)
         return
       }
-      
+
       // Cek user ID - kasir hanya bisa edit transaksi milik sendiri
       if (itemToEdit.user_id) {
         // Transaksi baru dengan user_id - cek exact match
@@ -445,9 +449,14 @@ function HalamanHutang() {
         }
       } else {
         // Transaksi lama tanpa user_id - cek berdasarkan user_name
-        const currentUserName = (currentUser?.nama || currentUser?.name || currentUser?.username || '').toLowerCase()
+        const currentUserName = (
+          currentUser?.nama ||
+          currentUser?.name ||
+          currentUser?.username ||
+          ''
+        ).toLowerCase()
         const itemUserName = (itemToEdit.user_name || '').toLowerCase()
-        
+
         // Jika dibuat oleh admin, kasir tidak bisa edit
         if (itemUserName.includes('admin')) {
           setAlertMessage(
@@ -456,7 +465,7 @@ function HalamanHutang() {
           setShowAlertDialog(true)
           return
         }
-        
+
         // Jika dibuat oleh kasir lain, tidak bisa edit
         if (itemUserName && itemUserName !== currentUserName) {
           setAlertMessage(
@@ -531,19 +540,22 @@ function HalamanHutang() {
   return (
     <>
       {isGloballyLocked && (
-        <div className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}>
+        <div
+          className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}
+        >
           <div className="flex items-center gap-2">
             <span className="text-lg">🔒</span>
             <div>
               <strong>Sistem Terkunci!</strong>
               <p className="text-sm mt-1">
-                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur terkunci kecuali logout dan ganti tema.
+                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur
+                terkunci kecuali logout dan ganti tema.
               </p>
             </div>
           </div>
         </div>
       )}
-      
+
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
@@ -561,7 +573,7 @@ function HalamanHutang() {
           </div>
         ) : (
           <TableContent
-          info={`Total Hutang Belum Dibayar${filterTanggal ? ` (${filterTanggal})` : ''}: ${formatRupiah(totalBelumDibayarDisplay)}`}
+            info={`Total Hutang Belum Dibayar${filterTanggal ? ` (${filterTanggal})` : ''}: ${formatRupiah(totalBelumDibayarDisplay)}`}
             title={'Hutang'}
             bayar={true}
             showSumberDanaFilter={true}
@@ -571,7 +583,11 @@ function HalamanHutang() {
             showDateFilter={true}
             onDateChange={(date) => setFilterTanggal(date)}
             data={filteredData}
-            onAdd={isGloballyLocked ? null : <FormLayout onSubmit={handleAddhutang} buttonText="Transaksi Hutang" />}
+            onAdd={
+              isGloballyLocked ? null : (
+                <FormLayout onSubmit={handleAddhutang} buttonText="Transaksi Hutang" />
+              )
+            }
             onEdit={isGloballyLocked ? null : handleEdit}
             onDelete={isGloballyLocked ? null : handleDelete}
             onStatus={isGloballyLocked ? null : handleToggleStatus}

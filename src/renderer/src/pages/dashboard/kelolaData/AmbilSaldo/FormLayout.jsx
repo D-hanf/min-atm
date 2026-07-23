@@ -7,6 +7,7 @@ import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAuth } from '../../../../context/AuthContext'
 import { useState } from 'react'
 import { useTheme } from '../../../../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
@@ -16,7 +17,7 @@ dayjs.extend(timezone)
 const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) => {
   const { isDark } = useTheme()
   const [modalOpen, setModalOpen] = useState(false)
-  const [loggedInUser, setLoggedInUser] = useState(null)
+  const { user: loggedInUser } = useAuth()
   // Return current datetime (WIB) formatted for <input type="datetime-local"> (YYYY-MM-DDTHH:mm)
   const getNowDateTimeLocalWIB = () => {
     return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
@@ -87,25 +88,22 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
   useEffect(() => {
     // Fetch saldo_awal data when component mounts
     fetchSaldoAwal()
-
-    // Get logged in user from localStorage
-    const userString = localStorage.getItem('user')
-    if (userString) {
-      const user = JSON.parse(userString)
-      setLoggedInUser(user)
+  }, [])
+  useEffect(() => {
+    if (loggedInUser) {
       setFormData((prev) => ({
         ...prev,
-        user_id: user.id || 1 // Set user ID from logged in user
+        user_id: loggedInUser.id // Set user ID from logged in user
       }))
     }
-  }, [])
+  }, [loggedInUser])
 
   useEffect(() => {
     // Reset form when modal opens and fetch fresh data
     if (modalOpen) {
       fetchSaldoAwal()
       setFormData({
-        user_id: loggedInUser?.id || 1, // Use logged in user ID
+        user_id: loggedInUser?.id ?? "", // Use logged in user ID
         // Use the last selected platform if available
         platform: lastSelectedPlatform || '',
         currentBalance: '',

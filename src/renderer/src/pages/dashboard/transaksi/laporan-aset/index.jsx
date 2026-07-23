@@ -7,6 +7,7 @@ import PageContainer from '../../../../components/PageContainer'
 import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAuth } from '../../../../context/AuthContext'
 import { useTheme } from '../../../../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
 
@@ -14,6 +15,7 @@ dayjs.extend(utc)
 dayjs.extend(timezone)
 
 const LaporanAset = () => {
+  const { user } = useAuth()
   const { isDark } = useTheme()
   const [assetSnapshots, setAssetSnapshots] = useState([])
   const [filterText, setFilterText] = useState('')
@@ -23,10 +25,7 @@ const LaporanAset = () => {
   const [selectedSnapshot, setSelectedSnapshot] = useState(null)
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false)
   const [cardRefreshTrigger, setCardRefreshTrigger] = useState(0)
-  const [userRole, setUserRole] = useState(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'))
-    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
-  })
+  const userRole = user?.role?.toLowerCase() || 'kasir'
 
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const toDisplayDateTime = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : val || '')

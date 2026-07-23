@@ -4,7 +4,8 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => {
-        return JSON.parse(localStorage.getItem("user"));
+        const stored = localStorage.getItem("user");
+        return stored ? JSON.parse(stored) : null;
     });
 
     const login = (userData) => {
@@ -17,9 +18,16 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     };
 
+    // ✅ fungsi baru
+    const updateUser = (userData) => {
+        localStorage.setItem("user", JSON.stringify(userData));
+        setUser(userData);
+    };
+
     useEffect(() => {
         const onStorage = () => {
-            setUser(JSON.parse(localStorage.getItem("user")));
+            const stored = localStorage.getItem("user");
+            setUser(stored ? JSON.parse(stored) : null);
         };
 
         window.addEventListener("storage", onStorage);
@@ -32,7 +40,8 @@ export const AuthProvider = ({ children }) => {
             value={{
                 user,
                 login,
-                logout
+                logout,
+                updateUser
             }}
         >
             {children}

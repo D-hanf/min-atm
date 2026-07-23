@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const currentLocation = location.pathname
@@ -34,8 +35,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     if (!hoveringSidebar) setOpenSubmenu(null)
   }, [hoveringSidebar])
 
-  const user = JSON.parse(localStorage.getItem('user'))
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.role?.toLowerCase() === 'admin'
 
   const toggleSubmenu = (index) => {
     if (isOpen) {
@@ -49,12 +49,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }
   }
 
-const { logout } = useAuth();
-
 const handleLogout = () => {
-    logout();
-    navigate("/");
-};
+    logout()
+    navigate("/")
+}
 
   const navigations = [
     {
@@ -189,9 +187,9 @@ const handleLogout = () => {
           </div>
           {isOpen && (
             <div className="select-none">
-              <p className={`font-medium text-sm ${isDark ? 'text-white' : ''}`}>{user.nama}</p>
-              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-zinc-500'}`}>{user.role}</p>
-              {user.role === 'admin' && (
+              <p className={`font-medium text-sm ${isDark ? 'text-white' : ''}`}>{user?.nama}</p>
+              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-zinc-500'}`}>{user?.role}</p>
+              {isAdmin && (
                 <Link
                   to="/dashboard/profile"
                   className="mt-1 block text-blue-600 hover:underline text-xs"

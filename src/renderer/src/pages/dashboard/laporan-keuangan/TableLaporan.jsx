@@ -5,6 +5,7 @@ import AlertDialog from '../../../components/AlertDialog'
 import ButtonInput from '../../../components/ButtonInput'
 import { FaCheck } from 'react-icons/fa'
 import SearchField from '../../../components/SearchField'
+import { useAuth } from '../../../context/AuthContext'
 import { useTheme } from '../../../context/ThemeContext'
 
 const TableContent = ({
@@ -29,7 +30,7 @@ const TableContent = ({
   userRole = 'admin',
   showDateFilter = false // << TAMBAHAN DI SINI
 }) => {
-  const [loggedInUser, setLoggedInUser] = useState(null)
+  const { user: loggedInUser } = useAuth()
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -40,24 +41,21 @@ const TableContent = ({
     onFilteredData(filteredData)
   }, [filteredData, onFilteredData])
 
-  useEffect(() => {
-    const userString = localStorage.getItem('user')
-    if (userString) {
-      setLoggedInUser(JSON.parse(userString))
-    }
-  }, [])
-
   const handleEdit = (id) => {
-    if (loggedInUser?.role?.toLowerCase() !== 'admin' && userRole?.toLowerCase() !== 'kasir') {
-      setAlertMessage('Maaf, hanya admin yang dapat mengedit data.')
+    const role = loggedInUser?.role?.toLowerCase()
+
+    if (role !== 'admin' && role !== 'kasir') {
+      setAlertMessage('Maaf, hanya admin dan kasir yang dapat mengedit data.')
       setShowAlertDialog(true)
       return
     }
+
     onEdit(id)
   }
 
   const handleDelete = (id) => {
-    if (!loggedInUser || loggedInUser.role?.toLowerCase() !== 'admin') {
+    const role = loggedInUser?.role?.toLowerCase()
+    if (!loggedInUser || role !== 'admin') {
       setAlertMessage('Maaf, hanya admin yang dapat menghapus data.')
       setShowAlertDialog(true)
       return
@@ -66,7 +64,8 @@ const TableContent = ({
   }
 
   const handleStatus = (id) => {
-    if (loggedInUser?.role?.toLowerCase() !== 'admin' && userRole?.toLowerCase() !== 'kasir') {
+    const role = loggedInUser?.role?.toLowerCase()
+    if (role !== 'admin' && userRole?.toLowerCase() !== 'kasir') {
       setAlertMessage('Maaf, hanya admin yang dapat mengedit data.')
       setShowAlertDialog(true)
       return

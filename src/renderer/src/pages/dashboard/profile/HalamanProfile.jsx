@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 
 import ButtonInput from '../../../components/ButtonInput'
 import InputField from '../../../components/InputField'
+import { useAuth } from '../../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../../context/ThemeContext'
 
@@ -16,22 +17,21 @@ const HalamanEditProfilAdmin = () => {
     role: ''
   })
   const { isDark } = useTheme()
-
+  const { user, updateUser } = useAuth()
   const [message, setMessage] = useState(null)
 
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'))
-    if (storedUser) {
-      setFormData({
-        id: storedUser.id,
-        name: storedUser.nama,
-        username: storedUser.username,
+    if (!user) return;
+
+    setFormData({
+        id: user.id,
+        name: user.nama,
+        username: user.username,
         password: '',
-        phone: storedUser.no_telepon || '',
-        role: storedUser.role
-      })
-    }
-  }, [])
+        phone: user.no_telepon || '',
+        role: user.role
+    });
+}, [user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -63,7 +63,7 @@ const HalamanEditProfilAdmin = () => {
         no_telepon: formData.phone,
         role: formData.role
       }
-      localStorage.setItem('user', JSON.stringify(updatedUser))
+      updateUser(updatedUser)
 
       setMessage({ type: 'success', text: 'Profil berhasil diperbarui!' })
       setTimeout(() => navigate('/dashboard'), 1500)
