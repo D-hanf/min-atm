@@ -79,7 +79,8 @@ const api = {
   saveAssetSnapshot: (data) => ipcRenderer.invoke('save-asset-snapshot', data),
   deleteAssetSnapshot: (id) => ipcRenderer.invoke('delete-asset-snapshot', id),
   deleteAllAssetSnapshots: () => ipcRenderer.invoke('delete-all-asset-snapshots'),
-  calculateTotalAssets: () => ipcRenderer.invoke('calculate-total-assets')
+  calculateTotalAssets: () => ipcRenderer.invoke('calculate-total-assets'),
+  getLastTotalAssetNoEdit: () => ipcRenderer.invoke('get-last-total-asset-no-edit')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

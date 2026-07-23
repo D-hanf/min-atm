@@ -99,7 +99,7 @@ const LaporanKeuangan = () => {
   // Hitung total saldo keseluruhan dari snapshot sesuai periode
   let totalSaldoAwal = 0
   let totalSaldoAwalPrev = 0
-  if (periodeType === 'bulanan') {
+  if (periodeType?.toLowerCase() === 'bulanan') {
     totalSaldoAwal = snapshotSaldo.reduce((sum, item) => sum + Number(item.saldo_awal || 0), 0)
     // Hitung periode sebelumnya
     const [tahun, bulan] = periodeSnapshot.split('-')

@@ -1,4 +1,4 @@
-import db, { calculateTotalAssets, saveAssetSnapshot } from './db'
+import db, { calculateTotalAssets, getLastTotalAssetNoEdit, saveAssetSnapshot } from './db'
 
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
@@ -54,7 +54,10 @@ export function createTransaksi(_event, data) {
       biaya_admin,
       biaya_admin_bank,
       nama_pelanggan = '',
-      nomor_tujuan = ''
+      nomor_tujuan = '',
+      user_id = '',
+      user_name = '',
+      user_role = 'kasir'
     } = data
     metode_pembayaran = Number(metode_pembayaran) || null
 
@@ -81,8 +84,8 @@ export function createTransaksi(_event, data) {
         INSERT INTO transaksi (
           tanggal, no_transaksi, sumber_dana_id, jenis_transaksi, tipe_transaksi, 
           nominal_transaksi, terima_dana_id, biaya_admin_bank, fee, metode_pembayaran, 
-          keterangan, nama_pelanggan, nomor_tujuan
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          keterangan, nama_pelanggan, nomor_tujuan, user_id, user_name, user_role
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `
 
       db.run(
@@ -100,7 +103,10 @@ export function createTransaksi(_event, data) {
           metode_pembayaran,
           keterangan,
           nama_pelanggan,
-          nomor_tujuan
+          nomor_tujuan,
+          user_id,
+          user_name,
+          user_role
         ],
         function (err2) {
           if (err2) return reject(err2)
@@ -201,18 +207,48 @@ export function createTransaksi(_event, data) {
                 // 📊 Otomatis simpan snapshot aset setelah transaksi berhasil
                 try {
                   const totalAsset = await calculateTotalAssets()
+                  const lastTotalAssetNoEdit = await getLastTotalAssetNoEdit()
+                  
+                  let totalAssetNoEdit
+                  
+                  if (data._isEdit) {
+                    // Jika edit, total_aset_no_edit tetap sama seperti sebelumnya
+                    totalAssetNoEdit = lastTotalAssetNoEdit
+                  } else {
+                    // Jika transaksi baru
+                    if (lastTotalAssetNoEdit === 0) {
+                      // Jika belum ada data sebelumnya (table kosong), ambil nilai total aset saat ini
+                      totalAssetNoEdit = totalAsset
+                    } else {
+                      // Jika sudah ada data, hitung keuntungan baru dari transaksi ini
+                      // Keuntungan = fee yang didapat dari transaksi ini
+                      const keuntungan = Number(fee || 0)
+                      totalAssetNoEdit = lastTotalAssetNoEdit + keuntungan
+                    }
+                  }
+                  
+                  const keterangan = data._isEdit ? 
+                    `Snapshot otomatis setelah EDIT ${jenis_transaksi} - ${no_transaksi}` :
+                    `Snapshot otomatis setelah ${jenis_transaksi} - ${no_transaksi}`
+                    
                   const snapshotData = {
                     tanggal: dayjs(tanggal).tz('Asia/Jakarta').format('YYYY-MM-DD'),
                     waktu_transaksi: dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'),
                     total_aset: totalAsset,
+                    total_aset_no_edit: totalAssetNoEdit,
                     transaksi_id: transaksi_id,
-                    keterangan: `Snapshot otomatis setelah ${jenis_transaksi} - ${no_transaksi}`,
+                    keterangan: keterangan,
                     user_role: data.user_role || 'kasir',
                     user_name: data.user_name || 'System'
                   }
                   
                   await saveAssetSnapshot(snapshotData)
-                  console.log('✅ Asset snapshot saved for transaction:', no_transaksi)
+                  
+                  if (data._isEdit) {
+                    console.log('✅ Asset snapshot saved for EDIT transaction:', no_transaksi, 'total_aset:', totalAsset, 'total_aset_no_edit:', totalAssetNoEdit)
+                  } else {
+                    console.log('✅ Asset snapshot saved for NEW transaction:', no_transaksi, 'total_aset:', totalAsset, 'total_aset_no_edit:', totalAssetNoEdit)
+                  }
                 } catch (snapshotErr) {
                   console.error('⚠️ Gagal simpan asset snapshot:', snapshotErr)
                   // Tidak reject karena transaksi utama sudah berhasil
@@ -384,6 +420,9 @@ export function editTransaksi(_event, { id, data }) {
     try {
       // Pertama, rollback transaksi lama
       await deleteTransaksi(_event, id)
+      
+      // Set flag untuk mencegah snapshot saat edit
+      data._isEdit = true
       
       // Kemudian buat transaksi baru dengan data yang diupdate
       const result = await createTransaksi(_event, data)

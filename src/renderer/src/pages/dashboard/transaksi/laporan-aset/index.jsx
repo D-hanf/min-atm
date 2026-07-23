@@ -1,7 +1,8 @@
 import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus, HiTrash } from 'react-icons/hi'
-import React, { us, useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import ConfirmDialog from '../../../../components/ConfirmDialog'
+import { CumulativeAssetCard } from '../../../../components'
 import PageContainer from '../../../../components/PageContainer'
 import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
@@ -21,6 +22,7 @@ const LaporanAset = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedSnapshot, setSelectedSnapshot] = useState(null)
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false)
+  const [cardRefreshTrigger, setCardRefreshTrigger] = useState(0)
   const [userRole, setUserRole] = useState(() => {
     const storedUser = JSON.parse(localStorage.getItem('user'))
     return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
@@ -83,6 +85,9 @@ const LaporanAset = () => {
       console.log('🔄 Refresh data setelah hapus...')
       await fetchAssetSnapshots()
       
+      // Trigger refresh cards
+      setCardRefreshTrigger(prev => prev + 1)
+      
       setShowDeleteDialog(false)
       setSelectedSnapshot(null)
     } catch (error) {
@@ -118,6 +123,9 @@ const LaporanAset = () => {
       console.log('🔄 Refresh data setelah hapus semua...')
       await fetchAssetSnapshots()
       
+      // Trigger refresh cards
+      setCardRefreshTrigger(prev => prev + 1)
+      
       setShowDeleteAllDialog(false)
     } catch (error) {
       console.error('❌ Gagal menghapus semua snapshot:', error)
@@ -138,7 +146,7 @@ const LaporanAset = () => {
     ...snapshot,
     tanggalFormatted: toDisplayDateTime(snapshot.waktu_transaksi || snapshot.tanggal),
     totalAsetFormatted: formatRupiah(snapshot.total_aset || snapshot.totalAset || 0),
-    transaksiInfo: snapshot.transaksi_id ? `Transaksi #${snapshot.transaksi_id}` : 'Manual',
+    transaksiInfo: snapshot.no_transaksi || 'Manual',
     keteranganInfo: snapshot.keterangan || '-',
     userInfo: `${snapshot.user_name || 'System'} (${snapshot.user_role || 'kasir'})`,
     roleOnly: snapshot.user_role || 'kasir',
@@ -164,13 +172,16 @@ const LaporanAset = () => {
   const columns = [
     { key: 'tanggalFormatted', label: 'Tanggal & Waktu' },
     { key: 'totalAsetFormatted', label: 'Total Aset Keseluruhan' },
-    { key: 'transaksiInfo', label: 'Sumber' },
-    { key: 'keteranganInfo', label: 'Keterangan' },
+    { key: 'transaksiInfo', label: 'Sumber Transaksi' },
+    { key: 'keteranganInfo', label: 'Keterangan' }, 
     { key: 'userInfo', label: 'Pengguna' },
     { key: 'actions', label: 'Aksi' }
   ]
   return (
     <PageContainer title="Laporan Aset" subtitle="Daftar snapshot total aset">
+      
+      {/* Card Total Aset Laporan */}
+      <CumulativeAssetCard refreshTrigger={cardRefreshTrigger} />
       
       {/* Tombol Delete All */}
       {assetSnapshots.length > 0 && (

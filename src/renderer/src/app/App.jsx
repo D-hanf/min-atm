@@ -1,4 +1,5 @@
 import { HashRouter, Route, Routes } from 'react-router-dom'
+import { LockProvider } from '../context/LockContext'
 import { ThemeProvider } from '../context/ThemeContext'
 import { DashboardRoutes } from './routes'
 import React from 'react'
@@ -12,14 +13,16 @@ const App = () => {
 
   return (
     <ThemeProvider>
-      <HashRouter>
-        {/* <ScrollToTop /> */}
-        <Routes>
-          {/* {MainRoutes()} */}
-          {DashboardRoutes()}
-          {/* <Route path="/login" element={<LoginPage />} /> */}
-        </Routes>
-      </HashRouter>
+      <LockProvider>
+        <HashRouter>
+          {/* <ScrollToTop /> */}
+          <Routes>
+            {/* {MainRoutes()} */}
+            {DashboardRoutes()}
+            {/* <Route path="/login" element={<LoginPage />} /> */}
+          </Routes>
+        </HashRouter>
+      </LockProvider>
     </ThemeProvider>
   )
 }

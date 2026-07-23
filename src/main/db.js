@@ -1,5 +1,3 @@
-// src/main/db.js
-
 import { app } from 'electron'
 import path from 'path'
 import sqlite3 from 'sqlite3'
@@ -173,6 +171,23 @@ export function deleteAllAssetSnapshots() {
           changes: this.changes,
           message: `${this.changes} snapshot berhasil dihapus`
         })
+      }
+    })
+  })
+}
+export function getLastTotalAssetNoEdit() {
+  return new Promise((resolve, reject) => {
+    db.get(`
+      SELECT total_aset FROM asset_snapshots 
+      WHERE is_edited = 0 
+      ORDER BY waktu_transaksi DESC 
+      LIMIT 1
+    `, [], (err, row) => {
+      if (err) {
+        console.error('❌ Error getLastTotalAssetNoEdit:', err)
+        reject(err)
+      } else {
+        resolve(Number(row?.total_aset || 0))
       }
     })
   })

@@ -63,7 +63,7 @@ const FormLayout = ({
   }, [isEdit, editData])
 
   useEffect(() => {
-    if (modalOpen && formType === 'transaction' && !isEdit && !formData.no_transaksi) {
+    if (modalOpen && formType?.toLowerCase() === 'transaction' && !isEdit && !formData.no_transaksi) {
       const nowDate = getTodayWIB()
       const dateStr = nowDate.replace(/-/g, '')
       const randomStr = Math.floor(Math.random() * 10000)
@@ -109,7 +109,7 @@ const FormLayout = ({
     onSubmit(normalizedForm)
     setModalOpen(false)
 
-    if (formType === 'transaction' && !isEdit) {
+    if (formType?.toLowerCase() === 'transaction' && !isEdit) {
       setFormData({
         tanggal: getNowDateTimeLocalWIB(),
         no_transaksi: '',
@@ -164,7 +164,7 @@ const FormLayout = ({
     }
   }
   useEffect(() => {
-    if (!isEdit && modalOpen && formType === 'transaction') {
+    if (!isEdit && modalOpen && formType?.toLowerCase() === 'transaction') {
       setFormData((prev) => ({
         ...prev,
         tanggal: prev.tanggal && prev.tanggal.includes('T') ? prev.tanggal : getNowDateTimeLocalWIB()

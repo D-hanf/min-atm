@@ -118,7 +118,7 @@ const HalamanDetilToko = () => {
   }
 
   const filteredData = employees
-    .filter((emp) => emp.role !== 'admin') // sembunyikan role admin
+    .filter((emp) => emp.role?.toLowerCase() !== 'admin') // sembunyikan role admin
     .filter((emp) =>
       Object.values(emp).some((value) =>
         String(value).toLowerCase().includes(filterText.toLowerCase())
@@ -173,7 +173,7 @@ const HalamanDetilToko = () => {
             <div>
               <p className="text-sm text-gray-500">Total Pegawai</p>
               <p className="text-base">
-                {employees.filter((emp) => emp.role !== 'admin').length} orang
+                {employees.filter((emp) => emp.role?.toLowerCase() !== 'admin').length} orang
               </p>
             </div>
           </div>

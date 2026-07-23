@@ -1,20 +1,24 @@
 import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus } from 'react-icons/hi'
-import React, { us, useCallback, useEffect, useRef, useState } from 'react'
+import { IoMdPrint, IoMdSave } from 'react-icons/io'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
+import AlertDialog from '../../../components/AlertDialog'
 import ButtonInput from '../../../components/ButtonInput'
 import ConfirmDialog from '../../../components/ConfirmDialog'
 import Dropdown from '../../../components/Dropdown'
 import FinancialSummaryCards from '../../../components/FinancialSummaryCards'
 import FormLayout from './FormLayout'
 import FundSourcesCard from '../../../components/FundSourcesCard'
-import { IoMdPrint } from 'react-icons/io'
 import ModalEdit from '../../../shared/ui/Modal'
 import PageContainer from '../../../components/PageContainer'
 import ReceiptView from './ReceiptView'
+import SaveOptionsDialog from '../../../components/SaveOptionsDialog'
 import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useColumnSettings } from '../../../hooks/useColumnSettings'
+import { useLock } from '../../../context/LockContext'
 import { useTheme } from '../../../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
 
@@ -23,16 +27,20 @@ dayjs.extend(timezone)
 
 const HalamanTransaksi = () => {
   const { isDark } = useTheme()
+  const { isColumnVisible } = useColumnSettings('transaksi')
   const [stores, setStore] = useState([])
   const [emptyBalances, setEmptyBalances] = useState([])
   const [formValid, setFormValid] = useState(true)
   const [saldo, setSaldo] = useState([])
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
+  const [showInfoDialog, setShowInfoDialog] = useState(false)
+  const [infoMessage, setInfoMessage] = useState('')
   const [transactions, setTransactions] = useState([]) // Awalnya kosong, akan diisi dari DB
   const [showOnlyEdited, setShowOnlyEdited] = useState(false)
-  const [showEmptyBalanceAlert, setShowEmptyBalanceAlert] = useState(true)
+  const [showEmptyBalanceAlert, setShowEmptyBalanceAlert] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [showSaveOptionsDialog, setShowSaveOptionsDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [userRole, setUserRole] = useState(() => {
@@ -40,6 +48,8 @@ const HalamanTransaksi = () => {
     return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
   })
 
+  const { isGloballyLocked, checkGlobalLock, lockGlobal } = useLock()
+  
   // State untuk melacak kasir yang print dan logic lock
   const [isTransactionLocked, setIsTransactionLocked] = useState(() => {
     const currentUser = JSON.parse(localStorage.getItem('user'))
@@ -123,27 +133,9 @@ const HalamanTransaksi = () => {
 
   // Fungsi untuk cek apakah transaksi harus di-lock
   const checkTransactionLock = () => {
-    const currentUser = JSON.parse(localStorage.getItem('user'))
-    const lockedKasirId = localStorage.getItem('locked_kasir_id')
-    
-    console.log('🔍 Check lock - Current user:', currentUser?.id, 'Role:', currentUser?.role)
-    console.log('🔍 Check lock - Locked kasir ID:', lockedKasirId)
-    
-    // Admin tidak pernah kena lock
-    if (currentUser?.role?.toLowerCase() === 'admin') {
-      console.log('👤 Admin login - No lock applied')
-      setIsTransactionLocked(false)
-      return
-    }
-    
-    // Jika ada kasir yang terkunci dan ID sama dengan user saat ini
-    if (lockedKasirId && currentUser?.id && lockedKasirId === currentUser.id.toString()) {
-      console.log('🔒 Same kasir as locked - Transaction locked')
-      setIsTransactionLocked(true)
-    } else {
-      console.log('🔓 Different kasir or no lock - Transaction unlocked')
-      setIsTransactionLocked(false)
-    }
+    const lockStatus = checkGlobalLock()
+    setIsTransactionLocked(lockStatus)
+    console.log('🔍 Global lock status:', lockStatus)
   }
   const [currentDate, setCurrentDate] = useState(getTodayWIB())
 
@@ -274,6 +266,7 @@ const HalamanTransaksi = () => {
           biaya_admin: formatRupiah(adminBank),
           saldo_akhir: formatRupiah(final),
           keterangan: item.keterangan || '-',
+          user_name: item.user_name || '-',
           is_edited: !!item.is_edited,
           edited_at: item.edited_at || null
         }
@@ -292,8 +285,9 @@ const HalamanTransaksi = () => {
     }
   }, [fundSources, userRole])
 
-  const transactionColumns = [
+  const allTransactionColumns = [
     { key: 'tanggal', label: 'Tanggal' },
+    { key: 'user_name', label: 'Dibuat Oleh' },
     { key: 'nama_pelanggan', label: 'Nama Pelanggan' },
     { key: 'nomor_tujuan', label: 'Nomor Tujuan' },
     { key: 'no_transaksi', label: 'No Transaksi' },
@@ -303,12 +297,17 @@ const HalamanTransaksi = () => {
     { key: 'saldo_awal', label: 'Saldo Awal' },
     { key: 'nominal_transaksi', label: 'Nominal' },
     { key: 'fee', label: 'Fee' },
-  { key: 'biaya_admin', label: 'Adm Bank' },
+    { key: 'biaya_admin', label: 'Adm Bank' },
     { key: 'saldo_akhir', label: 'Saldo Akhir' },
     { key: 'terima_dana_nama', label: 'Terima Dana' },
     { key: 'metode_pembayaran_nama', label: 'Pembayaran Fee' },
     { key: 'keterangan', label: 'Keterangan' }
   ]
+
+  // Filter kolom berdasarkan setting
+  const transactionColumns = allTransactionColumns.filter(col => 
+    isColumnVisible(col.key)
+  )
 
   const handleDelete = (id) => {
     setDeleteId(id)
@@ -352,6 +351,7 @@ const HalamanTransaksi = () => {
       const normalized = { 
         ...data, 
         tanggal: toDbDateTime(data.tanggal),
+        user_id: storedUser?.id || storedUser?.userId || '',
         user_role: storedUser?.role || 'kasir',
         user_name: storedUser?.name || storedUser?.username || storedUser?.fullName || 'System'
       }
@@ -382,15 +382,66 @@ const HalamanTransaksi = () => {
     if (!transactionToEdit) return
 
     const today = getTodayWIB()
+    const currentUser = JSON.parse(localStorage.getItem('user'))
+    const currentUserId = currentUser?.id || currentUser?.userId || ''
+    const currentUserRole = (currentUser?.role || 'kasir').toLowerCase()
 
-    // Validasi khusus untuk kasir
-  if (userRole.toLowerCase() === 'kasir' && toDisplayDateTime(transactionToEdit.tanggal).slice(0,10) !== today) {
-      setAlertMessage(
-        'Kasir hanya bisa mengedit transaksi hari ini. Hubungi admin untuk mengubah data lama.'
-      )
-      setShowAlertDialog(true)
-      return
+    // Debug logging untuk cek data user
+    console.log('🔍 Debug Edit Check:', {
+      currentUser,
+      currentUserId,
+      currentUserRole,
+      transactionUserId: transactionToEdit.user_id,
+      transactionUserName: transactionToEdit.user_name,
+      transactionDate: transactionToEdit.tanggal,
+      today
+    })
+
+    // Pengecekan role dan user ID
+    if (currentUserRole === 'kasir') {
+      // Cek tanggal - kasir hanya bisa edit transaksi hari ini
+      if (toDisplayDateTime(transactionToEdit.tanggal).slice(0,10) !== today) {
+        setInfoMessage(
+          'Kasir hanya bisa mengedit transaksi hari ini. Hubungi admin untuk mengubah data lama.'
+        )
+        setShowInfoDialog(true)
+        return
+      }
+      
+      // Cek user ID atau nama - kasir hanya bisa edit transaksi milik sendiri
+      const transactionUserRole = (transactionToEdit.user_role || '').toLowerCase()
+      const currentUserName = (currentUser?.nama || currentUser?.name || currentUser?.username || '').toLowerCase()
+      const transactionUserName = (transactionToEdit.user_name || '').toLowerCase()
+      
+      // Cek apakah transaksi dibuat oleh admin
+      if (transactionUserRole === 'admin' || transactionUserName.includes('admin')) {
+        setInfoMessage(
+          `Anda tidak dapat mengedit transaksi yang dibuat oleh Admin. (Transaksi dibuat oleh: ${transactionToEdit.user_name || 'Admin'})`
+        )
+        setShowInfoDialog(true)
+        return
+      }
+      
+      // Cek apakah transaksi milik user lain (ID ATAU nama harus cocok)
+      const isOwner = (transactionToEdit.user_id && transactionToEdit.user_id === currentUserId) || 
+                      (transactionUserName && transactionUserName === currentUserName)
+      
+      if (!isOwner && (transactionToEdit.user_id || transactionUserName)) {
+        console.log('❌ Bukan pemilik transaksi:', {
+          transactionUserId: transactionToEdit.user_id,
+          currentUserId: currentUserId,
+          transactionUserName: transactionUserName,
+          currentUserName: currentUserName,
+          isOwner: isOwner
+        })
+        setInfoMessage(
+          `Anda tidak dapat mengedit transaksi yang dibuat oleh karyawan lain. (Transaksi dibuat oleh: ${transactionToEdit.user_name || 'Unknown'})`
+        )
+        setShowInfoDialog(true)
+        return
+      }
     }
+    // Admin bisa edit semua transaksi tanpa batasan
 
     // Jika lolos, ubah format rupiah ke angka
     const cleanedData = {
@@ -473,6 +524,39 @@ const HalamanTransaksi = () => {
     printWindow.close()
   }
 
+  // Simpan summary saja tanpa print
+  const handleSaveOnly = async () => {
+    try {
+      const payload = {
+        waktu: getNowWIBDateTime(),
+        financialSummary: { ...financialSummary },
+        saldoAwal: (fundSources || []).map((s) => ({
+          nama_sumber_dana: s.nama_sumber_dana,
+          saldo: Number(s.saldo || 0)
+        }))
+      }
+      if (window.api && window.api.saveSummaryData) {
+        await window.api.saveSummaryData(payload)
+        console.log('✅ Summary disimpan tanpa print')
+      } else {
+        console.warn('⚠️ API saveSummaryData tidak tersedia')
+      }
+    } catch (err) {
+      console.error('❌ Gagal simpan summary:', err)
+    } finally {
+      // Lock kasir setelah save (kecuali admin)
+      const currentUser = JSON.parse(localStorage.getItem('user'))
+      if (currentUser && currentUser.role !== 'admin') {
+        lockGlobal(currentUser.id)
+        console.log('🔒 Kasir terkunci setelah save:', currentUser.id)
+        // Trigger recheck untuk update UI
+        checkTransactionLock()
+      }
+      
+      setShowSaveOptionsDialog(false)
+    }
+  }
+
   // Simpan summary + saldo awal ke summary_log, lalu cetak
   const getNowWIBDateTime = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
   const handleSaveSummaryAndPrint = async () => {
@@ -497,7 +581,7 @@ const HalamanTransaksi = () => {
       // Lock kasir setelah print (kecuali admin)
       const currentUser = JSON.parse(localStorage.getItem('user'))
       if (currentUser && currentUser.role !== 'admin') {
-        localStorage.setItem('locked_kasir_id', currentUser.id.toString())
+        lockGlobal(currentUser.id)
         console.log('🔒 Kasir terkunci setelah print:', currentUser.id)
         // Trigger recheck untuk update UI
         checkTransactionLock()
@@ -505,24 +589,31 @@ const HalamanTransaksi = () => {
       
       // Tetap lanjutkan proses print meski simpan gagal
       printSummaryOnly()
+      setShowSaveOptionsDialog(false)
     }
+  }
+
+  const handleShowSaveOptions = () => {
+    setShowSaveOptionsDialog(true)
   }
 
   return (
     <PageContainer title="Transaksi">
-      {isTransactionLocked && (
+      {isGloballyLocked && (
         <div className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}>
           <div className="flex items-center gap-2">
             <span className="text-lg">🔒</span>
             <div>
-              <strong>Transaksi Terkunci!</strong>
+              <strong>Sistem Terkunci!</strong>
               <p className="text-sm mt-1">
-                Kasir ID {localStorage.getItem('locked_kasir_id')} telah mencetak laporan. 
+                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur terkunci kecuali logout dan ganti tema.
               </p>
             </div>
           </div>
         </div>
       )}
+
+
       
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
@@ -534,13 +625,13 @@ const HalamanTransaksi = () => {
           <div className="flex gap-6 max-w-xs">
             <ButtonInput 
               size="xs" 
-              color={isTransactionLocked ? 'gray' : 'indigo'} 
-              onClick={isTransactionLocked ? undefined : handleSaveSummaryAndPrint}
-              disabled={isTransactionLocked}
-              title={isTransactionLocked ? 'Transaksi terkunci - kasir lain harus login untuk membuka' : ''}
+              color={isGloballyLocked ? 'gray' : 'indigo'} 
+              onClick={isGloballyLocked ? undefined : handleShowSaveOptions}
+              disabled={isGloballyLocked}
+              title={isGloballyLocked ? 'Sistem terkunci - kasir lain harus login untuk membuka' : ''}
             >
-              <IoMdPrint size={20} />
-              {isTransactionLocked ? 'Terkunci' : 'Print'}
+              <IoMdSave size={20} />
+              {isTransactionLocked ? 'Terkunci' : 'Simpan'}
             </ButtonInput>
           </div>
         </div>
@@ -594,7 +685,7 @@ const HalamanTransaksi = () => {
         data={filteredData}
         columns={transactionColumns}
         title={'Data Transaksi'}
-        info={`Total Transaksi: ${transactions.length}${isTransactionLocked ? ' (Terkunci - kasir lain harus login)' : ''}`}
+        info={`Total Transaksi: ${transactions.length}${isGloballyLocked ? ' (Sistem Terkunci - kasir lain harus login)' : ''}`}
         btnSize={'xs'}
         userRole={userRole}
         showJenisTransaksiFilter={true}
@@ -603,24 +694,22 @@ const HalamanTransaksi = () => {
         showPembayarFeeFilter={true}
         showDateFilter={true}
         showEditedFilter={true}
-        onDelete={isTransactionLocked ? null : handleDelete}
-        onEdit={isTransactionLocked ? null : handleTransactionEdit}
+        onDelete={isGloballyLocked ? null : handleDelete}
+        onEdit={isGloballyLocked ? null : handleTransactionEdit}
         onAdd={
-          isTransactionLocked ? null : (
-            <FormLayout
-              onValidChange={setFormValid}
-              onSubmit={submitTransaction}
-              buttonText="Tambah Transaksi"
-              formType="transaction"
-              initialData={transactionFormData}
-            />
-          )
+          <FormLayout
+            onValidChange={setFormValid}
+            onSubmit={submitTransaction}
+            buttonText="Tambah Transaksi"
+            formType="transaction"
+            initialData={transactionFormData}
+          />
         }
         searchValue={filterText}
         onSearchChange={setFilterText}
       />
 
-      {showEditModal && editingTransaction && !isTransactionLocked && (
+      {showEditModal && editingTransaction && !isGloballyLocked && (
         <div>
           <FormLayout
             onSubmit={handleEditSubmit}
@@ -654,6 +743,20 @@ const HalamanTransaksi = () => {
           setModalOpen(false)
           setFormData({ source: '', saldo: '', dateCreated: '', dateUpdated: '', description: '' })
         }}
+      />
+      
+      <SaveOptionsDialog
+        isOpen={showSaveOptionsDialog}
+        onClose={() => setShowSaveOptionsDialog(false)}
+        onSaveOnly={handleSaveOnly}
+        onSaveAndPrint={handleSaveSummaryAndPrint}
+      />
+
+      <AlertDialog
+        isOpen={showInfoDialog}
+        onClose={() => setShowInfoDialog(false)}
+        title="Informasi"
+        message={infoMessage}
       />
     </PageContainer>
   )

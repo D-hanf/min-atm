@@ -126,7 +126,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
       if (lastSelectedPlatform) {
         // We need to wait for saldoAwalOptions to be populated
         setTimeout(() => {
-          const platform = saldoAwalOptions.find((p) => p.nama_sumber_dana === lastSelectedPlatform)
+          const platform = saldoAwalOptions.find((p) => p.nama_sumber_dana?.toLowerCase() === lastSelectedPlatform?.toLowerCase())
           if (platform) {
             handlePlatformChange(lastSelectedPlatform)
           }
@@ -161,7 +161,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
   const handlePlatformChange = (selectedPlatformName) => {
     // Find the selected saldo_awal item
     const selectedItem = saldoAwalOptions.find(
-      (item) => item.nama_sumber_dana === selectedPlatformName
+      (item) => item.nama_sumber_dana?.toLowerCase() === selectedPlatformName?.toLowerCase()
     )
 
     if (selectedItem) {
@@ -229,7 +229,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
     }
 
     // Validate withdrawal amount doesn't exceed current balance for Bayar Hutang type
-    if (selectedPlatform && formData.amount && formData.transactionType === 'Bayar Hutang') {
+    if (selectedPlatform && formData.amount && formData.transactionType?.toLowerCase() === 'bayar hutang') {
       const currentBalance = parseFloat(formData.currentBalanceRaw || 0)
       const transactionAmount = parseFloat(
         formData.amountRaw || extractNumeric(formData.amount) || 0

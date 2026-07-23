@@ -2310,6 +2310,18 @@ app.whenReady().then(async () => {
       }
     })
 
+    ipcMain.handle('get-last-total-asset-no-edit', async () => {
+      try {
+        const { getLastTotalAssetNoEdit } = await import('./db.js')
+        const lastValue = await getLastTotalAssetNoEdit()
+        console.log('📊 Fetched last total_aset_no_edit:', lastValue)
+        return lastValue
+      } catch (error) {
+        console.error('❌ Error get-last-total-asset-no-edit:', error)
+        return 0
+      }
+    })
+
     ipcMain.handle('save-asset-snapshot', async (event, data) => {
       try {
         const { saveAssetSnapshot } = await import('./db.js')

@@ -90,7 +90,7 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
         options={sumberDanaList
           .filter((item) => {
             const nama = item.nama_sumber_dana.toLowerCase()
-            return nama === 'laci' || nama === 'cash'
+            return nama?.toLowerCase() === 'laci' || nama?.toLowerCase() === 'cash'
           })
           .map((item) => ({
             label: item.nama_sumber_dana,
@@ -107,7 +107,7 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
         options={sumberDanaList
           .filter((item) => {
             const nama = item.nama_sumber_dana.toLowerCase()
-            return nama !== 'laci' && nama !== 'cash'
+            return nama?.toLowerCase() !== 'laci' && nama?.toLowerCase() !== 'cash'
           })
           .map((item) => ({
             label: item.nama_sumber_dana,

@@ -6,6 +6,12 @@ import ButtonInput from './ButtonInput'
 import { FaCheck } from 'react-icons/fa6'
 import SearchField from './SearchField'
 import { useTheme } from '../context/ThemeContext'
+import dayjs from 'dayjs'
+import timezone from 'dayjs/plugin/timezone'
+import utc from 'dayjs/plugin/utc'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 
 const TableContent = ({
   data = [],
@@ -110,24 +116,27 @@ const TableContent = ({
   const DataItems = data
   const filteredData = DataItems.filter((item) => {
     const rawDate = item.tanggal || item.tanggal_pengambilan || ''
-    const itemDate = rawDate ? new Date(rawDate).toISOString().slice(0, 10) : ''
+    // Perbaikan: gunakan dayjs dengan timezone WIB untuk konsistensi
+    const itemDate = rawDate && dayjs(rawDate).isValid() 
+      ? dayjs(rawDate).tz('Asia/Jakarta').format('YYYY-MM-DD') 
+      : ''
 
     const matchDate = showDateFilter && selectedDate ? itemDate === selectedDate : true
 
     const matchSumberDana = showSumberDanaFilter && selectedSumberDana 
-      ? (item.sumber_dana || item.platform_name || item.sumber_nama || '') === selectedSumberDana
+      ? (item.sumber_dana || item.platform_name || item.sumber_nama || '').toLowerCase() === (selectedSumberDana || '').toLowerCase()
       : true
 
     const matchJenisTransaksi = showJenisTransaksiFilter && selectedJenisTransaksi
-      ? (item.jenis_transaksi || '') === selectedJenisTransaksi
+      ? (item.jenis_transaksi || '').toLowerCase() === (selectedJenisTransaksi || '').toLowerCase()
       : true
 
     const matchTerimaDana = showTerimaDanaFilter && selectedTerimaDana
-      ? (item.terima_dana_nama || '') === selectedTerimaDana
+      ? (item.terima_dana_nama || '').toLowerCase() === (selectedTerimaDana || '').toLowerCase()
       : true
 
     const matchPembayarFee = showPembayarFeeFilter && selectedPembayarFee
-      ? (item.metode_pembayaran_nama || '') === selectedPembayarFee
+      ? (item.metode_pembayaran_nama || '').toLowerCase() === (selectedPembayarFee || '').toLowerCase()
       : true
 
     const matchEditedFilter = showEditedFilter && selectedEditedFilter
@@ -403,7 +412,7 @@ const TableContent = ({
               {currentData.map((item, index) => (
                 <tr
                   key={item.id ?? index}
-                  className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} ${item.is_edited || item.edited ? (isDark ? 'bg-yellow-900 text-yellow-200' : 'bg-yellow-50') : ''}`}
+                  className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} ${item.is_edited || item.edited ? (isDark ? 'bg-yellow-900 text-yellow-200' : 'bg-yellow-200') : ''}`}
                 >
                   {editDelete && (
                     <td

@@ -13,6 +13,8 @@ import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
 import { useTheme } from '../../../../context/ThemeContext'
+import { useLock } from '../../../../context/LockContext'
+import { useColumnSettings } from '../../../../hooks/useColumnSettings'
 import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
@@ -20,6 +22,8 @@ dayjs.extend(timezone)
 const HalamanPindahSaldo = () => {
   const [stores, setStores] = useState([])
   const { isDark } = useTheme()
+  const { isGloballyLocked } = useLock()
+  const { isColumnVisible } = useColumnSettings('pindahSaldo')
   const [selectedStore, setSelectedStore] = useState(null)
   const [transfers, setTransfers] = useState([])
   const [saldoData, setSaldoData] = useState([])
@@ -57,6 +61,8 @@ const HalamanPindahSaldo = () => {
   const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
+  const [showInfoDialog, setShowInfoDialog] = useState(false)
+  const [infoMessage, setInfoMessage] = useState('')
   // Add state for selected saldo objects
   const [selectedSourceSaldo, setSelectedSourceSaldo] = useState(null)
   const [selectedDestSaldo, setSelectedDestSaldo] = useState(null)
@@ -134,7 +140,7 @@ const HalamanPindahSaldo = () => {
   }, [])
 
   // Updated columns definition to match our database structure
-  const columns = [
+  const allColumns = [
     { key: 'user', label: 'User Pemindah' },
     { key: 'date', label: 'Tanggal' },
     { key: 'senderBalanceName', label: 'Sumber Dana' },
@@ -145,6 +151,9 @@ const HalamanPindahSaldo = () => {
     { key: 'formattedOperational', label: 'Operasional' },
     { key: 'description', label: 'Keterangan' }
   ]
+
+  // Filter kolom berdasarkan setting
+  const columns = allColumns.filter(col => isColumnVisible(col.key))
 
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -175,8 +184,8 @@ const HalamanPindahSaldo = () => {
       const cleanedOperational = parseInt(String(formData.operational).replace(/[^0-9]/g, ''), 10)
       const platformString = `${formData.platformSource} > ${formData.platformDestination}`
       const currentUserId = formData.user_id || (loggedInUser ? loggedInUser.id : 1)
-      const sourceSaldo = saldoData.find((s) => s.nama_sumber_dana === formData.senderBalance)
-      const destSaldo = saldoData.find((s) => s.nama_sumber_dana === formData.receiverBalance)
+      const sourceSaldo = saldoData.find((s) => s.nama_sumber_dana?.toLowerCase() === formData.senderBalance?.toLowerCase())
+      const destSaldo = saldoData.find((s) => s.nama_sumber_dana?.toLowerCase() === formData.receiverBalance?.toLowerCase())
 
       if (!sourceSaldo || !destSaldo) {
         console.error('Saldo source or destination not found')
@@ -311,15 +320,57 @@ const HalamanPindahSaldo = () => {
     if (!itemToEdit) return
 
     const today = getTodayWIB()
+    const currentUser = JSON.parse(localStorage.getItem('user'))
+    const currentUserId = currentUser?.id || currentUser?.userId || ''
+    const currentUserRole = (currentUser?.role || 'kasir').toLowerCase()
 
-    // Validasi: kasir hanya boleh edit transaksi hari ini (bandingkan tanggal saja)
-    if (userRole.toLowerCase() === 'kasir' && toDateOnly(itemToEdit.date) !== today) {
-      setAlertMessage(
-        'Kasir hanya bisa mengedit pemindahan saldo hari ini. Hubungi admin untuk mengubah data lama.'
-      )
-      setShowAlertDialog(true)
-      return
+    // Debug logging untuk cek data user
+    console.log('🔍 Debug Edit Check PindahSaldo:', {
+      currentUser,
+      currentUserId,
+      currentUserRole,
+      itemUserId: itemToEdit.userId,
+      itemUser: itemToEdit.user,
+      itemDate: itemToEdit.date
+    })
+
+    // Pengecekan role dan user ID
+    if (currentUserRole === 'kasir') {
+      // Cek tanggal - kasir hanya bisa edit transaksi hari ini
+      if (toDateOnly(itemToEdit.date) !== today) {
+        setInfoMessage(
+          'Kasir hanya bisa mengedit pemindahan saldo hari ini. Hubungi admin untuk mengubah data lama.'
+        )
+        setShowInfoDialog(true)
+        return
+      }
+      
+      // Cek user ID atau nama - kasir hanya bisa edit data milik sendiri
+      const currentUserName = (currentUser?.nama || currentUser?.name || currentUser?.username || '').toLowerCase()
+      const itemUserName = (itemToEdit.user || '').toLowerCase()
+      
+      // Cek apakah data dibuat oleh admin
+      if (itemUserName.includes('admin')) {
+        setInfoMessage(
+          `Anda tidak dapat mengedit pemindahan saldo yang dibuat oleh Admin. (Dibuat oleh: ${itemToEdit.user || 'Admin'})`
+        )
+        setShowInfoDialog(true)
+        return
+      }
+      
+      // Cek apakah data milik user lain (ID ATAU nama harus cocok)
+      const isOwner = (itemToEdit.userId && itemToEdit.userId === currentUserId) || 
+                      (itemUserName && itemUserName === currentUserName)
+      
+      if (!isOwner && (itemToEdit.userId || itemUserName)) {
+        setInfoMessage(
+          `Anda tidak dapat mengedit pemindahan saldo yang dibuat oleh karyawan lain. (Dibuat oleh: ${itemToEdit.user || 'Unknown'})`
+        )
+        setShowInfoDialog(true)
+        return
+      }
     }
+    // Admin bisa edit semua transaksi tanpa batasan
 
     const sourceSaldo = saldoData.find((s) => s.id === itemToEdit.senderBalanceId)
     const destSaldo = saldoData.find((s) => s.id === itemToEdit.receiverBalanceId)
@@ -514,6 +565,20 @@ const HalamanPindahSaldo = () => {
 
   return (
     <>
+      {isGloballyLocked && (
+        <div className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🔒</span>
+            <div>
+              <strong>Sistem Terkunci!</strong>
+              <p className="text-sm mt-1">
+                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur terkunci kecuali logout dan ganti tema.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
@@ -540,8 +605,8 @@ const HalamanPindahSaldo = () => {
             userRole={userRole}
             title={'Pindah Saldo'}
             columns={columns}
-            onDelete={handleDelete}
-            onEdit={handleEdit}
+            onDelete={isGloballyLocked ? null : handleDelete}
+            onEdit={isGloballyLocked ? null : handleEdit}
             rowPerPage={10}
             onAdd={
               <FormLayout
@@ -752,6 +817,13 @@ const HalamanPindahSaldo = () => {
         onClose={() => setShowAlertDialog(false)}
         title="Akses Terbatas"
         message={alertMessage}
+      />
+
+      <AlertDialog
+        isOpen={showInfoDialog}
+        onClose={() => setShowInfoDialog(false)}
+        title="Informasi"
+        message={infoMessage}
       />
     </>
   )

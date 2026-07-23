@@ -121,7 +121,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
       if (lastSelectedPlatform) {
         // We need to wait for saldoAwalOptions to be populated
         setTimeout(() => {
-          const platform = saldoAwalOptions.find((p) => p.nama_sumber_dana === lastSelectedPlatform)
+          const platform = saldoAwalOptions.find((p) => p.nama_sumber_dana?.toLowerCase() === lastSelectedPlatform?.toLowerCase())
           if (platform) {
             handlePlatformChange(lastSelectedPlatform)
           }
@@ -151,7 +151,7 @@ const FormLayout = ({ onSubmit, buttonText = 'Ambil Saldo', initialData = {} }) 
   const handlePlatformChange = (selectedPlatformName) => {
     // Find the selected saldo_awal item
     const selectedItem = saldoAwalOptions.find(
-      (item) => item.nama_sumber_dana === selectedPlatformName
+      (item) => item.nama_sumber_dana?.toLowerCase() === selectedPlatformName?.toLowerCase()
     )
 
     if (selectedItem) {

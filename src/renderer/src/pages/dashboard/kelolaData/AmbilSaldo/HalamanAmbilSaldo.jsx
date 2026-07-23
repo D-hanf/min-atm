@@ -12,6 +12,8 @@ import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
 import { useTheme } from '../../../../context/ThemeContext'
+import { useLock } from '../../../../context/LockContext'
+import { useColumnSettings } from '../../../../hooks/useColumnSettings'
 import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
@@ -19,6 +21,8 @@ dayjs.extend(timezone)
 
 const HalamanAmbilSaldo = () => {
   const { isDark } = useTheme()
+  const { isGloballyLocked } = useLock()
+  const { isColumnVisible } = useColumnSettings('ambilSaldo')
   const [stores] = useState([])
 
   const [ambilSaldo, setAmbilSaldo] = useState([])
@@ -35,6 +39,8 @@ const HalamanAmbilSaldo = () => {
 
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
+  const [showInfoDialog, setShowInfoDialog] = useState(false)
+  const [infoMessage, setInfoMessage] = useState('')
 
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
@@ -152,7 +158,7 @@ const HalamanAmbilSaldo = () => {
   const handlePlatformChange = (selectedPlatformName) => {
     // Find the selected saldo_awal item
     const selectedItem = saldoAwalOptions.find(
-      (item) => item.nama_sumber_dana === selectedPlatformName
+      (item) => item.nama_sumber_dana?.toLowerCase() === selectedPlatformName?.toLowerCase()
     )
 
     if (selectedItem) {
@@ -201,8 +207,8 @@ const HalamanAmbilSaldo = () => {
   // Handle delete ambil saldo
   const handleDelete = (id) => {
     // Check if user is admin first
-    if (!loggedInUser || loggedInUser.role !== 'admin') {
-      setAlertMessage('Maaf, hanya admin yang dapat menghapus data pengambilan saldo.')
+    if (!loggedInUser || loggedInUser.role?.toLowerCase() !== 'admin') {
+      setAlertMessage('Maaf, hanya admin yang dapat menghapus data ambil saldo.')
       setShowAlertDialog(true)
       return
     }
@@ -237,12 +243,55 @@ const HalamanAmbilSaldo = () => {
 
     const itemDate = dayjs(itemToEdit.tanggal_pengambilan).format('YYYY-MM-DD')
     const today = getTodayWIB()
+    const currentUser = JSON.parse(localStorage.getItem('user'))
+    const currentUserId = currentUser?.id || currentUser?.userId || ''
+    const currentUserRole = (currentUser?.role || 'kasir').toLowerCase()
 
-    if (loggedInUser.role !== 'admin' && itemDate !== today) {
-      setAlertMessage('Kasir hanya dapat mengedit data tanggal hari ini.')
-      setShowAlertDialog(true)
-      return
+    // Debug logging untuk cek data user
+    console.log('🔍 Debug Edit Check AmbilSaldo:', {
+      currentUser,
+      currentUserId,
+      currentUserRole,
+      itemUserId: itemToEdit.user_id,
+      itemUserName: itemToEdit.user_name,
+      itemDate: itemToEdit.tanggal_pengambilan
+    })
+
+    // Pengecekan role dan user ID
+    if (currentUserRole === 'kasir') {
+      // Cek tanggal - kasir hanya bisa edit data hari ini
+      if (itemDate !== today) {
+        setAlertMessage('Kasir hanya dapat mengedit data tanggal hari ini.')
+        setShowAlertDialog(true)
+        return
+      }
+      
+      // Cek user ID atau nama - kasir hanya bisa edit data milik sendiri
+      const currentUserName = (currentUser?.nama || currentUser?.name || currentUser?.username || '').toLowerCase()
+      const itemUserName = (itemToEdit.user_name || '').toLowerCase()
+      
+      // Cek apakah data dibuat oleh admin
+      if (itemUserName.includes('admin')) {
+        setInfoMessage(
+          `Anda tidak dapat mengedit data ambil saldo yang dibuat oleh Admin. (Dibuat oleh: ${itemToEdit.user_name || 'Admin'})`
+        )
+        setShowInfoDialog(true)
+        return
+      }
+      
+      // Cek apakah data milik user lain (ID ATAU nama harus cocok)
+      const isOwner = (itemToEdit.user_id && itemToEdit.user_id === currentUserId) || 
+                      (itemUserName && itemUserName === currentUserName)
+      
+      if (!isOwner && (itemToEdit.user_id || itemUserName)) {
+        setInfoMessage(
+          `Anda tidak dapat mengedit data ambil saldo yang dibuat oleh karyawan lain. (Dibuat oleh: ${itemToEdit.user_name || 'Unknown'})`
+        )
+        setShowInfoDialog(true)
+        return
+      }
     }
+    // Admin bisa edit semua data tanpa batasan
 
     let formattedDate
     try {
@@ -266,7 +315,7 @@ const HalamanAmbilSaldo = () => {
     })
 
     const matchingSaldoAwal = saldoAwalOptions.find(
-      (item) => item.nama_sumber_dana === itemToEdit.platform
+      (item) => item.nama_sumber_dana?.toLowerCase() === itemToEdit.platform?.toLowerCase()
     )
     setSelectedPlatform(matchingSaldoAwal || null)
 
@@ -359,7 +408,7 @@ const HalamanAmbilSaldo = () => {
         sumber_dana: item.platform // Add for filter compatibility
       }
     })
-  const columns = [
+  const allColumns = [
     { key: 'petugas_pengambil_id', label: 'Petugas Pengambil' },
     { key: 'tanggal_pengambilan', label: 'Tanggal Pengambilan' },
     { key: 'platform', label: 'Platform' },
@@ -370,8 +419,25 @@ const HalamanAmbilSaldo = () => {
     { key: 'tujuan_pengambilan', label: 'Tujuan Pengambilan' },
     { key: 'keterangan', label: 'Keterangan' }
   ]
+
+  // Filter kolom berdasarkan setting
+  const columns = allColumns.filter(col => isColumnVisible(col.key))
   return (
     <>
+      {isGloballyLocked && (
+        <div className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🔒</span>
+            <div>
+              <strong>Sistem Terkunci!</strong>
+              <p className="text-sm mt-1">
+                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur terkunci kecuali logout dan ganti tema.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
@@ -402,15 +468,15 @@ const HalamanAmbilSaldo = () => {
               userRole={userRole}
               title={'Data Ambil Saldo'}
               columns={columns}
-              onDelete={handleDelete}
-              onEdit={handleEdit}
+              onDelete={isGloballyLocked ? null : handleDelete}
+              onEdit={isGloballyLocked ? null : handleEdit}
               rowPerPage={10}
-              onAdd={
+              onAdd={isGloballyLocked ? null : (
                 <FormLayout
                   onSubmit={handleAddAmbilSaldo}
                   buttonText="Tambah Ambil Saldo"
                 ></FormLayout>
-              }
+              )}
             />
       </div>
 
@@ -586,6 +652,13 @@ const HalamanAmbilSaldo = () => {
         onClose={() => setShowAlertDialog(false)}
         title="Akses Terbatas"
         message={alertMessage}
+      />
+
+      <AlertDialog
+        isOpen={showInfoDialog}
+        onClose={() => setShowInfoDialog(false)}
+        title="Informasi"
+        message={infoMessage}
       />
     </>
   )

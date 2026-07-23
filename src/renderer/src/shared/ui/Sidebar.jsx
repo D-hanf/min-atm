@@ -2,6 +2,7 @@ import {
   HiOutlineArrowLeftEndOnRectangle,
   HiOutlineBars4,
   HiOutlineChevronDoubleLeft,
+  HiOutlineCog,
   HiOutlineCube,
   HiOutlineHome,
   HiOutlineShoppingBag,
@@ -54,8 +55,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   const navigations = [
     {
       title: 'Menu',
-      items: 
-      [
+      items: [
         ...(isAdmin
           ? [
               {
@@ -66,20 +66,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             ]
           : []),
         {
-          ...isAdmin
-          ? {
-              label: 'Transaksi',
-              icon: <HiOutlineShoppingBag size={18} />,
-              hasSubmenu: true,
-              submenu: [
-                { label: 'Halaman Transaksi', to: '/dashboard/transaksi' },
-                ...(isAdmin ? [{ label: 'Laporan Aset', to: '/dashboard/transaksi/laporan-aset' }] : []),
-              ]
-          } : {
-              label: 'Transaksi',
-              icon: <HiOutlineShoppingBag size={18} />,
-              to: '/dashboard/transaksi',
-              }
+          label: 'Transaksi',
+          icon: <HiOutlineShoppingBag size={18} />,
+          to: '/dashboard/transaksi'
+        },
+        {
+          label: "Semua transaksi",
+          icon: <HiOutlineShoppingBag size={18} />,
+          to: '/dashboard/transaksi/semua-transaksi'
         },
         {
           label: 'Kelola Data',
@@ -99,6 +93,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 icon: <TbReportMoney size={18} />,
                 to: '/dashboard/laporan-keuangan'
               },
+              { label: 'Laporan Aset',
+                icon: <HiOutlineCube size={18} />, to: '/dashboard/transaksi/laporan-aset' },
               {
                 label: 'Keuntungan',
                 icon: <PiMoneyLight size={18} />,
@@ -120,6 +116,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
               }
             ]
           : []),
+        {
+          label: isAdmin ? 'Setting Sistem' : 'Setting Kolom',
+          icon: <HiOutlineCog size={18} />,
+          to: '/dashboard/setting'
+        },
         {
           label: 'Tema Aplikasi',
           icon: <HiOutlineSwatch size={18} />,
