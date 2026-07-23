@@ -14,12 +14,13 @@ import { HalamanTema } from '../../pages/dashboard/tema' // Import the theme pag
 import { HalamanTransaksi } from '../../pages/dashboard/transaksi'
 import KelolaToko from '../../pages/dashboard/kelolaToko/KelolaToko'
 import Keuntungan from '../../pages/dashboard/laporan-keuangan/Keuntungan'
+import KoreksiTransaksi from '../../pages/dashboard/koreksi-transaksi'
 import LaporanAset from '../../pages/dashboard/transaksi/laporan-aset'
 import LaporanKeuangan from '../../pages/dashboard/laporan-keuangan'
 import LoginForm from '../../pages/Login'
 import React from 'react'
 import { Route } from 'react-router-dom'
-import SemuaTransaksi from '../../pages/dashboard/transaksi/semua-transaksi/index.jsx'
+import SemuaTransaksi from '../../pages/dashboard/semua-transaksi'
 
 // import ProtectedRoute from "./ProtectedRoute";
 
@@ -30,7 +31,8 @@ const DashboardRoutes = () => {
       <Route path="/dashboard" element={<DashboardLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="transaksi" element={<HalamanTransaksi />} />
-        <Route path="transaksi/semua-transaksi" element={<SemuaTransaksi />} />
+        <Route path="koreksi-transaksi" element={<KoreksiTransaksi />} />
+        <Route path="semua-transaksi" element={<SemuaTransaksi />} />
         <Route path="transaksi/laporan-aset" element={<LaporanAset />} />
         <Route path="pindah-saldo" element={<HalamanPindahSaldo />} />
         <Route path="ambil-saldo" element={<HalamanAmbilSaldo />} />

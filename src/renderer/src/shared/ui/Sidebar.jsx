@@ -16,6 +16,7 @@ import { AiOutlineShop } from 'react-icons/ai'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { PiMoneyLight } from 'react-icons/pi'
 import { TbReportMoney } from 'react-icons/tb'
+import { useAuth } from '../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 
@@ -48,10 +49,12 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('user')
-    navigate('/')
-  }
+const { logout } = useAuth();
+
+const handleLogout = () => {
+    logout();
+    navigate("/");
+};
 
   const navigations = [
     {
