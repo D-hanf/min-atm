@@ -2,6 +2,7 @@ import {
   HiOutlineArrowLeftEndOnRectangle,
   HiOutlineBars4,
   HiOutlineChevronDoubleLeft,
+  HiOutlineCircleStack,
   HiOutlineCog,
   HiOutlineCube,
   HiOutlineHome,
@@ -74,7 +75,7 @@ const handleLogout = () => {
         },
         {
           label: "Koreksi transaksi",
-          icon: <HiOutlineViewColumns size={18} />,
+          icon: <HiOutlineCircleStack size={18} />,
           to: '/dashboard/koreksi-transaksi'
         },
         {
@@ -201,7 +202,7 @@ const handleLogout = () => {
           )}
         </div>
 
-        <div className="flex-1 py-6 px-5">
+        <div className="flex-1 py-4 px-5">
           {navigations.map((section, iSection) => (
             <div key={iSection} className={iSection > 0 ? 'mt-6' : ''}>
               {isOpen && (
