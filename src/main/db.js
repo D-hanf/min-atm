@@ -66,7 +66,7 @@ export async function updateSchema() {
     const results = await Promise.all([
       addColumnIfNotExists('transaksi', 'nama_pelanggan', 'TEXT'),
       addColumnIfNotExists('transaksi', 'nomor_tujuan', 'TEXT'),
-      
+
       // Kolom untuk tracking edit transaksi
       addColumnIfNotExists('transaksi', 'is_edited', 'BOOLEAN DEFAULT 0'),
       addColumnIfNotExists('transaksi', 'edited_at', 'DATETIME'),
@@ -77,6 +77,31 @@ export async function updateSchema() {
       addColumnIfNotExists('hutang', 'tanggal_transaksi', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
       addColumnIfNotExists('hutang', 'status_bayar', 'BOOLEAN DEFAULT 0'),
       addColumnIfNotExists('hutang', 'tanggal_bayar_hutang', 'DATETIME '),
+
+      // 🚩 Kolom untuk fitur "Tandai Salah" (koreksi transaksi)
+      addColumnIfNotExists('transaksi', 'is_marked_wrong', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('transaksi', 'marked_note', 'TEXT'),
+      addColumnIfNotExists('transaksi', 'marked_by', 'TEXT'),
+      addColumnIfNotExists('transaksi', 'marked_by_id', 'INTEGER'),
+      addColumnIfNotExists('transaksi', 'marked_at', 'DATETIME'),
+
+      addColumnIfNotExists('hutang', 'is_marked_wrong', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('hutang', 'marked_note', 'TEXT'),
+      addColumnIfNotExists('hutang', 'marked_by', 'TEXT'),
+      addColumnIfNotExists('hutang', 'marked_by_id', 'INTEGER'),
+      addColumnIfNotExists('hutang', 'marked_at', 'DATETIME'),
+
+      addColumnIfNotExists('pindah_saldo', 'is_marked_wrong', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('pindah_saldo', 'marked_note', 'TEXT'),
+      addColumnIfNotExists('pindah_saldo', 'marked_by', 'TEXT'),
+      addColumnIfNotExists('pindah_saldo', 'marked_by_id', 'INTEGER'),
+      addColumnIfNotExists('pindah_saldo', 'marked_at', 'DATETIME'),
+
+      addColumnIfNotExists('ambil_saldo', 'is_marked_wrong', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('ambil_saldo', 'marked_note', 'TEXT'),
+      addColumnIfNotExists('ambil_saldo', 'marked_by', 'TEXT'),
+      addColumnIfNotExists('ambil_saldo', 'marked_by_id', 'INTEGER'),
+      addColumnIfNotExists('ambil_saldo', 'marked_at', 'DATETIME')
     ])
 
     results.forEach(msg => console.log(msg))
@@ -222,6 +247,77 @@ export function calculateTotalAssets() {
         }
       })
     })
+  })
+}
+
+// 🚩 FUNGSI UNTUK FITUR "TANDAI SALAH" (koreksi transaksi)
+
+// Whitelist tabel yang boleh ditandai — mencegah SQL injection lewat nama tabel,
+// karena nama tabel/kolom tidak bisa diparameterisasi lewat placeholder '?'
+const MARKABLE_TABLES = {
+  transaksi: 'transaksi',
+  hutang: 'hutang',
+  pindah_saldo: 'pindah_saldo',
+  ambil_saldo: 'ambil_saldo'
+}
+
+// Menandai satu baris data sebagai salah, lengkap dengan keterangan,
+// siapa yang menandai (nama & id user), dan kapan waktunya (WIB, waktu lokal server).
+export function markSalah({ table, id, keterangan, user_name, user_id }) {
+  return new Promise((resolve, reject) => {
+    const tableName = MARKABLE_TABLES[table]
+    if (!tableName) return reject(new Error('Tabel tidak valid untuk ditandai'))
+    if (!id) return reject(new Error('ID data tidak valid'))
+    if (!keterangan || !keterangan.trim()) {
+      return reject(new Error('Keterangan kesalahan wajib diisi'))
+    }
+
+    db.run(
+      `UPDATE ${tableName}
+       SET is_marked_wrong = 1,
+           marked_note = ?,
+           marked_by = ?,
+           marked_by_id = ?,
+           marked_at = datetime('now', 'localtime')
+       WHERE id = ?`,
+      [keterangan.trim(), user_name || '-', user_id ?? null, id],
+      function (err) {
+        if (err) {
+          console.error('❌ Error markSalah:', err)
+          return reject(err)
+        }
+        console.log(`✅ Data ${tableName}#${id} ditandai salah oleh ${user_name || '-'}`)
+        resolve({ success: true, changes: this.changes })
+      }
+    )
+  })
+}
+
+// Membatalkan penandaan salah pada satu baris data.
+export function unmarkSalah({ table, id }) {
+  return new Promise((resolve, reject) => {
+    const tableName = MARKABLE_TABLES[table]
+    if (!tableName) return reject(new Error('Tabel tidak valid'))
+    if (!id) return reject(new Error('ID data tidak valid'))
+
+    db.run(
+      `UPDATE ${tableName}
+       SET is_marked_wrong = 0,
+           marked_note = NULL,
+           marked_by = NULL,
+           marked_by_id = NULL,
+           marked_at = NULL
+       WHERE id = ?`,
+      [id],
+      function (err) {
+        if (err) {
+          console.error('❌ Error unmarkSalah:', err)
+          return reject(err)
+        }
+        console.log(`✅ Penandaan salah pada ${tableName}#${id} dibatalkan`)
+        resolve({ success: true, changes: this.changes })
+      }
+    )
   })
 }
 

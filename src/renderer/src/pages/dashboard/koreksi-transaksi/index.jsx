@@ -217,6 +217,24 @@ const KoreksiTransaksi = () => {
   const [confirmMessage, setConfirmMessage] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null) // { category, rawId }
 
+  // ── State Tandai Salah (generik semua kategori) ──
+  const [markModalOpen, setMarkModalOpen] = useState(false)
+  const [markNote, setMarkNote] = useState('')
+  const [markNoteError, setMarkNoteError] = useState(false)
+  const [markTarget, setMarkTarget] = useState(null) // { table, id }
+
+  const [markInfoOpen, setMarkInfoOpen] = useState(false)
+  const [markInfoData, setMarkInfoData] = useState(null) // { keterangan, oleh, olehId, pada, table, id }
+  const [showUnmarkConfirm, setShowUnmarkConfirm] = useState(false)
+
+  // Mapping kategori (prefix id gabungan) → nama tabel di database
+  const categoryToTable = {
+    transaksi: 'transaksi',
+    hutang: 'hutang',
+    pindah: 'pindah_saldo',
+    ambil: 'ambil_saldo'
+  }
+
   // ─────────────────────────────────────────────────────────
   // AMBIL SALDO — disamakan persis dengan HalamanAmbilSaldo.jsx
   // ─────────────────────────────────────────────────────────
@@ -336,7 +354,11 @@ const KoreksiTransaksi = () => {
           sumber_dana: item.sumber_dana || '-',
           tujuan_dana: item.terima_dana_nama || '-',
           deskripsi: item.keterangan || '-',
-          
+          is_marked_wrong: !!item.is_marked_wrong,
+          marked_note: item.marked_note || '',
+          marked_by: item.marked_by || '',
+          marked_by_id: item.marked_by_id ?? null,
+          marked_at: item.marked_at || null
         })),
         ...hutangList.map((item) => ({
           id: `hutang-${item.id}`,
@@ -349,7 +371,12 @@ const KoreksiTransaksi = () => {
           nominal: formatRupiah(item.nominal_transaksi),
           sumber_dana: item.platform_name || item.platform || '-',
           tujuan_dana: '-',
-          deskripsi: item.keterangan || '-'
+          deskripsi: item.keterangan || '-',
+          is_marked_wrong: !!item.is_marked_wrong,
+          marked_note: item.marked_note || '',
+          marked_by: item.marked_by || '',
+          marked_by_id: item.marked_by_id ?? null,
+          marked_at: item.marked_at || null
         })),
         ...pindahList.map((item) => ({
           id: `pindah-${item.id}`,
@@ -362,7 +389,12 @@ const KoreksiTransaksi = () => {
           nominal: formatRupiah(item.nominal),
           sumber_dana: saldoById.get(Number(item.sumber_dana_id)) || item.sumber_dana || '-',
           tujuan_dana: saldoById.get(Number(item.tujuan_dana_id)) || item.tujuan_dana || '-',
-          deskripsi: item.keterangan || '-'
+          deskripsi: item.keterangan || '-',
+          is_marked_wrong: !!item.is_marked_wrong,
+          marked_note: item.marked_note || '',
+          marked_by: item.marked_by || '',
+          marked_by_id: item.marked_by_id ?? null,
+          marked_at: item.marked_at || null
         })),
         ...ambilList.map((item) => ({
           id: `ambil-${item.id}`,
@@ -379,7 +411,12 @@ const KoreksiTransaksi = () => {
           nominal: formatRupiah(item.nominal_pengambilan),
           sumber_dana: item.platform || item.platform_name || '-',
           tujuan_dana: '-',
-          deskripsi: item.keterangan || '-'
+          deskripsi: item.keterangan || '-',
+          is_marked_wrong: !!item.is_marked_wrong,
+          marked_note: item.marked_note || '',
+          marked_by: item.marked_by || '',
+          marked_by_id: item.marked_by_id ?? null,
+          marked_at: item.marked_at || null
         }))
       ].sort((a, b) => dayjs(b.sortDate).valueOf() - dayjs(a.sortDate).valueOf())
 
@@ -916,6 +953,118 @@ const KoreksiTransaksi = () => {
     }
   }
 
+  // ─────────────────────────────────────────────────────────
+  // TANDAI SALAH (router): buka modal input keterangan jika belum
+  // ditandai, atau tampilkan info penandaan jika sudah ditandai.
+  // ─────────────────────────────────────────────────────────
+  const handleToggleMarkSalah = (compositeId) => {
+    if (!loggedInUser) {
+      setAlertMessage('Pengguna tidak terdeteksi.')
+      setShowAlertDialog(true)
+      return
+    }
+
+    const category = getRowCategory(compositeId)
+    const rawId = getRawId(compositeId)
+    if (!category || rawId === null) return
+
+    const row = rows.find((r) => r.id === compositeId)
+    if (!row) return
+
+    if (row.is_marked_wrong) {
+      setMarkInfoData({
+        keterangan: row.marked_note || '-',
+        oleh: row.marked_by || '-',
+        olehId: row.marked_by_id ?? null,
+        pada: row.marked_at ? toDisplayDateTime(row.marked_at) : '-',
+        table: categoryToTable[category],
+        id: rawId
+      })
+      setMarkInfoOpen(true)
+      return
+    }
+
+    setMarkTarget({ table: categoryToTable[category], id: rawId })
+    setMarkNote('')
+    setMarkNoteError(false)
+    setMarkModalOpen(true)
+  }
+
+  // Proses submit sebenarnya: validasi sinkron dulu (supaya Modal tahu boleh
+  // nutup diri atau tidak lewat return value), lalu proses API di background.
+  const submitMarkSalah = () => {
+    if (!markTarget) return false
+
+    if (!markNote.trim()) {
+      setMarkNoteError(true)
+      return false // Modal.jsx membaca `false` ini untuk TIDAK menutup diri
+    }
+
+    const { table, id } = markTarget
+    const keterangan = markNote.trim()
+    const user_name = loggedInUser?.nama || loggedInUser?.username || '-'
+    const user_id = loggedInUser?.id ?? null
+
+    ;(async () => {
+      try {
+        await window.api.markSalah({ table, id, keterangan, user_name, user_id })
+        await fetchAll()
+        console.log('✅ Data berhasil ditandai salah')
+      } catch (error) {
+        console.error('❌ Gagal menandai data salah:', error)
+        setAlertMessage('Gagal menandai data sebagai salah.')
+        setShowAlertDialog(true)
+      }
+    })()
+
+    return true
+  }
+
+  // Dipanggil oleh Modal.jsx saat tombol "Simpan" diklik (form submit)
+  const handleSubmitMarkSalah = () => submitMarkSalah()
+
+  // Dipanggil manual saat user tekan Enter di textarea (di luar form submit Modal)
+  const handleEnterSubmitMarkSalah = () => {
+    const ok = submitMarkSalah()
+    if (ok) {
+      setMarkModalOpen(false)
+      setMarkTarget(null)
+      setMarkNote('')
+      setMarkNoteError(false)
+    }
+  }
+
+  // Hanya admin atau orang yang menandai sendiri yang boleh membatalkan tanda salah
+  const canUnmarkSalah =
+    markInfoData &&
+    (isAdmin || (loggedInUser && markInfoData.olehId != null && Number(loggedInUser.id) === Number(markInfoData.olehId)))
+
+  // Konfirmasi unmark pakai ConfirmDialog kustom, BUKAN window.confirm() bawaan
+  // browser — window.confirm() bikin Electron kehilangan fokus keyboard sampai
+  // window di-alt+tab, sehingga textarea jadi tidak bisa diketik setelahnya.
+  const handleUnmarkSalah = () => {
+    if (!markInfoData) return
+    setShowUnmarkConfirm(true)
+  }
+
+  const confirmUnmarkSalah = async () => {
+    if (!markInfoData) return
+
+    try {
+      await window.api.unmarkSalah({ table: markInfoData.table, id: markInfoData.id })
+      await fetchAll()
+      setMarkInfoOpen(false)
+      setMarkInfoData(null)
+      console.log('✅ Tandai salah dibatalkan')
+    } catch (error) {
+      console.error('❌ Gagal membatalkan tandai salah:', error)
+      setAlertMessage('Gagal membatalkan tandai salah.')
+      setShowAlertDialog(true)
+    } finally {
+      setShowUnmarkConfirm(false)
+    }
+  }
+
   return (
     <PageContainer title="Koreksi Transaksi">
       <div className="px-4 pb-6">
@@ -963,6 +1112,7 @@ const KoreksiTransaksi = () => {
             ]}
             onEdit={isAdmin ? handleEdit : null}
             onDelete={isAdmin ? handleDelete : null}
+            onMark={handleToggleMarkSalah}
             info={`Total data: ${totalRows}`}
             btnSize="xs"
             userRole={userRole}
@@ -973,6 +1123,7 @@ const KoreksiTransaksi = () => {
             showDateFilter
             showSumberDanaFilter
             showJenisTransaksiFilter
+            showMarkedFilter
           />
         )}
       </div>
@@ -1397,6 +1548,104 @@ const KoreksiTransaksi = () => {
         onClose={() => setShowAlertDialog(false)}
         title="Informasi"
         message={alertMessage}
+      />
+
+      {/* ── Modal Input Keterangan: Tandai Salah ── */}
+      <ModalEdit
+        isOpen={markModalOpen}
+        onClose={() => {
+          setMarkModalOpen(false)
+          setMarkTarget(null)
+          setMarkNote('')
+          setMarkNoteError(false)
+        }}
+        onSubmit={handleSubmitMarkSalah}
+        title="Tandai Data Salah"
+      >
+        <div className="col-span-2 mb-4">
+          <label className="block text-sm font-medium mb-1 text-gray-700">
+            Keterangan Kesalahan
+          </label>
+          <textarea
+            className={`w-full p-2 border rounded-md bg-white text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+              markNoteError ? 'border-red-400' : 'border-gray-300'
+            }`}
+            rows={3}
+            value={markNote}
+            onChange={(e) => {
+              setMarkNote(e.target.value)
+              if (markNoteError) setMarkNoteError(false)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                handleEnterSubmitMarkSalah()
+              }
+            }}
+            placeholder="Contoh: nominal salah input, harusnya Rp50.000"
+            autoFocus
+          />
+          {markNoteError && (
+            <p className="mt-1 text-xs text-red-500">Keterangan kesalahan wajib diisi.</p>
+          )}
+        </div>
+      </ModalEdit>
+
+      {/* ── Info Penandaan Kesalahan ── */}
+      {markInfoOpen && markInfoData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Detail Penandaan Kesalahan
+            </h3>
+
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="text-xs font-medium text-gray-500 mb-0.5">Keterangan</div>
+                <div className="text-gray-800 whitespace-pre-wrap">{markInfoData.keterangan}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-gray-500 mb-0.5">Ditandai oleh</div>
+                <div className="text-gray-800">{markInfoData.oleh}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-gray-500 mb-0.5">Ditandai pada</div>
+                <div className="text-gray-800">{markInfoData.pada}</div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              {canUnmarkSalah && (
+                <button
+                  type="button"
+                  onClick={handleUnmarkSalah}
+                  className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700"
+                >
+                  Batalkan Tanda Salah
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setMarkInfoOpen(false)
+                  setMarkInfoData(null)
+                }}
+                className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Konfirmasi Batalkan Tanda Salah ── */}
+      <ConfirmDialog
+        isOpen={showUnmarkConfirm}
+        onClose={() => setShowUnmarkConfirm(false)}
+        onConfirm={confirmUnmarkSalah}
+        title="Konfirmasi"
+        message="Yakin ingin membatalkan tandai salah pada data ini?"
       />
     </PageContainer>
   )

@@ -1,4 +1,4 @@
-import { HiBookmark, HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
+import { HiBookmark, HiExclamationCircle, HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
 import React, { useDeferredValue, useEffect, useMemo, useState } from 'react'
 
 import AlertDialog from './AlertDialog'
@@ -21,6 +21,7 @@ const TableContent = ({
   onDateChange = () => {},
   onDelete = () => {},
   onStatus = () => {},
+  onMark = () => {},
   onView = () => {},
   onAdd = () => {},
   onSearchChange = () => {},
@@ -41,11 +42,13 @@ const TableContent = ({
   showTerimaDanaFilter = false,
   showPembayarFeeFilter = false,
   showEditedFilter = false,
+  showMarkedFilter = false,
   onSumberDanaChange = () => {},
   onJenisTransaksiChange = () => {},
   onTerimaDanaChange = () => {},
   onPembayarFeeChange = () => {},
-  onEditedFilterChange = () => {}
+  onEditedFilterChange = () => {},
+  onMarkedFilterChange = () => {}
 }) => {
   // const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
@@ -57,6 +60,7 @@ const TableContent = ({
   const [selectedTerimaDana, setSelectedTerimaDana] = useState('')
   const [selectedPembayarFee, setSelectedPembayarFee] = useState('')
   const [selectedEditedFilter, setSelectedEditedFilter] = useState('')
+  const [selectedMarkedFilter, setSelectedMarkedFilter] = useState('')
   const itemsPerPage = 20
   const { isDark } = useTheme()
   const deferredSearchValue = useDeferredValue(searchValue)
@@ -82,6 +86,7 @@ const TableContent = ({
   )
 
   const editedCount = useMemo(() => data.filter((item) => item.is_edited || item.edited).length, [data])
+  const markedCount = useMemo(() => data.filter((item) => item.is_marked_wrong).length, [data])
   const totalCount = data.length
 
   const { user: loggedInUser } = useAuth()
@@ -123,12 +128,14 @@ const TableContent = ({
     selectedTerimaDana,
     selectedPembayarFee,
     selectedEditedFilter,
+    selectedMarkedFilter,
     showDateFilter,
     showSumberDanaFilter,
     showJenisTransaksiFilter,
     showTerimaDanaFilter,
     showPembayarFeeFilter,
-    showEditedFilter
+    showEditedFilter,
+    showMarkedFilter
   ])
 
   const filteredData = useMemo(() => {
@@ -160,6 +167,13 @@ const TableContent = ({
               ? !(item.is_edited || item.edited)
               : true)
         : true
+      const matchMarkedFilter = showMarkedFilter && selectedMarkedFilter
+        ? (selectedMarkedFilter === 'marked'
+            ? !!item.is_marked_wrong
+            : selectedMarkedFilter === 'not-marked'
+              ? !item.is_marked_wrong
+              : true)
+        : true
       const matchSearch = query
         ? [
             item.tanggal,
@@ -182,7 +196,7 @@ const TableContent = ({
             .includes(query)
         : true
 
-      return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchSearch
+      return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchMarkedFilter && matchSearch
     })
   }, [
     data,
@@ -193,12 +207,14 @@ const TableContent = ({
     selectedTerimaDana,
     selectedPembayarFee,
     selectedEditedFilter,
+    selectedMarkedFilter,
     showDateFilter,
     showSumberDanaFilter,
     showJenisTransaksiFilter,
     showTerimaDanaFilter,
     showPembayarFeeFilter,
-    showEditedFilter
+    showEditedFilter,
+    showMarkedFilter
   ])
 
   const totalPages = useMemo(() => Math.ceil(filteredData.length / itemsPerPage), [filteredData.length])
@@ -298,7 +314,7 @@ const TableContent = ({
         </div>
 
         {/* Filters Section */}
-        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter || showEditedFilter) && (
+        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter || showEditedFilter || showMarkedFilter) && (
           <div className={`p-4 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-25'}`}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 mb-4">
               {showDateFilter && (
@@ -426,6 +442,30 @@ const TableContent = ({
                   </select>
                 </div>
               )}
+              {showMarkedFilter && (
+                <div className="flex flex-col min-w-0">
+                  <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Filter Ditandai Salah {markedCount > 0 && (
+                      <span className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 ml-2 rounded-full text-xs font-bold ${isDark ? 'bg-red-500 text-red-900' : 'bg-red-400 text-red-900'}`}>
+                        {markedCount}
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    value={selectedMarkedFilter}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSelectedMarkedFilter(value)
+                      onMarkedFilterChange(value)
+                    }}
+                    className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                  >
+                    <option value="">Semua Data</option>
+                    <option value="marked">Hanya Yang Ditandai Salah ({markedCount})</option>
+                    <option value="not-marked">Belum Ditandai Salah ({totalCount - markedCount})</option>
+                  </select>
+                </div>
+              )}
             </div>
             
             {/* Search Field - Full width below filters */}
@@ -480,7 +520,17 @@ const TableContent = ({
               {currentData.map((item, index) => (
                 <tr
                   key={item.id ?? index}
-                  className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} ${item.is_edited || item.edited ? (isDark ? 'bg-yellow-900 text-yellow-200' : 'bg-yellow-200') : ''}`}
+                  className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} ${
+                    item.is_marked_wrong
+                      ? isDark
+                        ? 'bg-red-900 text-red-200'
+                        : 'bg-red-100'
+                      : item.is_edited || item.edited
+                        ? isDark
+                          ? 'bg-yellow-900 text-yellow-200'
+                          : 'bg-yellow-200'
+                        : ''
+                  }`}
                 >
                   {editDelete && (
                     <td
@@ -557,14 +607,24 @@ const TableContent = ({
                       )}
                       { marked && (
                         <ButtonInput
-                          color="white"
-                          outline={true}
+                          color={item.is_marked_wrong ? 'red' : 'white'}
+                          outline={!item.is_marked_wrong}
                           size={btnSize}
-                          textColor="black"
+                          textColor={item.is_marked_wrong ? 'white' : 'black'}
                           onClick={() => onMark(item.id)}
+                          title={item.is_marked_wrong ? 'Lihat detail penandaan' : 'Tandai data ini salah'}
                         >
-                          <HiBookmark size={16} />
-                          Tandai salah
+                          {item.is_marked_wrong ? (
+                            <>
+                              <HiExclamationCircle className="" size={16} />
+                              Lihat Detail
+                            </>
+                          ) : (
+                            <>
+                              <HiBookmark className="" size={16} />
+                              Tandai salah
+                            </>
+                          )}
                         </ButtonInput>
                       )}
                     </div>

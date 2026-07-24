@@ -74,6 +74,10 @@ const api = {
   deleteTransaksi: (id) => ipcRenderer.invoke('delete-transaksi', id),
   getTransaksiSummary: (role) => ipcRenderer.invoke('get-transaksi-summary', role),
 
+  // tandai salah (koreksi transaksi)
+  markSalah: (payload) => ipcRenderer.invoke('mark-salah', payload),
+  unmarkSalah: (payload) => ipcRenderer.invoke('unmark-salah', payload),
+
   // asset snapshots
   getAssetSnapshots: () => ipcRenderer.invoke('get-asset-snapshots'),
   saveAssetSnapshot: (data) => ipcRenderer.invoke('save-asset-snapshot', data),

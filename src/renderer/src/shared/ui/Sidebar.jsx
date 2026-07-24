@@ -224,8 +224,9 @@ const handleLogout = () => {
                       <>
                         <button
                           onClick={() => toggleSubmenu(`${iSection}-${iItem}`)}
-                          className={`flex items-center gap-x-3 w-full p-2.5 rounded-md
-                          transition-colors duration-200
+                          className={`flex items-center w-full p-2.5 rounded-md
+                          transition-all duration-300
+                          ${isOpen ? 'gap-x-3' : 'gap-x-0 justify-center'}
                           ${
                             isDark
                               ? 'hover:bg-gray-700 text-gray-300'
@@ -237,8 +238,8 @@ const handleLogout = () => {
                             {item.icon}
                           </span>
                           <span
-                            className={`transition-all duration-300 ease-in-out
-                            ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
+                            className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out
+                            ${isOpen ? 'max-w-[160px] opacity-100 translate-x-0' : 'max-w-0 opacity-0 -translate-x-4 pointer-events-none'}`}
                           >
                             {item.label}
                           </span>
@@ -289,7 +290,8 @@ const handleLogout = () => {
                     ) : (
                       <button
                         onClick={() => (item.action ? item.action() : navigate(item.to))}
-                        className={`flex items-center gap-x-3 p-2.5 w-full text-left rounded-md transition-colors duration-200
+                        className={`flex items-center p-2.5 w-full text-left rounded-md transition-all duration-300
+                        ${isOpen ? 'gap-x-3' : 'gap-x-0 justify-center'}
                         ${
                           currentLocation === item.to
                             ? isDark
@@ -305,8 +307,8 @@ const handleLogout = () => {
                           {item.icon}
                         </span>
                         <span
-                          className={`transition-all duration-300 ease-in-out
-                          ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
+                          className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out
+                          ${isOpen ? 'max-w-[160px] opacity-100 translate-x-0' : 'max-w-0 opacity-0 -translate-x-4 pointer-events-none'}`}
                         >
                           {item.label}
                         </span>

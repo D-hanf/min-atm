@@ -6,6 +6,7 @@ import {
   getTransaksi,
   getTransaksiSummary
 } from './transactionHandler.js'
+import { markSalah, unmarkSalah, updateSchema } from './db.js'
 
 import { Menu } from 'electron'
 import dayjs from 'dayjs'
@@ -15,7 +16,6 @@ import { ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 import timezone from 'dayjs/plugin/timezone'
-import { updateSchema } from './db.js'
 import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
@@ -521,6 +521,7 @@ app.whenReady().then(async () => {
           nominal_transaksi: nominalKeluar,
           nominal_masuk: nominalMasuk,
           keuntungan,
+          admin_bank: Number(item.biaya_admin_bank || 0),
           total_hutang: totalHutang,
           keterangan: item.keterangan || '-'
         }
@@ -540,6 +541,7 @@ app.whenReady().then(async () => {
           nominal_transaksi: isBayarHutang ? nominal + biayaAdmin : 0,
           nominal_masuk: isBayarHutang ? 0 : nominal,
           keuntungan: 0,
+          admin_bank: isBayarHutang ? biayaAdmin : 0,
           total_hutang: totalHutang,
           keterangan: item.keterangan || '-'
         }
@@ -556,6 +558,7 @@ app.whenReady().then(async () => {
           nominal_transaksi: nominal,
           nominal_masuk: 0,
           keuntungan: 0,
+          admin_bank: Number(item.biaya_admin || 0),
           total_hutang: totalHutang,
           keterangan: item.keterangan || '-'
         }
@@ -577,6 +580,7 @@ app.whenReady().then(async () => {
           nominal_transaksi: nominalKeluar,
           nominal_masuk: nominalMasuk,
           keuntungan: 0,
+          admin_bank: biayaAdmin,
           total_hutang: totalHutang,
           keterangan: item.keterangan || '-'
         }
@@ -2294,6 +2298,25 @@ app.whenReady().then(async () => {
       } catch (error) {
         console.error('❌ Error get-transaksi-summary:', error)
         return { success: false, error: error.message }
+      }
+    })
+
+    // 🚩 TANDAI SALAH (koreksi transaksi) — berlaku untuk transaksi, hutang, pindah_saldo, ambil_saldo
+    ipcMain.handle('mark-salah', async (_event, payload) => {
+      try {
+        return await markSalah(payload)
+      } catch (error) {
+        console.error('❌ Error mark-salah:', error)
+        throw error
+      }
+    })
+
+    ipcMain.handle('unmark-salah', async (_event, payload) => {
+      try {
+        return await unmarkSalah(payload)
+      } catch (error) {
+        console.error('❌ Error unmark-salah:', error)
+        throw error
       }
     })
 
