@@ -32,6 +32,13 @@ const TransactionMenu = ({ onSelectTransaction }) => {
       icon: '📱',
       bgColor: isDark ? 'bg-violet-800' : 'bg-violet-100',
       hoverColor: isDark ? 'hover:bg-violet-700' : 'hover:bg-violet-200'
+    },
+    {
+      id: 'cek-saldo',
+      name: 'Cek Saldo',
+      icon: '💳',
+      bgColor: isDark ? 'bg-rose-800' : 'bg-rose-100',
+      hoverColor: isDark ? 'hover:bg-rose-700' : 'hover:bg-rose-200'
     }
   ]
 

@@ -40,6 +40,24 @@ function createTableIfNotExists(tableName, createQuery) {
   })
 }
 
+// 🌱 Seed 3 alat default (hanya kalau tabel alat masih kosong, tidak akan menimpa data yang sudah diubah admin)
+function seedDefaultAlat() {
+  return new Promise((resolve, reject) => {
+    db.get(`SELECT COUNT(*) as count FROM alat`, [], (err, row) => {
+      if (err) return reject(err)
+      if (row.count > 0) return resolve('⚠️ Data alat sudah ada, skip seeding')
+
+      const defaultAlat = ['EDC BNI', 'EDC BTN', 'EDC BUKU WARUNG']
+      const stmt = db.prepare(`INSERT INTO alat (nama_alat, is_active) VALUES (?, 1)`)
+      defaultAlat.forEach((nama) => stmt.run(nama))
+      stmt.finalize((err2) => {
+        if (err2) return reject(err2)
+        resolve('✅ Seed default alat berhasil (EDC BNI, EDC BTN, EDC BUKU WARUNG)')
+      })
+    })
+  })
+}
+
 // 🔄 Jalankan semua alter schema di sini
 export async function updateSchema() {
   try {
@@ -62,6 +80,55 @@ export async function updateSchema() {
     // Tambahkan kolom user_role dan user_name jika belum ada
     await addColumnIfNotExists('asset_snapshots', 'user_role', 'TEXT DEFAULT "kasir"')
     await addColumnIfNotExists('asset_snapshots', 'user_name', 'TEXT DEFAULT "System"')
+
+    // 💸 Tabel aturan fee berjenjang per jenis transaksi
+    // (mis. Tarik Tunai 0 - 1jt = fee 2000, 1jt - 5jt = fee 5000, dst)
+    await createTableIfNotExists('fee_rules', `
+      CREATE TABLE IF NOT EXISTS fee_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        jenis_transaksi TEXT NOT NULL,
+        nominal_min DECIMAL(15,2) NOT NULL DEFAULT 0,
+        nominal_max DECIMAL(15,2),
+        fee DECIMAL(15,2) NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    // 🖥️ Tabel master alat (EDC dll) yang dipakai untuk transaksi Cek Saldo (dan alat lain ke depannya)
+    await createTableIfNotExists('alat', `
+      CREATE TABLE IF NOT EXISTS alat (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nama_alat TEXT NOT NULL,
+        keterangan TEXT,
+        is_active BOOLEAN DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    // 🎁 Tabel aturan bonus berjenjang per alat (bonus dari bank penyedia alat, makin besar nominal makin besar bonus)
+    await createTableIfNotExists('alat_bonus_rules', `
+      CREATE TABLE IF NOT EXISTS alat_bonus_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        alat_id INTEGER NOT NULL,
+        nominal_min DECIMAL(15,2) NOT NULL DEFAULT 0,
+        nominal_max DECIMAL(15,2),
+        bonus DECIMAL(15,2) NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (alat_id) REFERENCES alat(id)
+      )
+    `)
+
+    // Seed 3 alat default (EDC BNI, EDC BTN, EDC BUKU WARUNG) kalau tabel alat masih kosong
+    await seedDefaultAlat()
+
+    // Kolom bonus per alat: bonus_cek_saldo & bonus_tarik_tunai dipakai untuk auto-fill
+    // nominal bonus di form transaksi, sumber_dana_bonus_id adalah default tujuan sumber
+    // dana tempat bonus itu masuk (bisa diubah manual per transaksi)
+    await addColumnIfNotExists('alat', 'bonus_cek_saldo', 'DECIMAL(15,2) DEFAULT 0')
+    await addColumnIfNotExists('alat', 'bonus_tarik_tunai', 'DECIMAL(15,2) DEFAULT 0')
+    await addColumnIfNotExists('alat', 'sumber_dana_bonus_id', 'INTEGER REFERENCES saldo_awal(id)')
 
     const results = await Promise.all([
       addColumnIfNotExists('transaksi', 'nama_pelanggan', 'TEXT'),
@@ -101,7 +168,18 @@ export async function updateSchema() {
       addColumnIfNotExists('ambil_saldo', 'marked_note', 'TEXT'),
       addColumnIfNotExists('ambil_saldo', 'marked_by', 'TEXT'),
       addColumnIfNotExists('ambil_saldo', 'marked_by_id', 'INTEGER'),
-      addColumnIfNotExists('ambil_saldo', 'marked_at', 'DATETIME')
+      addColumnIfNotExists('ambil_saldo', 'marked_at', 'DATETIME'),
+
+      // 🎁 Kolom bonus dari alat (dipakai Cek Saldo, Tarik Tunai, Transfer, Jasa Transfer, Mode Pulsa)
+      addColumnIfNotExists('transaksi', 'bonus', 'DECIMAL(15,2) DEFAULT 0'),
+      addColumnIfNotExists('transaksi', 'is_bonus_manual', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('transaksi', 'alat_id', 'INTEGER REFERENCES alat(id)'),
+      addColumnIfNotExists('transaksi', 'alat_nama', 'TEXT'),
+      addColumnIfNotExists('transaksi', 'is_fee_manual', 'BOOLEAN DEFAULT 0'),
+      // Sumber dana tujuan bonus yang BENAR-BENAR dipakai saat transaksi dibuat
+      // (disimpan terpisah dari alat.sumber_dana_bonus_id supaya kalau default alat
+      // diubah admin di kemudian hari, pembatalan/edit transaksi lama tetap akurat)
+      addColumnIfNotExists('transaksi', 'bonus_sumber_dana_id', 'INTEGER REFERENCES saldo_awal(id)')
     ])
 
     results.forEach(msg => console.log(msg))

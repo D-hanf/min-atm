@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { findMatchingRule, formatRupiahDisplay, parseRupiahInput } from './feeBonusUtils'
 
 import InputField from '../../../../components/InputField'
 import SelectItems from '../../../../components/SelectItems'
@@ -9,9 +10,20 @@ import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
+
+const JENIS_TRANSAKSI = 'Jasa Transfer'
+
 const JasaTransferForm = ({ formData, onChange }) => {
   const { isDark } = useTheme()
   const [sumberDanaList, setSumberDanaList] = useState([])
+  const [manualFee, setManualFee] = useState(false)
+
+  // Alat & bonus
+  const [alatList, setAlatList] = useState([])
+  const [feeRules, setFeeRules] = useState([])
+  const [alatBonusRules, setAlatBonusRules] = useState([])
+  const [manualBonus, setManualBonus] = useState(false)
+
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
   useEffect(() => {
     const fetchSaldo = async () => {
@@ -26,10 +38,60 @@ const JasaTransferForm = ({ formData, onChange }) => {
   }, [])
 
   useEffect(() => {
-    if (!formData.fee) {
-      onChange({ target: { name: 'fee', value: 5000 } })
+    const fetchAlat = async () => {
+      try {
+        const result = await window.api.getAlat()
+        setAlatList((result || []).filter((a) => a.is_active === undefined || !!a.is_active))
+      } catch (error) {
+        console.error('❌ Gagal ambil data alat:', error)
+      }
     }
+    fetchAlat()
   }, [])
+
+  useEffect(() => {
+    const fetchFeeRules = async () => {
+      try {
+        const result = await window.api.getFeeRules(JENIS_TRANSAKSI)
+        setFeeRules(result || [])
+      } catch (error) {
+        console.error('❌ Gagal ambil aturan fee:', error)
+      }
+    }
+    fetchFeeRules()
+  }, [])
+
+  useEffect(() => {
+    const fetchBonusRules = async () => {
+      if (!formData.alat_id) {
+        setAlatBonusRules([])
+        return
+      }
+      try {
+        const result = await window.api.getAlatBonusRules(formData.alat_id)
+        setAlatBonusRules(result || [])
+      } catch (error) {
+        console.error('❌ Gagal ambil aturan bonus alat:', error)
+      }
+    }
+    fetchBonusRules()
+  }, [formData.alat_id])
+
+  // Jasa Transfer tidak punya field nominal transaksi, jadi tier fee dicocokkan dengan
+  // nominal 0 (asumsinya admin mengatur 1 rentang flat "0 ke atas" untuk jenis ini)
+  useEffect(() => {
+    if (manualFee) return
+    const matched = findMatchingRule(feeRules, 0)
+    onChange({ target: { name: 'fee', value: matched ? Number(matched.fee) : 0 } })
+    onChange({ target: { name: 'is_fee_manual', value: false } })
+  }, [feeRules, manualFee])
+
+  useEffect(() => {
+    if (manualBonus) return
+    const matched = findMatchingRule(alatBonusRules, 0)
+    onChange({ target: { name: 'bonus', value: matched ? Number(matched.bonus) : 0 } })
+    onChange({ target: { name: 'is_bonus_manual', value: false } })
+  }, [alatBonusRules, manualBonus])
 
   // Sinkronkan sumber dana agar sama dengan metode pembayaran
   useEffect(() => {
@@ -38,18 +100,26 @@ const JasaTransferForm = ({ formData, onChange }) => {
     }
   }, [formData.metode_pembayaran])
 
-  const formatFee = (value) =>
-    value
-      ? new Intl.NumberFormat('id-ID', {
-          style: 'currency',
-          currency: 'IDR',
-          minimumFractionDigits: 0
-        }).format(value)
-      : ''
-
   const handleFeeChange = (e) => {
-    const numericFee = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
+    setManualFee(true)
+    const numericFee = parseRupiahInput(e.target.value)
     onChange({ target: { name: 'fee', value: numericFee } })
+    onChange({ target: { name: 'is_fee_manual', value: true } })
+  }
+
+  const handleAlatChange = (e) => {
+    const alatId = e.target.value
+    const alat = alatList.find((a) => String(a.id) === String(alatId))
+    onChange({ target: { name: 'alat_id', value: alatId } })
+    onChange({ target: { name: 'alat_nama', value: alat ? alat.nama_alat : '' } })
+    setManualBonus(false)
+  }
+
+  const handleBonusChange = (e) => {
+    setManualBonus(true)
+    const numericBonus = parseRupiahInput(e.target.value)
+    onChange({ target: { name: 'bonus', value: numericBonus } })
+    onChange({ target: { name: 'is_bonus_manual', value: true } })
   }
 
   return (
@@ -113,14 +183,41 @@ const JasaTransferForm = ({ formData, onChange }) => {
       />
 
       {/* Fee */}
-      <InputField
-        name="fee"
-        type="text"
-        value={formatFee(formData.fee)}
-        onChange={handleFeeChange}
-      >
+      <InputField name="fee" type="text" value={formatRupiahDisplay(formData.fee)} onChange={handleFeeChange}>
         Biaya Jasa
       </InputField>
+      {formData.is_fee_manual && (
+        <div className="col-span-2 flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-md bg-yellow-100 text-yellow-800 border border-yellow-300">
+          ⚠️ Fee diisi manual oleh karyawan (berbeda dari aturan fee default)
+        </div>
+      )}
+
+      <SelectItems
+        options={alatList.map((alat) => ({
+          label: alat.nama_alat,
+          value: alat.id
+        }))}
+        label="Alat yang Digunakan"
+        name="alat_id"
+        value={formData.alat_id || ''}
+        onChange={handleAlatChange}
+        required={false}
+      />
+
+      <InputField
+        name="bonus"
+        type="text"
+        value={formatRupiahDisplay(formData.bonus)}
+        onChange={handleBonusChange}
+        required={false}
+      >
+        Bonus Alat
+      </InputField>
+      {formData.is_bonus_manual && (
+        <div className="col-span-2 flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-md bg-yellow-100 text-yellow-800 border border-yellow-300">
+          ⚠️ Bonus diisi manual oleh karyawan (berbeda dari default alat)
+        </div>
+      )}
 
       <InputField
         name="description"

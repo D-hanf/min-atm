@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
 import ButtonInput from '../../../components/ButtonInput'
+import CekSaldoForm from './forms/CekSaldo'
 import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../components/InputField'
 import JasaTransferForm from './forms/JasaTransferForm'
@@ -42,7 +43,8 @@ const FormLayout = ({
       'Sesama Bank': 'transfer',
       'Jasa Transfer': 'jasa-transfer',
       'Mode Pulsa': 'mode-pulsa',
-      Pulsa: 'mode-pulsa'
+      Pulsa: 'mode-pulsa',
+      'Cek Saldo': 'cek-saldo'
     }
     return typeMap[transactionType] || ''
   }
@@ -81,7 +83,7 @@ const FormLayout = ({
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData({ ...formData, [name]: value })
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleTransactionSelect = (id, name) => {
@@ -121,7 +123,14 @@ const FormLayout = ({
         fee: 0,
         biaya_admin: 0,
         saldo_akhir: 0,
-        keterangan: ''
+        keterangan: '',
+        alat_id: '',
+        alat_nama: '',
+        is_fee_manual: false,
+        // Cek Saldo
+        bonus: 0,
+        is_bonus_manual: false,
+        nama_pelanggan: ''
       })
     }
   }
@@ -159,6 +168,8 @@ const FormLayout = ({
         return <JasaTransferForm {...formProps} />
       case 'mode-pulsa':
         return <ModePulsaForm {...formProps} />
+      case 'cek-saldo':
+        return <CekSaldoForm {...formProps} />
       default:
         return null
     }

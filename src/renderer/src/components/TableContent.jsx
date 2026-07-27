@@ -1,4 +1,4 @@
-import { HiBookmark, HiExclamationCircle, HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
+import { HiBookmark, HiExclamationCircle, HiInformationCircle, HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
 import React, { useDeferredValue, useEffect, useMemo, useState } from 'react'
 
 import AlertDialog from './AlertDialog'
@@ -43,16 +43,20 @@ const TableContent = ({
   showPembayarFeeFilter = false,
   showEditedFilter = false,
   showMarkedFilter = false,
+  showManualOverrideFilter = false,
   onSumberDanaChange = () => {},
   onJenisTransaksiChange = () => {},
   onTerimaDanaChange = () => {},
   onPembayarFeeChange = () => {},
   onEditedFilterChange = () => {},
-  onMarkedFilterChange = () => {}
+  onMarkedFilterChange = () => {},
+  onManualOverrideFilterChange = () => {}
 }) => {
   // const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
+  const [showManualNoteDialog, setShowManualNoteDialog] = useState(false)
+  const [manualNoteMessage, setManualNoteMessage] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedSumberDana, setSelectedSumberDana] = useState('')
@@ -61,6 +65,7 @@ const TableContent = ({
   const [selectedPembayarFee, setSelectedPembayarFee] = useState('')
   const [selectedEditedFilter, setSelectedEditedFilter] = useState('')
   const [selectedMarkedFilter, setSelectedMarkedFilter] = useState('')
+  const [selectedManualOverrideFilter, setSelectedManualOverrideFilter] = useState('')
   const itemsPerPage = 20
   const { isDark } = useTheme()
   const deferredSearchValue = useDeferredValue(searchValue)
@@ -87,6 +92,10 @@ const TableContent = ({
 
   const editedCount = useMemo(() => data.filter((item) => item.is_edited || item.edited).length, [data])
   const markedCount = useMemo(() => data.filter((item) => item.is_marked_wrong).length, [data])
+  const manualOverrideCount = useMemo(
+    () => data.filter((item) => item.is_fee_manual || item.is_bonus_manual).length,
+    [data]
+  )
   const totalCount = data.length
 
   const { user: loggedInUser } = useAuth()
@@ -174,6 +183,13 @@ const TableContent = ({
               ? !item.is_marked_wrong
               : true)
         : true
+      const matchManualOverrideFilter = showManualOverrideFilter && selectedManualOverrideFilter
+        ? (selectedManualOverrideFilter === 'manual'
+            ? !!(item.is_fee_manual || item.is_bonus_manual)
+            : selectedManualOverrideFilter === 'not-manual'
+              ? !(item.is_fee_manual || item.is_bonus_manual)
+              : true)
+        : true
       const matchSearch = query
         ? [
             item.tanggal,
@@ -196,7 +212,7 @@ const TableContent = ({
             .includes(query)
         : true
 
-      return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchMarkedFilter && matchSearch
+      return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchMarkedFilter && matchManualOverrideFilter && matchSearch
     })
   }, [
     data,
@@ -208,13 +224,15 @@ const TableContent = ({
     selectedPembayarFee,
     selectedEditedFilter,
     selectedMarkedFilter,
+    selectedManualOverrideFilter,
     showDateFilter,
     showSumberDanaFilter,
     showJenisTransaksiFilter,
     showTerimaDanaFilter,
     showPembayarFeeFilter,
     showEditedFilter,
-    showMarkedFilter
+    showMarkedFilter,
+    showManualOverrideFilter
   ])
 
   const totalPages = useMemo(() => Math.ceil(filteredData.length / itemsPerPage), [filteredData.length])
@@ -314,7 +332,7 @@ const TableContent = ({
         </div>
 
         {/* Filters Section */}
-        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter || showEditedFilter || showMarkedFilter) && (
+        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter || showEditedFilter || showMarkedFilter || showManualOverrideFilter) && (
           <div className={`p-4 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-25'}`}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 mb-4">
               {showDateFilter && (
@@ -466,6 +484,30 @@ const TableContent = ({
                   </select>
                 </div>
               )}
+              {showManualOverrideFilter && (
+                <div className="flex flex-col min-w-0">
+                  <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Filter Perubahan Manual {manualOverrideCount > 0 && (
+                      <span className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 ml-2 rounded-full text-xs font-bold ${isDark ? 'bg-amber-500 text-amber-900' : 'bg-amber-400 text-amber-900'}`}>
+                        {manualOverrideCount}
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    value={selectedManualOverrideFilter}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSelectedManualOverrideFilter(value)
+                      onManualOverrideFilterChange(value)
+                    }}
+                    className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                  >
+                    <option value="">Semua Data</option>
+                    <option value="manual">Hanya Fee/Bonus Diisi Manual ({manualOverrideCount})</option>
+                    <option value="not-manual">Fee & Bonus Sesuai Default ({totalCount - manualOverrideCount})</option>
+                  </select>
+                </div>
+              )}
             </div>
             
             {/* Search Field - Full width below filters */}
@@ -560,6 +602,23 @@ const TableContent = ({
                     className={`px-6 py-4 text-right text-sm font-medium sticky right-0 z-10 ${isDark ? 'bg-gray-800' : 'bg-white'}`}
                   >
                     <div className="flex justify-end gap-2">
+                      {item.manual_override_note && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setManualNoteMessage(item.manual_override_note)
+                            setShowManualNoteDialog(true)
+                          }}
+                          title="Ada perubahan manual pada transaksi ini"
+                          className={`p-2 rounded-md border transition-colors ${
+                            isDark
+                              ? 'border-amber-700 text-amber-400 hover:bg-amber-900/40'
+                              : 'border-amber-400 text-amber-600 hover:bg-amber-50'
+                          }`}
+                        >
+                          <HiInformationCircle size={16} />
+                        </button>
+                      )}
                       {showView && (
                         <ButtonInput color="blue" size={btnSize} onClick={() => onView(item.id)}>
                           <HiViewfinderCircle className="mr-1" size={16} />
@@ -648,6 +707,13 @@ const TableContent = ({
           onClose={() => setShowAlertDialog(false)}
           title="Akses Terbatas"
           message={alertMessage}
+        />
+
+        <AlertDialog
+          isOpen={showManualNoteDialog}
+          onClose={() => setShowManualNoteDialog(false)}
+          title="Perubahan Manual"
+          message={manualNoteMessage}
         />
       </div>
     </>

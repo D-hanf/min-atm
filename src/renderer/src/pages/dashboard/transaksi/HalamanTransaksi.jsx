@@ -106,7 +106,12 @@ const HalamanTransaksi = () => {
     saldo_akhir: 0,
     keterangan: '',
     nama_pelanggan: '',
-    nomor_tujuan: ''
+    nomor_tujuan: '',
+    alat_id: '',
+    alat_nama: '',
+    is_fee_manual: false,
+    bonus: 0,
+    is_bonus_manual: false
   })
 
   const [financialSummary, setFinancialSummary] = useState({
@@ -245,11 +250,23 @@ const HalamanTransaksi = () => {
             }
             break
           case 'jasa transfer':
+          case 'cek saldo':
             break
         }
 
         if (Number(item.sumber_dana_id) === Number(item.metode_pembayaran)) {
           final += fee
+        }
+
+        // Susun keterangan perubahan manual (fee dan/atau bonus alat) — dipakai TableContent
+        // untuk menampilkan ikon info di kolom Aksi, bukan sebagai kolom terpisah.
+        const jamTransaksi = toDisplayDateTime(item.tanggal)
+        const manualParts = []
+        if (item.is_fee_manual) {
+          manualParts.push(`Fee diisi manual oleh ${item.user_name || 'kasir'} saat transaksi dibuat (${jamTransaksi} WIB).`)
+        }
+        if (item.is_bonus_manual) {
+          manualParts.push(`Bonus alat diisi manual oleh ${item.user_name || 'kasir'} saat transaksi dibuat (${jamTransaksi} WIB).`)
         }
 
         return {
@@ -266,6 +283,11 @@ const HalamanTransaksi = () => {
           nomor_tujuan: item.nomor_tujuan || '-',
           nominal_transaksi: formatRupiah(nominal),
           fee: formatRupiah(fee),
+          alat_nama: item.alat_nama || '-',
+          bonus: formatRupiah(Number(item.bonus || 0)),
+          is_fee_manual: !!item.is_fee_manual,
+          is_bonus_manual: !!item.is_bonus_manual,
+          manual_override_note: manualParts.join(' '),
           metode_pembayaran: Number(item.metode_pembayaran) || null,
           metode_pembayaran_nama: getNamaSumberDanaById(item.metode_pembayaran) || '-',
           biaya_admin: formatRupiah(adminBank),
@@ -302,6 +324,8 @@ const HalamanTransaksi = () => {
     { key: 'saldo_awal', label: 'Saldo Awal' },
     { key: 'nominal_transaksi', label: 'Nominal' },
     { key: 'fee', label: 'Fee' },
+    { key: 'alat_nama', label: 'Alat' },
+    { key: 'bonus', label: 'Bonus Alat' },
     { key: 'biaya_admin', label: 'Adm Bank' },
     { key: 'saldo_akhir', label: 'Saldo Akhir' },
     { key: 'terima_dana_nama', label: 'Terima Dana' },
@@ -709,6 +733,7 @@ const HalamanTransaksi = () => {
         showPembayarFeeFilter={true}
         showDateFilter={true}
         showEditedFilter={true}
+        showManualOverrideFilter={true}
         onDelete={isGloballyLocked ? null : handleDelete}
         onEdit={isGloballyLocked ? null : handleTransactionEdit}
         onAdd={

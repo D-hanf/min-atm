@@ -78,6 +78,22 @@ const api = {
   markSalah: (payload) => ipcRenderer.invoke('mark-salah', payload),
   unmarkSalah: (payload) => ipcRenderer.invoke('unmark-salah', payload),
 
+  // pengaturan fee berjenjang per jenis transaksi
+  getFeeRules: (jenisTransaksi) => ipcRenderer.invoke('getFeeRules', jenisTransaksi),
+  createFeeRule: (data) => ipcRenderer.invoke('createFeeRule', data),
+  updateFeeRule: (data) => ipcRenderer.invoke('updateFeeRule', data),
+  deleteFeeRule: (id) => ipcRenderer.invoke('deleteFeeRule', id),
+
+  // pengaturan alat & bonus berjenjang per alat
+  getAlat: () => ipcRenderer.invoke('getAlat'),
+  createAlat: (data) => ipcRenderer.invoke('createAlat', data),
+  updateAlat: (data) => ipcRenderer.invoke('updateAlat', data),
+  deleteAlat: (id) => ipcRenderer.invoke('deleteAlat', id),
+  getAlatBonusRules: (alatId) => ipcRenderer.invoke('getAlatBonusRules', alatId),
+  createAlatBonusRule: (data) => ipcRenderer.invoke('createAlatBonusRule', data),
+  updateAlatBonusRule: (data) => ipcRenderer.invoke('updateAlatBonusRule', data),
+  deleteAlatBonusRule: (id) => ipcRenderer.invoke('deleteAlatBonusRule', id),
+
   // asset snapshots
   getAssetSnapshots: () => ipcRenderer.invoke('get-asset-snapshots'),
   saveAssetSnapshot: (data) => ipcRenderer.invoke('save-asset-snapshot', data),

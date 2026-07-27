@@ -8,6 +8,7 @@ import { HalamanDetilToko, HalamanKelolaToko } from '../../pages/dashboard/kelol
 
 import { DashboardLayout } from '../layout'
 import { DashboardPage } from '../../pages/dashboard/home'
+import HalamanFeeAlat from '../../pages/dashboard/kelolaData/SaldoAwal/KelolaFeeAlat'
 import { HalamanProfile } from '../../pages/dashboard/profile'
 import HalamanSetting from '../../pages/dashboard/setting/HalamanSetting'
 import { HalamanTema } from '../../pages/dashboard/tema' // Import the theme page
@@ -37,6 +38,7 @@ const DashboardRoutes = () => {
         <Route path="pindah-saldo" element={<HalamanPindahSaldo />} />
         <Route path="ambil-saldo" element={<HalamanAmbilSaldo />} />
         <Route path="saldo-awal" element={<HalamanAwalSaldo />} />
+        <Route path="fee-alat" element={<HalamanFeeAlat />} />
         <Route path="hutang" element={<HalamanHutang />} />
         <Route path="laporan-keuangan" element={<LaporanKeuangan />} />
         <Route path="laporan-keuangan/keuntungan" element={<Keuntungan />} />

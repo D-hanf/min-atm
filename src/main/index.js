@@ -1,5 +1,19 @@
 import { BrowserWindow, app, screen } from 'electron'
 import {
+  createAlat,
+  createAlatBonusRule,
+  createFeeRule,
+  deleteAlat,
+  deleteAlatBonusRule,
+  deleteFeeRule,
+  getAlat,
+  getAlatBonusRules,
+  getFeeRules,
+  updateAlat,
+  updateAlatBonusRule,
+  updateFeeRule
+} from './feeAlatHandler.js'
+import {
   createTransaksi,
   deleteTransaksi,
   editTransaksi,
@@ -17,6 +31,8 @@ import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 import timezone from 'dayjs/plugin/timezone'
 import utc from 'dayjs/plugin/utc'
+
+// sesuaikan path relatif ke lokasi file feeAlatHandler.js kamu
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -356,33 +372,56 @@ app.whenReady().then(async () => {
       })
     })
 
+    // IPC handlers untuk fee dari admin
+    ipcMain.handle('getFeeRules', getFeeRules)
+    ipcMain.handle('createFeeRule', createFeeRule)
+    ipcMain.handle('updateFeeRule', updateFeeRule)
+    ipcMain.handle('deleteFeeRule', deleteFeeRule)
+
+
+
+    // IPC handlers untuk alat cek saldo
+    ipcMain.handle('getAlat', getAlat)
+    ipcMain.handle('createAlat', createAlat)
+    ipcMain.handle('updateAlat', updateAlat)
+    ipcMain.handle('deleteAlat', deleteAlat)
+
+    ipcMain.handle('getAlatBonusRules', getAlatBonusRules)
+    ipcMain.handle('createAlatBonusRule', createAlatBonusRule)
+    ipcMain.handle('updateAlatBonusRule', updateAlatBonusRule)
+    ipcMain.handle('deleteAlatBonusRule', deleteAlatBonusRule)
+
     // Handler untuk ambil data summary_log
     ipcMain.handle('getSummaryLog', async () => {
       return new Promise((resolve, reject) => {
-        db.all('SELECT id, waktu, summary_json FROM summary_log ORDER BY id DESC', [], (err, rows) => {
-          if (err) {
-            console.error('❌ Gagal ambil summary_log:', err)
-            reject(err)
-          } else {
-            console.log('[DEBUG] summary_log rows:', rows)
-            // Parse summary_json agar langsung bisa dipakai di frontend
-            const parsedRows = rows.map(row => {
-              let parsed = {}
-              try {
-                parsed = JSON.parse(row.summary_json)
-              } catch (e) {
-                console.warn('[DEBUG] Gagal parse summary_json:', row.summary_json, e)
-              }
-              return {
-                id: row.id,
-                waktu_simpan: row.waktu,
-                ...parsed
-              }
-            })
-            console.log('[DEBUG] parsedRows:', parsedRows)
-            resolve(parsedRows)
+        db.all(
+          'SELECT id, waktu, summary_json FROM summary_log ORDER BY id DESC',
+          [],
+          (err, rows) => {
+            if (err) {
+              console.error('❌ Gagal ambil summary_log:', err)
+              reject(err)
+            } else {
+              console.log('[DEBUG] summary_log rows:', rows)
+              // Parse summary_json agar langsung bisa dipakai di frontend
+              const parsedRows = rows.map((row) => {
+                let parsed = {}
+                try {
+                  parsed = JSON.parse(row.summary_json)
+                } catch (e) {
+                  console.warn('[DEBUG] Gagal parse summary_json:', row.summary_json, e)
+                }
+                return {
+                  id: row.id,
+                  waktu_simpan: row.waktu,
+                  ...parsed
+                }
+              })
+              console.log('[DEBUG] parsedRows:', parsedRows)
+              resolve(parsedRows)
+            }
           }
-        })
+        )
       })
     })
 
@@ -788,16 +827,16 @@ app.whenReady().then(async () => {
 
             db.run('BEGIN TRANSACTION')
 
-      const nominal = parseFloat(latestRecord.nominal_transaksi) || 0
-      const biayaAdmin = parseFloat(latestRecord.biaya_admin || 0)
-      // Saat toggle bayar/tidak bayar, gunakan selalu nominal + admin sebagai efek pembayaran
-      const amountToUpdate = nominal + biayaAdmin
+            const nominal = parseFloat(latestRecord.nominal_transaksi) || 0
+            const biayaAdmin = parseFloat(latestRecord.biaya_admin || 0)
+            // Saat toggle bayar/tidak bayar, gunakan selalu nominal + admin sebagai efek pembayaran
+            const amountToUpdate = nominal + biayaAdmin
 
-      const saldoQuery = isBayarNow
-        ? `UPDATE saldo_awal 
+            const saldoQuery = isBayarNow
+              ? `UPDATE saldo_awal 
       SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP 
       WHERE id = ?`
-        : `UPDATE saldo_awal 
+              : `UPDATE saldo_awal 
       SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP 
       WHERE id = ?`
 
@@ -927,9 +966,10 @@ app.whenReady().then(async () => {
 
                     const statusBayar = isAddingToSaldo ? 0 : 1
                     const bayarAt = !isAddingToSaldo
-                      ? (data.tanggal_bayar_hutang && String(data.tanggal_bayar_hutang).trim()
-                          ? data.tanggal_bayar_hutang
-                          : (data.tanggal_transaksi || dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')))
+                      ? data.tanggal_bayar_hutang && String(data.tanggal_bayar_hutang).trim()
+                        ? data.tanggal_bayar_hutang
+                        : data.tanggal_transaksi ||
+                          dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
                       : null
 
                     db.run(
@@ -988,7 +1028,8 @@ app.whenReady().then(async () => {
                             amountEffect
                           ],
                           (logErr) => {
-                            if (logErr) console.warn('⚠️ Gagal insert hutang_history (create):', logErr)
+                            if (logErr)
+                              console.warn('⚠️ Gagal insert hutang_history (create):', logErr)
                           }
                         )
 
@@ -1073,7 +1114,8 @@ app.whenReady().then(async () => {
                 const applyIsAddition = updatedData.jenis_transaksi === 'Ambil Hutang'
                 const applyAmount = applyIsAddition
                   ? parseFloat(updatedData.nominal_transaksi)
-                  : parseFloat(updatedData.nominal_transaksi) + parseFloat(updatedData.biaya_admin || 0)
+                  : parseFloat(updatedData.nominal_transaksi) +
+                    parseFloat(updatedData.biaya_admin || 0)
                 const applyOperator = applyIsAddition ? '+' : '-'
 
                 db.run(
@@ -1093,8 +1135,12 @@ app.whenReady().then(async () => {
               function applyDeltaForPaid() {
                 const oldPlatformId = oldRecord.platform_id
                 const newPlatformId = updatedData.platform_id || oldPlatformId
-                const oldEffective = (parseFloat(oldRecord.nominal_transaksi) || 0) + (parseFloat(oldRecord.biaya_admin || 0) || 0)
-                const newEffective = (parseFloat(updatedData.nominal_transaksi) || 0) + (parseFloat(updatedData.biaya_admin || 0) || 0)
+                const oldEffective =
+                  (parseFloat(oldRecord.nominal_transaksi) || 0) +
+                  (parseFloat(oldRecord.biaya_admin || 0) || 0)
+                const newEffective =
+                  (parseFloat(updatedData.nominal_transaksi) || 0) +
+                  (parseFloat(updatedData.biaya_admin || 0) || 0)
                 const platformChanged = Number(newPlatformId) !== Number(oldPlatformId)
                 const delta = newEffective - oldEffective // positive means need extra deduction
 
@@ -1146,7 +1192,8 @@ app.whenReady().then(async () => {
               }
 
               function finalizeUpdate(amountEffectLog) {
-                const forcedJenis = oldRecord.status_bayar === 1 ? 'Bayar Hutang' : updatedData.jenis_transaksi
+                const forcedJenis =
+                  oldRecord.status_bayar === 1 ? 'Bayar Hutang' : updatedData.jenis_transaksi
                 const targetPlatformId = updatedData.platform_id || oldRecord.platform_id
                 db.run(
                   `UPDATE hutang SET
@@ -1193,7 +1240,8 @@ app.whenReady().then(async () => {
                                  keterangan, ? FROM hutang WHERE id = ?`,
                         [role, effect, updatedData.id],
                         (logErr) => {
-                          if (logErr) console.warn('⚠️ Gagal insert hutang_history (update):', logErr)
+                          if (logErr)
+                            console.warn('⚠️ Gagal insert hutang_history (update):', logErr)
                         }
                       )
 
@@ -1212,11 +1260,11 @@ app.whenReady().then(async () => {
       })
     })
 
-  ipcMain.handle('delete-hutang', (event, id) => {
+    ipcMain.handle('delete-hutang', (event, id) => {
       return new Promise((resolve, reject) => {
         // First get the record to be deleted so we can adjust the saldo
         db.get(
-      'SELECT platform_id, nominal_transaksi, biaya_admin, jenis_transaksi, status_bayar, keterangan FROM hutang WHERE id = ?',
+          'SELECT platform_id, nominal_transaksi, biaya_admin, jenis_transaksi, status_bayar, keterangan FROM hutang WHERE id = ?',
           [id],
           (err, record) => {
             if (err) {
@@ -1247,12 +1295,16 @@ app.whenReady().then(async () => {
                     // Log history for delete
                     const defaultEffect = isPaid
                       ? 0
-                      : (record.jenis_transaksi === 'Ambil Hutang'
-                          ? -(parseFloat(record.nominal_transaksi))
-                          : +(parseFloat(record.nominal_transaksi) + parseFloat(record.biaya_admin || 0)))
-                    const amountEffectLog = (overrideAmountEffect === null || overrideAmountEffect === undefined)
-                      ? defaultEffect
-                      : overrideAmountEffect
+                      : record.jenis_transaksi === 'Ambil Hutang'
+                        ? -parseFloat(record.nominal_transaksi)
+                        : +(
+                            parseFloat(record.nominal_transaksi) +
+                            parseFloat(record.biaya_admin || 0)
+                          )
+                    const amountEffectLog =
+                      overrideAmountEffect === null || overrideAmountEffect === undefined
+                        ? defaultEffect
+                        : overrideAmountEffect
                     db.run(
                       `INSERT INTO hutang_history (
                         hutang_id, action, actor_role, actor_id, platform_id, saldo_platform, nominal_transaksi,
@@ -1339,7 +1391,9 @@ app.whenReady().then(async () => {
                     )
                   } else {
                     // Deleting a payment → restore saldo (add nominal + admin)
-                    const totalAmount = (parseFloat(record.nominal_transaksi) || 0) + (parseFloat(record.biaya_admin || 0) || 0)
+                    const totalAmount =
+                      (parseFloat(record.nominal_transaksi) || 0) +
+                      (parseFloat(record.biaya_admin || 0) || 0)
                     db.run(
                       `UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
                       [totalAmount, record.platform_id],
@@ -2402,7 +2456,8 @@ app.whenReady().then(async () => {
            AND COALESCE(status_bayar, 0) = 0`,
         function (err) {
           if (err) console.error('❌ Repair: gagal set status_bayar=1 untuk Bayar Hutang:', err)
-          else if (this.changes) console.log(`🔧 Repair: set paid untuk ${this.changes} baris Bayar Hutang`)
+          else if (this.changes)
+            console.log(`🔧 Repair: set paid untuk ${this.changes} baris Bayar Hutang`)
         }
       )
 
@@ -2414,7 +2469,8 @@ app.whenReady().then(async () => {
            AND (tanggal_bayar_hutang IS NULL OR tanggal_bayar_hutang = '')`,
         function (err) {
           if (err) console.error('❌ Repair: gagal set tanggal_bayar_hutang:', err)
-          else if (this.changes) console.log(`🔧 Repair: isi tanggal_bayar_hutang pada ${this.changes} baris`)
+          else if (this.changes)
+            console.log(`🔧 Repair: isi tanggal_bayar_hutang pada ${this.changes} baris`)
         }
       )
 
@@ -2426,7 +2482,8 @@ app.whenReady().then(async () => {
            AND COALESCE(status_bayar, 0) <> 0`,
         function (err) {
           if (err) console.error('❌ Repair: gagal reset status_bayar untuk Ambil Hutang:', err)
-          else if (this.changes) console.log(`🔧 Repair: reset unpaid untuk ${this.changes} baris Ambil Hutang`)
+          else if (this.changes)
+            console.log(`🔧 Repair: reset unpaid untuk ${this.changes} baris Ambil Hutang`)
         }
       )
     })
