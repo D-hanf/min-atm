@@ -551,7 +551,9 @@ app.whenReady().then(async () => {
         const nominalKeluar =
           Number(item.nominal_transaksi || 0) + Number(item.biaya_admin_bank || 0)
         const nominalMasuk = Number(item.nominal_transaksi || 0) + Number(item.fee || 0)
-        const keuntungan = nominalMasuk - nominalKeluar
+        const bonusAlat = Number(item.bonus || 0)
+        // Bonus alat (dari bank penyedia EDC dll, misal transaksi Cek Saldo) ikut jadi keuntungan toko
+        const keuntungan = nominalMasuk - nominalKeluar + bonusAlat
         return {
           tanggal: item.tanggal,
           sumber_dana: item.sumber_dana || '-',
@@ -560,6 +562,7 @@ app.whenReady().then(async () => {
           nominal_transaksi: nominalKeluar,
           nominal_masuk: nominalMasuk,
           keuntungan,
+          bonus_alat: bonusAlat,
           admin_bank: Number(item.biaya_admin_bank || 0),
           total_hutang: totalHutang,
           keterangan: item.keterangan || '-'
@@ -580,6 +583,7 @@ app.whenReady().then(async () => {
           nominal_transaksi: isBayarHutang ? nominal + biayaAdmin : 0,
           nominal_masuk: isBayarHutang ? 0 : nominal,
           keuntungan: 0,
+          bonus_alat: 0,
           admin_bank: isBayarHutang ? biayaAdmin : 0,
           total_hutang: totalHutang,
           keterangan: item.keterangan || '-'
@@ -597,6 +601,7 @@ app.whenReady().then(async () => {
           nominal_transaksi: nominal,
           nominal_masuk: 0,
           keuntungan: 0,
+          bonus_alat: 0,
           admin_bank: Number(item.biaya_admin || 0),
           total_hutang: totalHutang,
           keterangan: item.keterangan || '-'
@@ -619,6 +624,7 @@ app.whenReady().then(async () => {
           nominal_transaksi: nominalKeluar,
           nominal_masuk: nominalMasuk,
           keuntungan: 0,
+          bonus_alat: 0,
           admin_bank: biayaAdmin,
           total_hutang: totalHutang,
           keterangan: item.keterangan || '-'

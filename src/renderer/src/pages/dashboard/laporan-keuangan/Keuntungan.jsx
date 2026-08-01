@@ -42,6 +42,10 @@ const LaporanKeuntungan = () => {
   const getAdminBank = (item) =>
     Number(item.admin_bank ?? item.biaya_admin_bank ?? item.biaya_admin ?? item.adminBank ?? 0)
 
+  // Bonus alat (dari bank penyedia EDC dll) — sudah ikut dihitung ke `keuntungan` di backend,
+  // tapi kita tetap tampilkan angkanya terpisah biar ada laporan yang jelas asalnya dari mana.
+  const getBonusAlat = (item) => Number(item.bonus_alat ?? 0)
+
   // PENTING: kolom `tanggal` dari backend berupa DATETIME (bisa mengandung jam:menit:detik),
   // bukan cuma 'YYYY-MM-DD'. Kalau dibandingkan sebagai string mentah, transaksi hari ini
   // yang punya jam (mis. "2026-07-24 14:30:00") akan dianggap "lebih besar" dari batas
@@ -107,6 +111,7 @@ const LaporanKeuntungan = () => {
   const summary = useMemo(() => {
     const total = filteredKeuntungan.reduce((sum, item) => sum + Number(item.keuntungan || 0), 0)
     const totalAdminBank = filteredKeuntungan.reduce((sum, item) => sum + getAdminBank(item), 0)
+    const totalBonusAlat = filteredKeuntungan.reduce((sum, item) => sum + getBonusAlat(item), 0)
     const perHari = {}
     filteredKeuntungan.forEach((item) => {
       const tglKey = toDateOnly(item.tanggal)
@@ -127,6 +132,7 @@ const LaporanKeuntungan = () => {
     return {
       total,
       totalAdminBank,
+      totalBonusAlat,
       jumlahHari,
       rataRataHarian,
       hariTerbaikTanggal,
@@ -146,11 +152,13 @@ const LaporanKeuntungan = () => {
           label: dayjs(item.tanggal).format('dddd, DD MMMM YYYY'),
           total: 0,
           totalAdminBank: 0,
+          totalBonusAlat: 0,
           jumlahTransaksi: 0
         }
       }
       map[key].total += Number(item.keuntungan || 0)
       map[key].totalAdminBank += getAdminBank(item)
+      map[key].totalBonusAlat += getBonusAlat(item)
       map[key].jumlahTransaksi += 1
     })
     return Object.values(map).sort((a, b) => (a.key < b.key ? 1 : -1))
@@ -170,12 +178,14 @@ const LaporanKeuntungan = () => {
           label: `${startW.format('DD MMM')} - ${endW.format('DD MMM YYYY')}`,
           total: 0,
           totalAdminBank: 0,
+          totalBonusAlat: 0,
           jumlahTransaksi: 0,
           hariSet: new Set()
         }
       }
       map[key].total += Number(item.keuntungan || 0)
       map[key].totalAdminBank += getAdminBank(item)
+      map[key].totalBonusAlat += getBonusAlat(item)
       map[key].jumlahTransaksi += 1
       map[key].hariSet.add(toDateOnly(item.tanggal))
     })
@@ -200,12 +210,14 @@ const LaporanKeuntungan = () => {
           label: d.format('MMMM YYYY'),
           total: 0,
           totalAdminBank: 0,
+          totalBonusAlat: 0,
           jumlahTransaksi: 0,
           hariSet: new Set()
         }
       }
       map[key].total += Number(item.keuntungan || 0)
       map[key].totalAdminBank += getAdminBank(item)
+      map[key].totalBonusAlat += getBonusAlat(item)
       map[key].jumlahTransaksi += 1
       map[key].hariSet.add(toDateOnly(item.tanggal))
     })
@@ -312,7 +324,7 @@ const LaporanKeuntungan = () => {
         </div>
 
         {/* Kartu Ringkasan */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
           <div className={cardBase}>
             <div className="p-2 rounded-lg bg-green-500/10 text-green-500">
               <HiBanknotes size={22} />
@@ -331,6 +343,18 @@ const LaporanKeuntungan = () => {
               <p className={`text-xs ${labelMuted}`}>Total Admin Bank</p>
               <p className={`text-lg font-bold ${textMain}`}>
                 {formatRupiah(summary.totalAdminBank)}
+              </p>
+            </div>
+          </div>
+
+          <div className={cardBase}>
+            <div className="p-2 rounded-lg bg-teal-500/10 text-teal-500">
+              <HiCreditCard size={22} />
+            </div>
+            <div>
+              <p className={`text-xs ${labelMuted}`}>Total Bonus Alat</p>
+              <p className={`text-lg font-bold ${textMain}`}>
+                {formatRupiah(summary.totalBonusAlat)}
               </p>
             </div>
           </div>
@@ -417,6 +441,9 @@ const LaporanKeuntungan = () => {
                       Admin Bank
                     </th>
                     <th className={`px-6 py-4 text-left text-sm font-bold uppercase tracking-wide ${textMain}`}>
+                      Bonus Alat
+                    </th>
+                    <th className={`px-6 py-4 text-left text-sm font-bold uppercase tracking-wide ${textMain}`}>
                       Catatan / Keterangan
                     </th>
                   </tr>
@@ -424,7 +451,7 @@ const LaporanKeuntungan = () => {
                 <tbody>
                   {filteredKeuntungan.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className={`text-center py-10 ${labelMuted}`}>
+                      <td colSpan="5" className={`text-center py-10 ${labelMuted}`}>
                         Tidak ada data keuntungan dalam periode ini.
                       </td>
                     </tr>
@@ -442,6 +469,9 @@ const LaporanKeuntungan = () => {
                         </td>
                         <td className={`px-6 py-4 whitespace-nowrap ${labelMuted}`}>
                           {formatRupiah(getAdminBank(item))}
+                        </td>
+                        <td className="px-6 py-4 text-teal-500 font-semibold whitespace-nowrap">
+                          {formatRupiah(getBonusAlat(item))}
                         </td>
                         <td className={`px-6 py-4 ${labelMuted}`}>{item.keterangan || '-'}</td>
                       </tr>
@@ -469,6 +499,9 @@ const LaporanKeuntungan = () => {
                     <th className={`px-6 py-4 text-left text-sm font-bold uppercase tracking-wide ${textMain}`}>
                       Admin Bank
                     </th>
+                    <th className={`px-6 py-4 text-left text-sm font-bold uppercase tracking-wide ${textMain}`}>
+                      Bonus Alat
+                    </th>
                     <th className={`px-6 py-4 text-left text-sm font-bold uppercase tracking-wide ${textMain} w-1/3`}>
                       Total Keuntungan
                     </th>
@@ -477,7 +510,7 @@ const LaporanKeuntungan = () => {
                 <tbody>
                   {dataAktif.length === 0 ? (
                     <tr>
-                      <td colSpan={viewMode === 'harian' ? 4 : 5} className={`text-center py-10 ${labelMuted}`}>
+                      <td colSpan={viewMode === 'harian' ? 5 : 6} className={`text-center py-10 ${labelMuted}`}>
                         Tidak ada data pada periode ini.
                       </td>
                     </tr>
@@ -502,6 +535,9 @@ const LaporanKeuntungan = () => {
                           )}
                           <td className={`px-6 py-4 whitespace-nowrap ${labelMuted}`}>
                             {formatRupiah(row.totalAdminBank)}
+                          </td>
+                          <td className="px-6 py-4 text-teal-500 font-semibold whitespace-nowrap">
+                            {formatRupiah(row.totalBonusAlat)}
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
@@ -535,6 +571,9 @@ const LaporanKeuntungan = () => {
                       {viewMode !== 'harian' && <td />}
                       <td className={`px-6 py-3 ${textMain}`}>
                         {formatRupiah(dataAktif.reduce((sum, r) => sum + r.totalAdminBank, 0))}
+                      </td>
+                      <td className="px-6 py-3 text-teal-500">
+                        {formatRupiah(dataAktif.reduce((sum, r) => sum + r.totalBonusAlat, 0))}
                       </td>
                       <td className="px-6 py-3 text-green-500">
                         {formatRupiah(dataAktif.reduce((sum, r) => sum + r.total, 0))}
