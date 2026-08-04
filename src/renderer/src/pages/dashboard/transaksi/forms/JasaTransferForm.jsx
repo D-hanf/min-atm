@@ -21,7 +21,7 @@ const JasaTransferForm = ({ formData, onChange }) => {
   // Alat & bonus
   const [alatList, setAlatList] = useState([])
   const [feeRules, setFeeRules] = useState([])
-  const [alatBonusRules, setAlatBonusRules] = useState([])
+  const [alatBonusRules, setAlatBonusRules] = useState([]) // rentang bonus utk alat + jenis transaksi ini
   const [manualBonus, setManualBonus] = useState(false)
 
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
@@ -61,6 +61,7 @@ const JasaTransferForm = ({ formData, onChange }) => {
     fetchFeeRules()
   }, [])
 
+  // Ambil rentang bonus untuk alat + jenis transaksi ini (Jasa Transfer).
   useEffect(() => {
     const fetchBonusRules = async () => {
       if (!formData.alat_id) {
@@ -68,7 +69,10 @@ const JasaTransferForm = ({ formData, onChange }) => {
         return
       }
       try {
-        const result = await window.api.getAlatBonusRules(formData.alat_id)
+        const result = await window.api.getAlatBonusJenisRules({
+          alat_id: formData.alat_id,
+          jenis_transaksi: JENIS_TRANSAKSI
+        })
         setAlatBonusRules(result || [])
       } catch (error) {
         console.error('❌ Gagal ambil aturan bonus alat:', error)

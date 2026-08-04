@@ -1,4 +1,4 @@
-import { HiBookmark, HiExclamationCircle, HiInformationCircle, HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
+import { HiBookmark, HiCheckCircle, HiExclamationCircle, HiInformationCircle, HiOutlineExclamationCircle, HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
 import React, { useDeferredValue, useEffect, useMemo, useState } from 'react'
 
 import AlertDialog from './AlertDialog'
@@ -22,6 +22,7 @@ const TableContent = ({
   onDelete = () => {},
   onStatus = () => {},
   onMark = () => {},
+  onVerify = () => {},
   onView = () => {},
   onAdd = () => {},
   onSearchChange = () => {},
@@ -42,14 +43,14 @@ const TableContent = ({
   showTerimaDanaFilter = false,
   showPembayarFeeFilter = false,
   showEditedFilter = false,
-  showMarkedFilter = false,
+  showKoreksiFilter = false,
   showManualOverrideFilter = false,
   onSumberDanaChange = () => {},
   onJenisTransaksiChange = () => {},
   onTerimaDanaChange = () => {},
   onPembayarFeeChange = () => {},
   onEditedFilterChange = () => {},
-  onMarkedFilterChange = () => {},
+  onKoreksiFilterChange = () => {},
   onManualOverrideFilterChange = () => {}
 }) => {
   // const [loggedInUser, setLoggedInUser] = useState(null)
@@ -64,7 +65,7 @@ const TableContent = ({
   const [selectedTerimaDana, setSelectedTerimaDana] = useState('')
   const [selectedPembayarFee, setSelectedPembayarFee] = useState('')
   const [selectedEditedFilter, setSelectedEditedFilter] = useState('')
-  const [selectedMarkedFilter, setSelectedMarkedFilter] = useState('')
+  const [selectedKoreksiFilter, setSelectedKoreksiFilter] = useState('')
   const [selectedManualOverrideFilter, setSelectedManualOverrideFilter] = useState('')
   const itemsPerPage = 20
   const { isDark } = useTheme()
@@ -92,6 +93,7 @@ const TableContent = ({
 
   const editedCount = useMemo(() => data.filter((item) => item.is_edited || item.edited).length, [data])
   const markedCount = useMemo(() => data.filter((item) => item.is_marked_wrong).length, [data])
+  const verifiedCount = useMemo(() => data.filter((item) => item.is_verified).length, [data])
   const manualOverrideCount = useMemo(
     () => data.filter((item) => item.is_fee_manual || item.is_bonus_manual).length,
     [data]
@@ -137,14 +139,14 @@ const TableContent = ({
     selectedTerimaDana,
     selectedPembayarFee,
     selectedEditedFilter,
-    selectedMarkedFilter,
+    selectedKoreksiFilter,
     showDateFilter,
     showSumberDanaFilter,
     showJenisTransaksiFilter,
     showTerimaDanaFilter,
     showPembayarFeeFilter,
     showEditedFilter,
-    showMarkedFilter
+    showKoreksiFilter
   ])
 
   const filteredData = useMemo(() => {
@@ -176,12 +178,14 @@ const TableContent = ({
               ? !(item.is_edited || item.edited)
               : true)
         : true
-      const matchMarkedFilter = showMarkedFilter && selectedMarkedFilter
-        ? (selectedMarkedFilter === 'marked'
+      const matchKoreksiFilter = showKoreksiFilter && selectedKoreksiFilter
+        ? (selectedKoreksiFilter === 'salah'
             ? !!item.is_marked_wrong
-            : selectedMarkedFilter === 'not-marked'
-              ? !item.is_marked_wrong
-              : true)
+            : selectedKoreksiFilter === 'benar'
+              ? !!item.is_verified
+              : selectedKoreksiFilter === 'belum'
+                ? !item.is_marked_wrong && !item.is_verified
+                : true)
         : true
       const matchManualOverrideFilter = showManualOverrideFilter && selectedManualOverrideFilter
         ? (selectedManualOverrideFilter === 'manual'
@@ -212,7 +216,7 @@ const TableContent = ({
             .includes(query)
         : true
 
-      return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchMarkedFilter && matchManualOverrideFilter && matchSearch
+      return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchKoreksiFilter && matchManualOverrideFilter && matchSearch
     })
   }, [
     data,
@@ -223,7 +227,7 @@ const TableContent = ({
     selectedTerimaDana,
     selectedPembayarFee,
     selectedEditedFilter,
-    selectedMarkedFilter,
+    selectedKoreksiFilter,
     selectedManualOverrideFilter,
     showDateFilter,
     showSumberDanaFilter,
@@ -231,7 +235,7 @@ const TableContent = ({
     showTerimaDanaFilter,
     showPembayarFeeFilter,
     showEditedFilter,
-    showMarkedFilter,
+    showKoreksiFilter,
     showManualOverrideFilter
   ])
 
@@ -332,7 +336,7 @@ const TableContent = ({
         </div>
 
         {/* Filters Section */}
-        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter || showEditedFilter || showMarkedFilter || showManualOverrideFilter) && (
+        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter || showEditedFilter || showKoreksiFilter || showManualOverrideFilter) && (
           <div className={`p-4 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-25'}`}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 mb-4">
               {showDateFilter && (
@@ -460,27 +464,24 @@ const TableContent = ({
                   </select>
                 </div>
               )}
-              {showMarkedFilter && (
+              {showKoreksiFilter && (
                 <div className="flex flex-col min-w-0">
                   <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                    Filter Ditandai Salah {markedCount > 0 && (
-                      <span className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 ml-2 rounded-full text-xs font-bold ${isDark ? 'bg-red-500 text-red-900' : 'bg-red-400 text-red-900'}`}>
-                        {markedCount}
-                      </span>
-                    )}
+                    Filter Status Koreksi
                   </label>
                   <select
-                    value={selectedMarkedFilter}
+                    value={selectedKoreksiFilter}
                     onChange={(e) => {
                       const value = e.target.value
-                      setSelectedMarkedFilter(value)
-                      onMarkedFilterChange(value)
+                      setSelectedKoreksiFilter(value)
+                      onKoreksiFilterChange(value)
                     }}
                     className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
                   >
                     <option value="">Semua Data</option>
-                    <option value="marked">Hanya Yang Ditandai Salah ({markedCount})</option>
-                    <option value="not-marked">Belum Ditandai Salah ({totalCount - markedCount})</option>
+                    <option value="belum">Belum Dikoreksi ({totalCount - markedCount - verifiedCount})</option>
+                    <option value="salah">Ditandai Salah ({markedCount})</option>
+                    <option value="benar">Ditandai Benar ({verifiedCount})</option>
                   </select>
                 </div>
               )}
@@ -564,14 +565,13 @@ const TableContent = ({
                   key={item.id ?? index}
                   className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} ${
                     item.is_marked_wrong
-                      ? isDark
-                        ? 'bg-red-900 text-red-200'
-                        : 'bg-red-100'
-                      : item.is_edited || item.edited
-                        ? isDark
-                          ? 'bg-yellow-900 text-yellow-200'
-                          : 'bg-yellow-200'
-                        : ''
+                      ? (isDark ? 'bg-red-900 text-red-200' : 'bg-red-100')
+                      : item.is_verified
+                      ? (isDark ? 'bg-green-900 text-green-200' : 'bg-green-100')
+                      : (item.is_edited || item.edited)
+                      ? (isDark ? 'bg-yellow-900 text-yellow-200' : 'bg-yellow-200')
+                  
+                      : ''
                   }`}
                 >
                   {editDelete && (
@@ -616,7 +616,7 @@ const TableContent = ({
                               : 'border-amber-400 text-amber-600 hover:bg-amber-50'
                           }`}
                         >
-                          <HiInformationCircle size={16} />
+                          <HiOutlineExclamationCircle size={32} />
                         </button>
                       )}
                       {showView && (
@@ -664,7 +664,7 @@ const TableContent = ({
                           )}
                         </>
                       )}
-                      { marked && (
+                      { marked && !item.is_verified && (
                         <ButtonInput
                           color={item.is_marked_wrong ? 'red' : 'white'}
                           outline={!item.is_marked_wrong}
@@ -682,6 +682,28 @@ const TableContent = ({
                             <>
                               <HiBookmark className="" size={16} />
                               Tandai salah
+                            </>
+                          )}
+                        </ButtonInput>
+                      )}
+                      { marked && !item.is_marked_wrong && (
+                        <ButtonInput
+                          color={item.is_verified ? 'green' : 'white'}
+                          outline={!item.is_verified}
+                          size={btnSize}
+                          textColor={item.is_verified ? 'white' : 'black'}
+                          onClick={() => onVerify(item.id)}
+                          title={item.is_verified ? 'Lihat detail verifikasi' : 'Tandai transaksi ini sudah benar/sesuai'}
+                        >
+                          {item.is_verified ? (
+                            <>
+                              <HiCheckCircle className="" size={16} />
+                              Terverifikasi
+                            </>
+                          ) : (
+                            <>
+                              <FaCheck className="" size={14} />
+                              Tandai Benar
                             </>
                           )}
                         </ButtonInput>

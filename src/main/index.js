@@ -1,15 +1,19 @@
 import { BrowserWindow, app, screen } from 'electron'
 import {
   createAlat,
+  createAlatBonusJenisRule,
   createAlatBonusRule,
   createFeeRule,
   deleteAlat,
+  deleteAlatBonusJenisRule,
   deleteAlatBonusRule,
   deleteFeeRule,
   getAlat,
+  getAlatBonusJenisRules,
   getAlatBonusRules,
   getFeeRules,
   updateAlat,
+  updateAlatBonusJenisRule,
   updateAlatBonusRule,
   updateFeeRule
 } from './feeAlatHandler.js'
@@ -20,11 +24,12 @@ import {
   getTransaksi,
   getTransaksiSummary
 } from './transactionHandler.js'
-import { markSalah, unmarkSalah, updateSchema } from './db.js'
+import { markBenar, markSalah, unmarkBenar, unmarkSalah, updateSchema } from './db.js'
 
 import { Menu } from 'electron'
 import dayjs from 'dayjs'
 import db from './db.js'
+import { getLaporanKeuangan } from './laporanHandler.js'
 import icon from '../../resources/iconNew.jpg?asset'
 import { ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
@@ -391,6 +396,12 @@ app.whenReady().then(async () => {
     ipcMain.handle('updateAlatBonusRule', updateAlatBonusRule)
     ipcMain.handle('deleteAlatBonusRule', deleteAlatBonusRule)
 
+    // IPC handlers untuk bonus berjenjang per alat + per jenis transaksi
+    ipcMain.handle('getAlatBonusJenisRules', getAlatBonusJenisRules)
+    ipcMain.handle('createAlatBonusJenisRule', createAlatBonusJenisRule)
+    ipcMain.handle('updateAlatBonusJenisRule', updateAlatBonusJenisRule)
+    ipcMain.handle('deleteAlatBonusJenisRule', deleteAlatBonusJenisRule)
+
     // Handler untuk ambil data summary_log
     ipcMain.handle('getSummaryLog', async () => {
       return new Promise((resolve, reject) => {
@@ -478,168 +489,9 @@ app.whenReady().then(async () => {
     })
 
     // ============================= laporan keuangan handler =============================
-    ipcMain.handle('get-laporan-keuangan', async (event, roleRaw) => {
-      // Fetch all data
-      const getTransaksi = () =>
-        new Promise((resolve, reject) => {
-          db.all(
-            'SELECT t.*, s.nama_sumber_dana as sumber_dana, s2.nama_sumber_dana as terima_dana_nama FROM transaksi t LEFT JOIN saldo_awal s ON t.sumber_dana_id = s.id LEFT JOIN saldo_awal s2 ON t.terima_dana_id = s2.id',
-            [],
-            (err, rows) => {
-              if (err) reject(err)
-              else resolve(rows)
-            }
-          )
-        })
-      const getHutang = () =>
-        new Promise((resolve, reject) => {
-          db.all(
-            'SELECT h.*, s.nama_sumber_dana as sumber_dana FROM hutang h LEFT JOIN saldo_awal s ON h.platform_id = s.id',
-            [],
-            (err, rows) => {
-              if (err) reject(err)
-              else resolve(rows)
-            }
-          )
-        })
-      const getAmbilSaldo = () =>
-        new Promise((resolve, reject) => {
-          db.all(
-            'SELECT a.*, s.nama_sumber_dana as sumber_dana FROM ambil_saldo a LEFT JOIN saldo_awal s ON a.platform = s.nama_sumber_dana',
-            [],
-            (err, rows) => {
-              if (err) reject(err)
-              else resolve(rows)
-            }
-          )
-        })
-      const getPindahSaldo = () =>
-        new Promise((resolve, reject) => {
-          db.all(
-            'SELECT p.*, s1.nama_sumber_dana as sumber_dana, s2.nama_sumber_dana as terima_dana_nama FROM pindah_saldo p LEFT JOIN saldo_awal s1 ON p.sumber_dana_id = s1.id LEFT JOIN saldo_awal s2 ON p.tujuan_dana_id = s2.id',
-            [],
-            (err, rows) => {
-              if (err) reject(err)
-              else resolve(rows)
-            }
-          )
-        })
-
-      // Fetch all
-      const [transaksi, hutang, ambilSaldo, pindahSaldo, totalHutangRows] = await Promise.all([
-        getTransaksi(),
-        getHutang(),
-        getAmbilSaldo(),
-        getPindahSaldo(),
-        new Promise((resolve, reject) => {
-          db.get(
-            'SELECT SUM(nominal_transaksi) as total FROM hutang WHERE status_bayar = 0',
-            [],
-            (err, row) => {
-              if (err) reject(err)
-              else resolve(row)
-            }
-          )
-        })
-      ])
-
-      const totalHutang = Number(totalHutangRows?.total || 0)
-
-      // Format transaksi
-      const formattedTransaksi = transaksi.map((item) => {
-        // Nominal keluar = nominal_transaksi + biaya_admin_bank
-        const nominalKeluar =
-          Number(item.nominal_transaksi || 0) + Number(item.biaya_admin_bank || 0)
-        const nominalMasuk = Number(item.nominal_transaksi || 0) + Number(item.fee || 0)
-        const bonusAlat = Number(item.bonus || 0)
-        // Bonus alat (dari bank penyedia EDC dll, misal transaksi Cek Saldo) ikut jadi keuntungan toko
-        const keuntungan = nominalMasuk - nominalKeluar + bonusAlat
-        return {
-          tanggal: item.tanggal,
-          sumber_dana: item.sumber_dana || '-',
-          terima_dana_nama: item.terima_dana_nama || '-',
-          jenis_transaksi: item.jenis_transaksi || '-',
-          nominal_transaksi: nominalKeluar,
-          nominal_masuk: nominalMasuk,
-          keuntungan,
-          bonus_alat: bonusAlat,
-          admin_bank: Number(item.biaya_admin_bank || 0),
-          total_hutang: totalHutang,
-          keterangan: item.keterangan || '-'
-        }
-      })
-
-      // Format hutang
-      const formattedHutang = hutang.map((item) => {
-        const isBayarHutang = (item.jenis_transaksi || '').toLowerCase() === 'bayar hutang'
-        const nominal = Number(item.nominal_transaksi || 0)
-        const biayaAdmin = Number(item.biaya_admin || 0)
-        // Untuk Bayar Hutang, nominal keluar = nominal + admin
-        return {
-          tanggal: item.tanggal_transaksi,
-          sumber_dana: item.sumber_dana || '-',
-          terima_dana_nama: '-',
-          jenis_transaksi: item.jenis_transaksi || 'Hutang',
-          nominal_transaksi: isBayarHutang ? nominal + biayaAdmin : 0,
-          nominal_masuk: isBayarHutang ? 0 : nominal,
-          keuntungan: 0,
-          bonus_alat: 0,
-          admin_bank: isBayarHutang ? biayaAdmin : 0,
-          total_hutang: totalHutang,
-          keterangan: item.keterangan || '-'
-        }
-      })
-
-      // Format ambil saldo
-      const formattedAmbilSaldo = ambilSaldo.map((item) => {
-        const nominal = Number(item.nominal_pengambilan || 0)
-        return {
-          tanggal: item.tanggal_pengambilan,
-          sumber_dana: item.sumber_dana || '-',
-          terima_dana_nama: '-',
-          jenis_transaksi: 'Ambil Saldo',
-          nominal_transaksi: nominal,
-          nominal_masuk: 0,
-          keuntungan: 0,
-          bonus_alat: 0,
-          admin_bank: Number(item.biaya_admin || 0),
-          total_hutang: totalHutang,
-          keterangan: item.keterangan || '-'
-        }
-      })
-
-      // Format pindah saldo
-      const formattedPindahSaldo = pindahSaldo.map((item) => {
-        // Nominal keluar = nominal + biaya_admin
-        const nominal = Number(item.nominal || 0)
-        const biayaAdmin = Number(item.biaya_admin || 0)
-        const nominalKeluar = nominal + biayaAdmin
-        const nominalMasuk = nominal
-        // Pastikan keuntungan selalu 0 untuk pindah saldo
-        return {
-          tanggal: item.tanggal,
-          sumber_dana: item.sumber_dana || '-',
-          terima_dana_nama: item.terima_dana_nama || '-',
-          jenis_transaksi: 'Pindah Saldo',
-          nominal_transaksi: nominalKeluar,
-          nominal_masuk: nominalMasuk,
-          keuntungan: 0,
-          bonus_alat: 0,
-          admin_bank: biayaAdmin,
-          total_hutang: totalHutang,
-          keterangan: item.keterangan || '-'
-        }
-      })
-
-      // Gabungkan semua data
-      const allData = [
-        ...formattedTransaksi,
-        ...formattedHutang,
-        ...formattedAmbilSaldo,
-        ...formattedPindahSaldo
-      ]
-      return allData
-    })
+    // Logic-nya sudah dipindah ke laporanHandler.js (getLaporanKeuangan) — di-import di atas.
+    // JANGAN taruh logic query/format laporan di sini lagi, biar nggak ada 2 versi yang beda.
+    ipcMain.handle('get-laporan-keuangan', getLaporanKeuangan)
     // // Fungsi untuk simpan snapshot saldo awal tiap awal bulan
     function saveMonthlySnapshotIfNeeded() {
       const periode = dayjs().tz('Asia/Jakarta').format('YYYY-MM')
@@ -2376,6 +2228,25 @@ app.whenReady().then(async () => {
         return await unmarkSalah(payload)
       } catch (error) {
         console.error('❌ Error unmark-salah:', error)
+        throw error
+      }
+    })
+
+    // ✅ TANDAI BENAR/SESUAI (koreksi transaksi) — berlaku untuk transaksi, hutang, pindah_saldo, ambil_saldo
+    ipcMain.handle('mark-benar', async (_event, payload) => {
+      try {
+        return await markBenar(payload)
+      } catch (error) {
+        console.error('❌ Error mark-benar:', error)
+        throw error
+      }
+    })
+
+    ipcMain.handle('unmark-benar', async (_event, payload) => {
+      try {
+        return await unmarkBenar(payload)
+      } catch (error) {
+        console.error('❌ Error unmark-benar:', error)
         throw error
       }
     })

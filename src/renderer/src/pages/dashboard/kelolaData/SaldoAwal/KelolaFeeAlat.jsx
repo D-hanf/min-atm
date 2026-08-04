@@ -41,7 +41,6 @@ const emptyAlatForm = {
   nama_alat: '',
   keterangan: '',
   is_active: true,
-  bonus_cek_saldo: '',
   bonus_tarik_tunai: '',
   sumber_dana_bonus_id: ''
 }
@@ -327,7 +326,6 @@ const FeeRulesSection = ({ isDark, notify }) => {
 const AlatSection = ({ isDark, notify }) => {
   const [alatList, setAlatList] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selectedAlatId, setSelectedAlatId] = useState('')
 
   const [alatModalOpen, setAlatModalOpen] = useState(false)
   const [editingAlat, setEditingAlat] = useState(null)
@@ -355,13 +353,7 @@ const AlatSection = ({ isDark, notify }) => {
     setLoading(true)
     try {
       const result = await window.api.getAlat()
-      const list = result || []
-      setAlatList(list)
-      // Kalau alat yang lagi dipilih sudah tidak ada lagi (mis. dihapus), pilih ulang yang pertama
-      setSelectedAlatId((prev) => {
-        if (prev && list.some((a) => String(a.id) === String(prev))) return prev
-        return list[0]?.id ?? ''
-      })
+      setAlatList(result || [])
     } catch (err) {
       console.error('❌ Gagal ambil data alat:', err)
       notify('Gagal mengambil data alat. Coba lagi.')
@@ -387,7 +379,6 @@ const AlatSection = ({ isDark, notify }) => {
       nama_alat: alat.nama_alat,
       keterangan: alat.keterangan || '',
       is_active: !!alat.is_active,
-      bonus_cek_saldo: alat.bonus_cek_saldo ?? '',
       bonus_tarik_tunai: alat.bonus_tarik_tunai ?? '',
       sumber_dana_bonus_id: alat.sumber_dana_bonus_id ?? ''
     })
@@ -413,7 +404,6 @@ const AlatSection = ({ isDark, notify }) => {
       const payload = {
         nama_alat: alatForm.nama_alat,
         keterangan: alatForm.keterangan,
-        bonus_cek_saldo: alatForm.bonus_cek_saldo === '' ? 0 : Number(alatForm.bonus_cek_saldo),
         bonus_tarik_tunai: alatForm.bonus_tarik_tunai === '' ? 0 : Number(alatForm.bonus_tarik_tunai),
         sumber_dana_bonus_id: alatForm.sumber_dana_bonus_id === '' ? null : Number(alatForm.sumber_dana_bonus_id)
       }
@@ -451,13 +441,10 @@ const AlatSection = ({ isDark, notify }) => {
       alatList.map((alat) => ({
         ...alat,
         statusDisplay: alat.is_active ? 'Aktif' : 'Nonaktif',
-        bonusCekSaldoDisplay: formatRupiah(alat.bonus_cek_saldo),
         bonusTarikTunaiDisplay: formatRupiah(alat.bonus_tarik_tunai)
       })),
     [alatList]
   )
-
-  const selectedAlat = alatList.find((a) => String(a.id) === String(selectedAlatId))
 
   return (
     <div className="px-4 flex flex-col gap-6">
@@ -470,7 +457,6 @@ const AlatSection = ({ isDark, notify }) => {
           data={tableData}
           columns={[
             { key: 'nama_alat', label: 'Nama Alat' },
-            { key: 'bonusCekSaldoDisplay', label: 'Bonus Cek Saldo' },
             // { key: 'bonusTarikTunaiDisplay', label: 'Bonus Tarik Tunai' },
             { key: 'statusDisplay', label: 'Status' },
             { key: 'keterangan', label: 'Keterangan' },
@@ -487,39 +473,7 @@ const AlatSection = ({ isDark, notify }) => {
         />
       )}
 
-      <div className={`rounded-lg border p-4 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-          <label className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-            Kelola bonus untuk alat:
-          </label>
-          <select
-            value={selectedAlatId}
-            onChange={(e) => setSelectedAlatId(e.target.value)}
-            className={`border rounded-md px-3 py-2 text-sm ${
-              isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'
-            }`}
-          >
-            {alatList.length === 0 && <option value="">Belum ada alat</option>}
-            {alatList.map((alat) => (
-              <option key={alat.id} value={alat.id}>
-                {alat.nama_alat}
-                {!alat.is_active ? ' (Nonaktif)' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {selectedAlat ? (
-          <BonusRulesTable
-            alatId={selectedAlat.id}
-            alatNama={selectedAlat.nama_alat}
-            isDark={isDark}
-            notify={notify}
-          />
-        ) : (
-          <p className="text-sm text-gray-500">Tambah alat dulu untuk mengatur bonusnya.</p>
-        )}
-      </div>
+      <AlatBonusJenisTable alatList={alatList} isDark={isDark} notify={notify} />
 
       <Modal
         isOpen={alatModalOpen}
@@ -549,13 +503,6 @@ const AlatSection = ({ isDark, notify }) => {
         >
           Keterangan
         </InputField>
-        <CurrencyField
-          name="bonus_cek_saldo"
-          label="Bonus Cek Saldo"
-          value={alatForm.bonus_cek_saldo}
-          onChange={(v) => setAlatForm({ ...alatForm, bonus_cek_saldo: v })}
-          required={false}
-        />
       
         <div className="col-span-2 flex flex-col gap-1">
           <label className="text-sm font-medium">Sumber Dana Tujuan Bonus (default)</label>
@@ -595,23 +542,32 @@ const AlatSection = ({ isDark, notify }) => {
   )
 }
 
-// Tabel rentang bonus untuk 1 alat (ditampilkan di bawah dropdown pemilih alat)
-const BonusRulesTable = ({ alatId, alatNama, isDark, notify }) => {
+// =====================================================================
+// BONUS ALAT PER JENIS TRANSAKSI — berjenjang berdasarkan rentang nominal,
+// sekaligus per jenis transaksi (mirip FeeRulesSection, tapi tiap baris juga
+// terikat ke 1 alat). Tab jenis transaksi di atas, tabel di bawahnya
+// menampilkan SEMUA alat sebagai baris (alat bisa punya beberapa rentang).
+// =====================================================================
+
+const emptyAlatBonusJenisForm = { alat_id: '', nominal_min: '', nominal_max: '', value: '' }
+
+const AlatBonusJenisTable = ({ alatList, isDark, notify }) => {
+  const [jenisAktif, setJenisAktif] = useState(JENIS_TRANSAKSI_LIST[0])
   const [rules, setRules] = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
-  const [editingRule, setEditingRule] = useState(null)
-  const [form, setForm] = useState(emptyRuleForm)
+  const [editingRule, setEditingRule] = useState(null) // null = mode tambah
+  const [form, setForm] = useState(emptyAlatBonusJenisForm)
   const [fieldErrors, setFieldErrors] = useState({})
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
-  const fetchRules = async () => {
+  const fetchRules = async (jenis) => {
     setLoading(true)
     try {
-      const result = await window.api.getAlatBonusRules(alatId)
+      const result = await window.api.getAlatBonusJenisRules({ jenis_transaksi: jenis })
       setRules(result || [])
     } catch (err) {
-      console.error('❌ Gagal ambil aturan bonus:', err)
+      console.error('❌ Gagal ambil aturan bonus alat per jenis transaksi:', err)
       notify('Gagal mengambil data bonus. Coba lagi.')
     } finally {
       setLoading(false)
@@ -619,12 +575,12 @@ const BonusRulesTable = ({ alatId, alatNama, isDark, notify }) => {
   }
 
   useEffect(() => {
-    fetchRules()
-  }, [alatId])
+    fetchRules(jenisAktif)
+  }, [jenisAktif])
 
   const openTambah = () => {
     setEditingRule(null)
-    setForm(emptyRuleForm)
+    setForm(emptyAlatBonusJenisForm)
     setFieldErrors({})
     setModalOpen(true)
   }
@@ -632,6 +588,7 @@ const BonusRulesTable = ({ alatId, alatNama, isDark, notify }) => {
   const openEdit = (rule) => {
     setEditingRule(rule)
     setForm({
+      alat_id: rule.alat_id,
       nominal_min: rule.nominal_min,
       nominal_max: rule.nominal_max ?? '',
       value: rule.bonus
@@ -645,15 +602,21 @@ const BonusRulesTable = ({ alatId, alatNama, isDark, notify }) => {
     if (rule) openEdit(rule)
   }
 
+  const isCekSaldo = jenisAktif === 'Cek Saldo'
+
   const validate = () => {
     const errors = {}
-    if (form.nominal_min === '' || form.nominal_min === null || form.nominal_min === undefined) {
+    if (!form.alat_id) {
+      errors.alat_id = 'Alat wajib dipilih.'
+    }
+    if (!isCekSaldo && (form.nominal_min === '' || form.nominal_min === null || form.nominal_min === undefined)) {
       errors.nominal_min = 'Nominal minimum wajib diisi.'
     }
     if (form.value === '' || form.value === null || form.value === undefined) {
       errors.value = 'Bonus wajib diisi.'
     }
     if (
+      !isCekSaldo &&
       form.nominal_max !== '' &&
       form.nominal_min !== '' &&
       Number(form.nominal_max) <= Number(form.nominal_min)
@@ -667,21 +630,32 @@ const BonusRulesTable = ({ alatId, alatNama, isDark, notify }) => {
   const handleSubmit = async () => {
     if (!validate()) return
 
-    const payload = {
-      alat_id: alatId,
-      nominal_min: Number(form.nominal_min),
-      nominal_max: form.nominal_max === '' ? null : Number(form.nominal_max),
-      bonus: Number(form.value)
-    }
+    // Bonus Cek Saldo tidak berjenjang — selalu 1 nilai flat per alat yang
+    // berlaku untuk semua nominal (nominal_min = 0, nominal_max = tak terbatas).
+    const payload = isCekSaldo
+      ? {
+          alat_id: Number(form.alat_id),
+          jenis_transaksi: jenisAktif,
+          nominal_min: 0,
+          nominal_max: null,
+          bonus: Number(form.value)
+        }
+      : {
+          alat_id: Number(form.alat_id),
+          jenis_transaksi: jenisAktif,
+          nominal_min: Number(form.nominal_min),
+          nominal_max: form.nominal_max === '' ? null : Number(form.nominal_max),
+          bonus: Number(form.value)
+        }
 
     try {
       if (editingRule) {
-        await window.api.updateAlatBonusRule({ id: editingRule.id, ...payload })
+        await window.api.updateAlatBonusJenisRule({ id: editingRule.id, ...payload })
       } else {
-        await window.api.createAlatBonusRule(payload)
+        await window.api.createAlatBonusJenisRule(payload)
       }
       setModalOpen(false)
-      fetchRules()
+      fetchRules(jenisAktif)
     } catch (err) {
       console.error('❌ Gagal simpan aturan bonus:', err)
       notify(err?.message || 'Gagal menyimpan aturan bonus.')
@@ -690,9 +664,9 @@ const BonusRulesTable = ({ alatId, alatNama, isDark, notify }) => {
 
   const handleDelete = async () => {
     try {
-      await window.api.deleteAlatBonusRule(confirmDeleteId)
+      await window.api.deleteAlatBonusJenisRule(confirmDeleteId)
       setConfirmDeleteId(null)
-      fetchRules()
+      fetchRules(jenisAktif)
     } catch (err) {
       console.error('❌ Gagal hapus aturan bonus:', err)
       notify(err?.message || 'Gagal menghapus aturan bonus.')
@@ -703,30 +677,63 @@ const BonusRulesTable = ({ alatId, alatNama, isDark, notify }) => {
     () =>
       rules.map((rule) => ({
         ...rule,
+        alatDisplay: rule.nama_alat || alatList.find((a) => String(a.id) === String(rule.alat_id))?.nama_alat || '-',
         rentang: formatRentang(rule.nominal_min, rule.nominal_max),
         bonusDisplay: formatRupiah(rule.bonus)
       })),
-    [rules]
+    [rules, alatList]
   )
 
   return (
     <div>
+      {/* Sub-tab jenis transaksi — gaya sama dengan FeeRulesSection */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {JENIS_TRANSAKSI_LIST.map((jenis) => (
+          <button
+            key={jenis}
+            onClick={() => setJenisAktif(jenis)}
+            className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+              jenisAktif === jenis
+                ? 'bg-emerald-600 text-white border-emerald-600'
+                : isDark
+                  ? 'border-gray-700 text-gray-300 hover:border-emerald-600'
+                  : 'border-gray-300 text-gray-600 hover:border-emerald-600'
+            }`}
+          >
+            {jenis}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <p className="text-gray-500 text-sm">Memuat data...</p>
       ) : (
         <TableContent
-          title={`Rentang Bonus — ${alatNama}`}
+          title={`Bonus Alat — ${jenisAktif}`}
+          info={
+            isCekSaldo
+              ? 'Bonus Cek Saldo bersifat flat per alat (tidak berjenjang berdasarkan nominal).'
+              : 'Tiap alat bisa punya beberapa rentang nominal, dengan bonus berbeda-beda per rentang. Rentang tidak boleh tumpang tindih untuk alat yang sama.'
+          }
           data={tableData}
-          columns={[
-            { key: 'rentang', label: 'Rentang Nominal' },
-            { key: 'bonusDisplay', label: 'Bonus' }
-          ]}
+          columns={
+            isCekSaldo
+              ? [
+                  { key: 'alatDisplay', label: 'Alat' },
+                  { key: 'bonusDisplay', label: 'Bonus' }
+                ]
+              : [
+                  { key: 'alatDisplay', label: 'Alat' },
+                  { key: 'rentang', label: 'Rentang Nominal' },
+                  { key: 'bonusDisplay', label: 'Bonus' }
+                ]
+          }
           onEdit={handleEditById}
           onDelete={(id) => setConfirmDeleteId(id)}
           onAdd={() => (
             <ButtonInput size="xs" onClick={openTambah}>
               <HiPlus size={14} />
-              Tambah Rentang
+              {isCekSaldo ? 'Tambah Bonus' : 'Tambah Rentang'}
             </ButtonInput>
           )}
           btnSize="xs"
@@ -737,23 +744,55 @@ const BonusRulesTable = ({ alatId, alatNama, isDark, notify }) => {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
-        title={editingRule ? 'Edit Rentang Bonus' : `Tambah Rentang Bonus — ${alatNama}`}
+        title={
+          editingRule
+            ? isCekSaldo
+              ? 'Edit Bonus Cek Saldo'
+              : 'Edit Rentang Bonus'
+            : isCekSaldo
+              ? 'Tambah Bonus Cek Saldo'
+              : `Tambah Rentang Bonus — ${jenisAktif}`
+        }
       >
-        <CurrencyField
-          name="nominal_min"
-          label="Nominal Minimum"
-          value={form.nominal_min}
-          onChange={(v) => setForm({ ...form, nominal_min: v })}
-          error={fieldErrors.nominal_min}
-        />
-        <CurrencyField
-          name="nominal_max"
-          label='Nominal Maksimum (kosongkan jika "ke atas")'
-          value={form.nominal_max}
-          onChange={(v) => setForm({ ...form, nominal_max: v })}
-          error={fieldErrors.nominal_max}
-          required={false}
-        />
+        <div className="col-span-2 flex flex-col gap-1">
+          <label className="text-sm font-medium">Alat</label>
+          <select
+            value={form.alat_id}
+            onChange={(e) => setForm({ ...form, alat_id: e.target.value })}
+            className={`border rounded-md px-3 py-2 text-sm ${
+              isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'
+            }`}
+          >
+            <option value="">Pilih alat</option>
+            {alatList.map((alat) => (
+              <option key={alat.id} value={alat.id}>
+                {alat.nama_alat}
+                {!alat.is_active ? ' (Nonaktif)' : ''}
+              </option>
+            ))}
+          </select>
+          {fieldErrors.alat_id && <p className="text-xs text-red-500 mt-1">{fieldErrors.alat_id}</p>}
+        </div>
+
+        {!isCekSaldo && (
+          <>
+            <CurrencyField
+              name="nominal_min"
+              label="Nominal Minimum"
+              value={form.nominal_min}
+              onChange={(v) => setForm({ ...form, nominal_min: v })}
+              error={fieldErrors.nominal_min}
+            />
+            <CurrencyField
+              name="nominal_max"
+              label='Nominal Maksimum (kosongkan jika "ke atas")'
+              value={form.nominal_max}
+              onChange={(v) => setForm({ ...form, nominal_max: v })}
+              error={fieldErrors.nominal_max}
+              required={false}
+            />
+          </>
+        )}
         <CurrencyField
           name="value"
           label="Bonus (Rp)"

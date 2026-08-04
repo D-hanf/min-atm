@@ -46,6 +46,10 @@ const LaporanKeuntungan = () => {
   // tapi kita tetap tampilkan angkanya terpisah biar ada laporan yang jelas asalnya dari mana.
   const getBonusAlat = (item) => Number(item.bonus_alat ?? 0)
 
+  // Nama alat & sumber dana tujuan bonus — dipakai buat rekap "Bonus per Alat" di bawah.
+  const getAlatNama = (item) => item.alat_nama || 'Tanpa Alat'
+  const getBonusTujuan = (item) => item.bonus_sumber_dana_nama || 'Belum diatur'
+
   // PENTING: kolom `tanggal` dari backend berupa DATETIME (bisa mengandung jam:menit:detik),
   // bukan cuma 'YYYY-MM-DD'. Kalau dibandingkan sebagai string mentah, transaksi hari ini
   // yang punya jam (mis. "2026-07-24 14:30:00") akan dianggap "lebih besar" dari batas
@@ -229,6 +233,30 @@ const LaporanKeuntungan = () => {
       }))
       .sort((a, b) => (a.key < b.key ? 1 : -1))
   }, [filteredKeuntungan])
+
+  // Rekap total bonus alat, dipisah per alat DAN per sumber dana tujuan
+  // (dana bonus tiap alat bisa diarahkan ke tempat yang beda-beda)
+  const rekapBonusPerAlat = useMemo(() => {
+    const map = {}
+    filteredKeuntungan.forEach((item) => {
+      const bonus = getBonusAlat(item)
+      if (bonus <= 0) return // cuma transaksi yang beneran ada bonusnya
+      const alat = getAlatNama(item)
+      const tujuan = getBonusTujuan(item)
+      const key = `${alat}__${tujuan}`
+      if (!map[key]) {
+        map[key] = { key, alat, tujuan, totalBonus: 0, jumlahTransaksi: 0 }
+      }
+      map[key].totalBonus += bonus
+      map[key].jumlahTransaksi += 1
+    })
+    return Object.values(map).sort((a, b) => b.totalBonus - a.totalBonus)
+  }, [filteredKeuntungan])
+
+  const totalBonusPerAlatKeseluruhan = useMemo(
+    () => rekapBonusPerAlat.reduce((sum, r) => sum + r.totalBonus, 0),
+    [rekapBonusPerAlat]
+  )
 
   const dataAktif =
     viewMode === 'harian'
@@ -647,6 +675,84 @@ const LaporanKeuntungan = () => {
             </div>
           </div>
         )}
+
+        {/* Rekap Bonus Alat — dipisah per alat & per sumber dana tujuan bonusnya */}
+        <div
+          className={`rounded-2xl shadow-lg border overflow-hidden mt-6 ${
+            isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'
+          }`}
+        >
+          <div className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-100'}`}>
+            <h3 className={`text-lg font-bold ${textMain}`}>Rekap Bonus Alat</h3>
+            <p className={`text-sm mt-0.5 ${labelMuted}`}>
+              Total bonus yang masuk pada periode ini, dipisah per alat dan tujuan dananya.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className={isDark ? 'bg-gray-700' : 'bg-gradient-to-r from-teal-50 to-white'}>
+                <tr>
+                  <th className={`px-6 py-4 text-left text-sm font-bold uppercase tracking-wide ${textMain}`}>
+                    Alat
+                  </th>
+                  <th className={`px-6 py-4 text-left text-sm font-bold uppercase tracking-wide ${textMain}`}>
+                    Bonus Masuk Ke
+                  </th>
+                  <th className={`px-6 py-4 text-left text-sm font-bold uppercase tracking-wide ${textMain}`}>
+                    Jumlah Transaksi
+                  </th>
+                  <th className={`px-6 py-4 text-left text-sm font-bold uppercase tracking-wide ${textMain}`}>
+                    Total Bonus
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rekapBonusPerAlat.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className={`text-center py-10 ${labelMuted}`}>
+                      Tidak ada bonus alat pada periode ini.
+                    </td>
+                  </tr>
+                ) : (
+                  rekapBonusPerAlat.map((row) => (
+                    <tr
+                      key={row.key}
+                      className={`border-t ${isDark ? 'border-gray-700 hover:bg-gray-700/50' : 'border-gray-100 hover:bg-teal-50/60'}`}
+                    >
+                      <td className={`px-6 py-4 whitespace-nowrap font-medium ${textMain}`}>
+                        {row.alat}
+                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap ${labelMuted}`}>
+                        {row.tujuan}
+                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap ${labelMuted}`}>
+                        {row.jumlahTransaksi}
+                      </td>
+                      <td className="px-6 py-4 text-teal-500 font-semibold whitespace-nowrap">
+                        {formatRupiah(row.totalBonus)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              {rekapBonusPerAlat.length > 0 && (
+                <tfoot>
+                  <tr className={`border-t-2 font-bold ${isDark ? 'border-gray-600 bg-gray-700/50' : 'border-gray-200 bg-gray-50'}`}>
+                    <td className={`px-6 py-3 ${textMain}`} colSpan={2}>
+                      Total
+                    </td>
+                    <td className={`px-6 py-3 ${textMain}`}>
+                      {rekapBonusPerAlat.reduce((sum, r) => sum + r.jumlahTransaksi, 0)}
+                    </td>
+                    <td className="px-6 py-3 text-teal-500">
+                      {formatRupiah(totalBonusPerAlatKeseluruhan)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -120,6 +120,42 @@ export async function updateSchema() {
       )
     `)
 
+    // 🎁 Bonus FLAT per jenis transaksi untuk tiap alat (beda dari alat_bonus_rules yang
+    // berjenjang berdasarkan nominal). Nominal transaksi bisa sama, tapi bonus bisa beda
+    // tergantung jenis transaksinya (mis. Tarik Tunai vs Transfer pakai alat yang sama).
+    // UNIQUE(alat_id, jenis_transaksi) supaya 1 alat cuma punya 1 nilai bonus per jenis transaksi.
+    await createTableIfNotExists('alat_bonus_per_jenis', `
+      CREATE TABLE IF NOT EXISTS alat_bonus_per_jenis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        alat_id INTEGER NOT NULL,
+        jenis_transaksi TEXT NOT NULL,
+        bonus DECIMAL(15,2) NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (alat_id) REFERENCES alat(id),
+        UNIQUE(alat_id, jenis_transaksi)
+      )
+    `)
+
+    // 🎁 Bonus berjenjang per ALAT sekaligus per JENIS TRANSAKSI. Beda dari alat_bonus_rules
+    // (yang cuma per alat, berlaku sama untuk semua jenis transaksi): di sini 1 alat bisa
+    // punya rentang & bonus yang beda-beda untuk tiap jenis transaksi (mis. Tarik Tunai
+    // rentang 0-1jt bonus 1000, tapi Transfer rentang 0-1jt bonus 1500, alat yang sama).
+    // (Menggantikan alat_bonus_per_jenis yang sebelumnya flat/tidak berjenjang.)
+    await createTableIfNotExists('alat_bonus_jenis_rules', `
+      CREATE TABLE IF NOT EXISTS alat_bonus_jenis_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        alat_id INTEGER NOT NULL,
+        jenis_transaksi TEXT NOT NULL,
+        nominal_min DECIMAL(15,2) NOT NULL DEFAULT 0,
+        nominal_max DECIMAL(15,2),
+        bonus DECIMAL(15,2) NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (alat_id) REFERENCES alat(id)
+      )
+    `)
+
     // Seed 3 alat default (EDC BNI, EDC BTN, EDC BUKU WARUNG) kalau tabel alat masih kosong
     await seedDefaultAlat()
 
@@ -169,6 +205,27 @@ export async function updateSchema() {
       addColumnIfNotExists('ambil_saldo', 'marked_by', 'TEXT'),
       addColumnIfNotExists('ambil_saldo', 'marked_by_id', 'INTEGER'),
       addColumnIfNotExists('ambil_saldo', 'marked_at', 'DATETIME'),
+
+      // ✅ Kolom untuk fitur "Tandai Benar/Sesuai" (koreksi transaksi)
+      addColumnIfNotExists('transaksi', 'is_verified', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('transaksi', 'verified_by', 'TEXT'),
+      addColumnIfNotExists('transaksi', 'verified_by_id', 'INTEGER'),
+      addColumnIfNotExists('transaksi', 'verified_at', 'DATETIME'),
+
+      addColumnIfNotExists('hutang', 'is_verified', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('hutang', 'verified_by', 'TEXT'),
+      addColumnIfNotExists('hutang', 'verified_by_id', 'INTEGER'),
+      addColumnIfNotExists('hutang', 'verified_at', 'DATETIME'),
+
+      addColumnIfNotExists('pindah_saldo', 'is_verified', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('pindah_saldo', 'verified_by', 'TEXT'),
+      addColumnIfNotExists('pindah_saldo', 'verified_by_id', 'INTEGER'),
+      addColumnIfNotExists('pindah_saldo', 'verified_at', 'DATETIME'),
+
+      addColumnIfNotExists('ambil_saldo', 'is_verified', 'BOOLEAN DEFAULT 0'),
+      addColumnIfNotExists('ambil_saldo', 'verified_by', 'TEXT'),
+      addColumnIfNotExists('ambil_saldo', 'verified_by_id', 'INTEGER'),
+      addColumnIfNotExists('ambil_saldo', 'verified_at', 'DATETIME'),
 
       // 🎁 Kolom bonus dari alat (dipakai Cek Saldo, Tarik Tunai, Transfer, Jasa Transfer, Mode Pulsa)
       addColumnIfNotExists('transaksi', 'bonus', 'DECIMAL(15,2) DEFAULT 0'),
@@ -356,7 +413,11 @@ export function markSalah({ table, id, keterangan, user_name, user_id }) {
            marked_note = ?,
            marked_by = ?,
            marked_by_id = ?,
-           marked_at = datetime('now', 'localtime')
+           marked_at = datetime('now', 'localtime'),
+           is_verified = 0,
+           verified_by = NULL,
+           verified_by_id = NULL,
+           verified_at = NULL
        WHERE id = ?`,
       [keterangan.trim(), user_name || '-', user_id ?? null, id],
       function (err) {
@@ -393,6 +454,68 @@ export function unmarkSalah({ table, id }) {
           return reject(err)
         }
         console.log(`✅ Penandaan salah pada ${tableName}#${id} dibatalkan`)
+        resolve({ success: true, changes: this.changes })
+      }
+    )
+  })
+}
+
+// ✅ FUNGSI UNTUK FITUR "TANDAI BENAR/SESUAI" (koreksi transaksi)
+
+// Menandai satu baris data sebagai benar/sesuai, sekaligus membersihkan
+// status "salah" kalau sebelumnya pernah ditandai salah (mutually exclusive).
+export function markBenar({ table, id, user_name, user_id }) {
+  return new Promise((resolve, reject) => {
+    const tableName = MARKABLE_TABLES[table]
+    if (!tableName) return reject(new Error('Tabel tidak valid untuk ditandai'))
+    if (!id) return reject(new Error('ID data tidak valid'))
+
+    db.run(
+      `UPDATE ${tableName}
+       SET is_verified = 1,
+           verified_by = ?,
+           verified_by_id = ?,
+           verified_at = datetime('now', 'localtime'),
+           is_marked_wrong = 0,
+           marked_note = NULL,
+           marked_by = NULL,
+           marked_by_id = NULL,
+           marked_at = NULL
+       WHERE id = ?`,
+      [user_name || '-', user_id ?? null, id],
+      function (err) {
+        if (err) {
+          console.error('❌ Error markBenar:', err)
+          return reject(err)
+        }
+        console.log(`✅ Data ${tableName}#${id} ditandai benar/sesuai oleh ${user_name || '-'}`)
+        resolve({ success: true, changes: this.changes })
+      }
+    )
+  })
+}
+
+// Membatalkan penandaan benar/sesuai pada satu baris data.
+export function unmarkBenar({ table, id }) {
+  return new Promise((resolve, reject) => {
+    const tableName = MARKABLE_TABLES[table]
+    if (!tableName) return reject(new Error('Tabel tidak valid'))
+    if (!id) return reject(new Error('ID data tidak valid'))
+
+    db.run(
+      `UPDATE ${tableName}
+       SET is_verified = 0,
+           verified_by = NULL,
+           verified_by_id = NULL,
+           verified_at = NULL
+       WHERE id = ?`,
+      [id],
+      function (err) {
+        if (err) {
+          console.error('❌ Error unmarkBenar:', err)
+          return reject(err)
+        }
+        console.log(`✅ Penandaan benar/sesuai pada ${tableName}#${id} dibatalkan`)
         resolve({ success: true, changes: this.changes })
       }
     )

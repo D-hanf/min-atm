@@ -311,12 +311,20 @@ export function deleteAlat(_event, id) {
         db.run(`DELETE FROM alat_bonus_rules WHERE alat_id = ?`, [id], (err1) => {
           if (err1) return db.run('ROLLBACK', () => reject(err1))
 
-          db.run(`DELETE FROM alat WHERE id = ?`, [id], function (err2) {
+          db.run(`DELETE FROM alat_bonus_per_jenis WHERE alat_id = ?`, [id], (err2) => {
             if (err2) return db.run('ROLLBACK', () => reject(err2))
 
-            db.run('COMMIT', (commitErr) => {
-              if (commitErr) return reject(commitErr)
-              resolve({ success: true, changes: this.changes })
+            db.run(`DELETE FROM alat_bonus_jenis_rules WHERE alat_id = ?`, [id], (err3) => {
+              if (err3) return db.run('ROLLBACK', () => reject(err3))
+
+              db.run(`DELETE FROM alat WHERE id = ?`, [id], function (err4) {
+                if (err4) return db.run('ROLLBACK', () => reject(err4))
+
+                db.run('COMMIT', (commitErr) => {
+                  if (commitErr) return reject(commitErr)
+                  resolve({ success: true, changes: this.changes })
+                })
+              })
             })
           })
         })
@@ -459,6 +467,214 @@ export function deleteAlatBonusRule(_event, id) {
         proceed()
       }
     })
+  })
+}
+
+// =====================================================================
+// ALAT BONUS PER JENIS TRANSAKSI — berjenjang berdasarkan rentang nominal,
+// SEKALIGUS per jenis transaksi. Beda dengan alat_bonus_rules (yang cuma per
+// alat, sama untuk semua jenis transaksi): di sini alat_id + jenis_transaksi
+// + rentang nominal semuanya menentukan bonus yang berlaku.
+// =====================================================================
+
+// Ambil rules, opsional filter alat_id dan/atau jenis_transaksi.
+// { alat_id, jenis_transaksi } -> keduanya opsional
+export function getAlatBonusJenisRules(_event, filter = {}) {
+  return new Promise((resolve, reject) => {
+    const { alat_id, jenis_transaksi } = filter || {}
+    let query = `
+      SELECT r.*, a.nama_alat
+      FROM alat_bonus_jenis_rules r
+      LEFT JOIN alat a ON r.alat_id = a.id
+    `
+    const conditions = []
+    const params = []
+
+    if (alat_id) {
+      conditions.push('r.alat_id = ?')
+      params.push(alat_id)
+    }
+    if (jenis_transaksi) {
+      conditions.push('r.jenis_transaksi = ?')
+      params.push(jenis_transaksi)
+    }
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`
+    }
+    query += ` ORDER BY a.nama_alat ASC, r.nominal_min ASC`
+
+    db.all(query, params, (err, rows) => {
+      if (err) return reject(err)
+      resolve(rows || [])
+    })
+  })
+}
+
+// Grup rentang existing untuk kombinasi (alat_id, jenis_transaksi) tertentu — dipakai validasi overlap
+function getAlatJenisGroupRules(alatId, jenisTransaksi, excludeId) {
+  return new Promise((resolve, reject) => {
+    const query = excludeId
+      ? `SELECT * FROM alat_bonus_jenis_rules WHERE alat_id = ? AND jenis_transaksi = ? AND id != ?`
+      : `SELECT * FROM alat_bonus_jenis_rules WHERE alat_id = ? AND jenis_transaksi = ?`
+    const params = excludeId ? [alatId, jenisTransaksi, excludeId] : [alatId, jenisTransaksi]
+
+    db.all(query, params, (err, rows) => {
+      if (err) return reject(err)
+      resolve(rows || [])
+    })
+  })
+}
+
+async function validateAlatJenisRangeRule({ alatId, jenisTransaksi, min, max, excludeId }) {
+  const existingRules = await getAlatJenisGroupRules(alatId, jenisTransaksi, excludeId)
+
+  const overlapping = findOverlap(existingRules, min, max)
+  if (overlapping) {
+    throw new Error(`Rentang bertabrakan dengan aturan yang sudah ada untuk alat ini (${formatRange(overlapping)})`)
+  }
+
+  if (max === null) {
+    const existingOpenRule = existingRules.find((rule) => rule.nominal_max === null)
+    if (existingOpenRule) {
+      throw new Error('Sudah ada rentang "ke atas" untuk alat & jenis transaksi ini. Ubah atau hapus dulu rentang tersebut sebelum menambah yang baru.')
+    }
+  }
+}
+
+export function createAlatBonusJenisRule(_event, data) {
+  return new Promise((resolve, reject) => {
+    const { alat_id, jenis_transaksi, bonus } = data
+
+    if (!alat_id) return reject(new Error('Alat wajib dipilih'))
+    if (!JENIS_TRANSAKSI_VALID.includes(jenis_transaksi)) {
+      return reject(new Error('Jenis transaksi tidak valid'))
+    }
+    if (bonus === '' || bonus === null || bonus === undefined) {
+      return reject(new Error('Bonus wajib diisi'))
+    }
+
+    const { min, max } = normalizeRange(data)
+    if (max !== null && max <= min) {
+      return reject(new Error('Nominal maksimum harus lebih besar dari nominal minimum'))
+    }
+
+    validateAlatJenisRangeRule({ alatId: alat_id, jenisTransaksi: jenis_transaksi, min, max })
+      .then(() => {
+        db.run(
+          `INSERT INTO alat_bonus_jenis_rules (alat_id, jenis_transaksi, nominal_min, nominal_max, bonus, updated_at)
+           VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))`,
+          [alat_id, jenis_transaksi, min, max, Number(bonus)],
+          function (err) {
+            if (err) return reject(err)
+            resolve({ id: this.lastID, success: true })
+          }
+        )
+      })
+      .catch(reject)
+  })
+}
+
+export function updateAlatBonusJenisRule(_event, data) {
+  return new Promise((resolve, reject) => {
+    const { id, bonus } = data
+    if (!id) return reject(new Error('ID aturan bonus tidak valid'))
+
+    const { min, max } = normalizeRange(data)
+    if (max !== null && max <= min) {
+      return reject(new Error('Nominal maksimum harus lebih besar dari nominal minimum'))
+    }
+
+    db.get(`SELECT * FROM alat_bonus_jenis_rules WHERE id = ?`, [id], (err, currentRule) => {
+      if (err) return reject(err)
+      if (!currentRule) return reject(new Error('Aturan bonus tidak ditemukan'))
+
+      const runUpdate = () => {
+        db.run(
+          `UPDATE alat_bonus_jenis_rules
+           SET nominal_min = ?, nominal_max = ?, bonus = ?, updated_at = datetime('now', 'localtime')
+           WHERE id = ?`,
+          [min, max, Number(bonus), id],
+          function (err2) {
+            if (err2) return reject(err2)
+            resolve({ success: true, changes: this.changes })
+          }
+        )
+      }
+
+      const runValidationThenUpdate = () => {
+        validateAlatJenisRangeRule({
+          alatId: currentRule.alat_id,
+          jenisTransaksi: currentRule.jenis_transaksi,
+          min,
+          max,
+          excludeId: id
+        })
+          .then(runUpdate)
+          .catch(reject)
+      }
+
+      const isDowngradingFromOpen = currentRule.nominal_max === null && max !== null
+      if (isDowngradingFromOpen) {
+        getAlatJenisGroupRules(currentRule.alat_id, currentRule.jenis_transaksi, id)
+          .then((otherRules) => {
+            if (otherRules.length > 0) {
+              return reject(new Error('Rentang ini adalah rentang "ke atas". Tidak bisa diubah jadi rentang tertutup selama masih ada rentang lain untuk alat & jenis transaksi ini. Jadikan rentang lain sebagai "ke atas" terlebih dahulu.'))
+            }
+            runValidationThenUpdate()
+          })
+          .catch(reject)
+      } else {
+        runValidationThenUpdate()
+      }
+    })
+  })
+}
+
+export function deleteAlatBonusJenisRule(_event, id) {
+  return new Promise((resolve, reject) => {
+    db.get(`SELECT * FROM alat_bonus_jenis_rules WHERE id = ?`, [id], (err, rule) => {
+      if (err) return reject(err)
+      if (!rule) return reject(new Error('Aturan bonus tidak ditemukan'))
+
+      const proceed = () => {
+        db.run(`DELETE FROM alat_bonus_jenis_rules WHERE id = ?`, [id], function (err2) {
+          if (err2) return reject(err2)
+          resolve({ success: true, changes: this.changes })
+        })
+      }
+
+      if (rule.nominal_max === null) {
+        getAlatJenisGroupRules(rule.alat_id, rule.jenis_transaksi, id).then((otherRules) => {
+          if (otherRules.length > 0) {
+            return reject(new Error('Tidak bisa menghapus rentang "ke atas" selama masih ada rentang lain untuk alat & jenis transaksi ini. Jadikan salah satu rentang lain sebagai "ke atas" terlebih dahulu.'))
+          }
+          proceed()
+        }).catch(reject)
+      } else {
+        proceed()
+      }
+    })
+  })
+}
+
+// Helper — dipakai saat wiring form transaksi untuk auto-fill bonus berdasarkan
+// alat + jenis transaksi + nominal yang dipilih/diisi kasir.
+export function findBonusForAlatJenis(alatId, jenisTransaksi, nominal) {
+  return new Promise((resolve, reject) => {
+    db.get(
+      `SELECT * FROM alat_bonus_jenis_rules
+       WHERE alat_id = ?
+         AND jenis_transaksi = ?
+         AND nominal_min <= ?
+         AND (nominal_max IS NULL OR nominal_max >= ?)
+       ORDER BY nominal_min DESC
+       LIMIT 1`,
+      [alatId, jenisTransaksi, nominal, nominal],
+      (err, row) => {
+        if (err) return reject(err)
+        resolve(row || null)
+      }
+    )
   })
 }
 

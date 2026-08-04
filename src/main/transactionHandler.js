@@ -1,6 +1,7 @@
 import db, { calculateTotalAssets, getLastTotalAssetNoEdit, saveAssetSnapshot } from './db'
 
 import dayjs from 'dayjs'
+import { findBonusForAlatJenis } from './feeAlatHandler.js'
 import timezone from 'dayjs/plugin/timezone'
 import utc from 'dayjs/plugin/utc'
 
@@ -39,37 +40,52 @@ export function getTransaksi(role) {
 
 
 
-export function createTransaksi(_event, data) {
-  return new Promise((resolve, reject) => {
-    let {
-      tanggal,
-      sumber_dana_id,
-      jenis_transaksi,
-      tipe_transaksi,
-      nominal_transaksi,
-      terima_dana_id,
-      fee = 0,
-      metode_pembayaran = '',
-      keterangan = '',
-      biaya_admin,
-      biaya_admin_bank,
-      nama_pelanggan = '',
-      nomor_tujuan = '',
-      user_id = '',
-      user_name = '',
-      user_role = 'kasir',
-      alat_id = null,
-      alat_nama = '',
-      bonus = 0,
-      is_bonus_manual = false,
-      is_fee_manual = false
-    } = data
-    metode_pembayaran = Number(metode_pembayaran) || null
-    alat_id = alat_id ? Number(alat_id) : null
+export async function createTransaksi(_event, data) {
+  let {
+    tanggal,
+    sumber_dana_id,
+    jenis_transaksi,
+    tipe_transaksi,
+    nominal_transaksi,
+    terima_dana_id,
+    fee = 0,
+    metode_pembayaran = '',
+    keterangan = '',
+    biaya_admin,
+    biaya_admin_bank,
+    nama_pelanggan = '',
+    nomor_tujuan = '',
+    user_id = '',
+    user_name = '',
+    user_role = 'kasir',
+    alat_id = null,
+    alat_nama = '',
+    bonus = 0,
+    is_bonus_manual = false,
+    is_fee_manual = false
+  } = data
+  metode_pembayaran = Number(metode_pembayaran) || null
+  alat_id = alat_id ? Number(alat_id) : null
 
-    const nominal = parseFloat(nominal_transaksi) || 0
-    const feeTransaksi = parseFloat(fee) || 0
-    const bonusTransaksi = parseFloat(bonus) || 0
+  const nominal = parseFloat(nominal_transaksi) || 0
+  const feeTransaksi = parseFloat(fee) || 0
+  let bonusTransaksi = parseFloat(bonus) || 0
+
+  // 🎁 Auto-fill bonus dari pengaturan "Bonus Alat per Jenis Transaksi" (Kelola Fee & Alat),
+  // dicocokkan berdasarkan alat + jenis transaksi + rentang nominal, kecuali kasir sudah
+  // mengubahnya manual di form (is_bonus_manual = true).
+  if (!is_bonus_manual && alat_id && jenis_transaksi) {
+    try {
+      const bonusRule = await findBonusForAlatJenis(alat_id, jenis_transaksi, nominal)
+      if (bonusRule) {
+        bonusTransaksi = Number(bonusRule.bonus) || 0
+      }
+    } catch (err) {
+      console.error('⚠️ Gagal ambil bonus alat per jenis transaksi, pakai nilai dari form:', err)
+    }
+  }
+
+  return new Promise((resolve, reject) => {
     // Fallback: accept either biaya_admin (preferred) or biaya_admin_bank from payload
     const biayaAdminFinal = parseFloat(
       (biaya_admin ?? biaya_admin_bank ?? 0)

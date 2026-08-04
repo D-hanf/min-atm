@@ -55,11 +55,18 @@ const SemuaTransaksi = () => {
 				setIsLoading(true)
 				setLoadError('')
 
+				// 🔓 Halaman Semua Transaksi sengaja selalu menampilkan SEMUA data,
+				// terlepas dari role yang login. Backend (get-transaksi/get-hutang/dst)
+				// membatasi hasil ke "hari ini saja" kalau role yang dikirim = 'kasir',
+				// jadi di sini kita selalu kirim 'admin' supaya kasir pun bisa melihat
+				// seluruh riwayat transaksi.
+				const dataFetchRole = 'admin'
+
 				const [transaksiRes, hutangRes, pindahRes, ambilRes, saldoRes, usersRes] = await Promise.allSettled([
-					window.api?.getTransaksi?.(userRole),
-					window.api?.getHutang?.(userRole),
-					window.api?.getPindahSaldo?.(userRole),
-					window.api?.getAmbilSaldo?.(userRole),
+					window.api?.getTransaksi?.(dataFetchRole),
+					window.api?.getHutang?.(dataFetchRole),
+					window.api?.getPindahSaldo?.(dataFetchRole),
+					window.api?.getAmbilSaldo?.(dataFetchRole),
 					window.api?.getSaldoAwal?.(),
 					window.api?.getUsers?.()
 				])

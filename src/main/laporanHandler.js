@@ -58,7 +58,14 @@ export async function getLaporanKeuangan(event, roleRaw) {
       const getTransaksi = () =>
         new Promise((resolve, reject) => {
           db.all(
-            'SELECT t.*, s.nama_sumber_dana as sumber_dana, s2.nama_sumber_dana as terima_dana_nama FROM transaksi t LEFT JOIN saldo_awal s ON t.sumber_dana_id = s.id LEFT JOIN saldo_awal s2 ON t.terima_dana_id = s2.id',
+            `SELECT t.*, s.nama_sumber_dana as sumber_dana, s2.nama_sumber_dana as terima_dana_nama,
+                    s3.nama_sumber_dana as bonus_sumber_dana_nama,
+                    COALESCE(al.nama_alat, t.alat_nama) as alat_nama_live
+             FROM transaksi t
+             LEFT JOIN saldo_awal s ON t.sumber_dana_id = s.id
+             LEFT JOIN saldo_awal s2 ON t.terima_dana_id = s2.id
+             LEFT JOIN saldo_awal s3 ON t.bonus_sumber_dana_id = s3.id
+             LEFT JOIN alat al ON t.alat_id = al.id`,
             [],
             (err, rows) => {
               if (err) reject(err)
@@ -138,6 +145,8 @@ export async function getLaporanKeuangan(event, roleRaw) {
           nominal_masuk: nominalMasuk,
           keuntungan,
           bonus_alat: bonusAlat,
+          alat_nama: bonusAlat > 0 ? (item.alat_nama_live || item.alat_nama || 'Tanpa Alat') : '-',
+          bonus_sumber_dana_nama: bonusAlat > 0 ? (item.bonus_sumber_dana_nama || 'Belum diatur') : '-',
           admin_bank: Number(item.biaya_admin_bank || 0),
           total_hutang: totalHutang,
           keterangan: item.keterangan || '-'
@@ -215,4 +224,3 @@ export async function getLaporanKeuangan(event, roleRaw) {
       ]
       return allData
 }
-

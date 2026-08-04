@@ -1,15 +1,21 @@
 import React, { useEffect, useState } from 'react'
 
 import InputField from '../../../../components/InputField'
+import { findMatchingRule } from './feeBonusUtils'
 
 /**
  * Form untuk transaksi "Cek Saldo" (cek saldo kartu ATM via alat EDC/mesin dll).
  *
  * Asumsi API (sesuaikan nama method dengan yang sudah ada di preload/main process):
- *   window.api.getAlat()       -> Promise<Array<{ id, nama_alat, is_active, bonus_cek_saldo, sumber_dana_bonus_id }>>
- *                                  (master data alat yang sama dengan yang dikelola di halaman KelolaFeeAlat)
- *   window.api.getSaldoAwal()  -> Promise<Array<{ id, nama_sumber_dana, ... }>>
- *                                  (dipakai juga di form transaksi lain untuk pilihan sumber dana)
+ *   window.api.getAlat()                 -> Promise<Array<{ id, nama_alat, is_active, sumber_dana_bonus_id }>>
+ *                                            (master data alat yang sama dengan yang dikelola di halaman KelolaFeeAlat)
+ *   window.api.getAlatBonusJenisRules({ alat_id, jenis_transaksi })
+ *                                         -> Promise<Array<{ alat_id, jenis_transaksi, nominal_min, nominal_max, bonus }>>
+ *                                            (bonus berjenjang per alat + jenis transaksi, diatur admin di KelolaFeeAlat.
+ *                                            Karena Cek Saldo tidak punya field nominal, dicocokkan dengan nominal 0 —
+ *                                            asumsinya admin mengatur 1 rentang flat "0 ke atas" untuk jenis ini)
+ *   window.api.getSaldoAwal()            -> Promise<Array<{ id, nama_sumber_dana, ... }>>
+ *                                            (dipakai juga di form transaksi lain untuk pilihan sumber dana)
  *
  * Field yang disimpan ke formData:
  *   - alat_id        : id alat yang dipilih
@@ -19,13 +25,16 @@ import InputField from '../../../../components/InputField'
  *                         transaksi.sumber_dana_id di database (dipakai semua jenis transaksi),
  *                         BUKAN nama field baru, supaya backend createTransaksi bisa menemukan
  *                         sumber dananya.
- *   - bonus          : nominal bonus yang didapat dari cek saldo (auto dari alat, bisa diubah manual)
+ *   - bonus          : nominal bonus yang didapat dari cek saldo (auto dari alat_bonus_jenis_rules, bisa diubah manual)
  *   - is_bonus_manual: true jika kasir mengubah bonus dari nilai default alat
  *                      -> dipakai oleh tabel riwayat transaksi di frontend untuk menampilkan
  *                         badge/notifikasi "bonus diubah manual oleh karyawan"
  *   - nama_pelanggan : opsional, nama pemilik kartu
  *   - keterangan     : opsional
  */
+
+const JENIS_TRANSAKSI = 'Cek Saldo'
+
 
 // Format angka jadi "Rp 1.000.000" saat ditampilkan di input
 const formatAngkaInput = (value) => {
@@ -42,6 +51,11 @@ const CekSaldo = ({ formData, onChange, onValidChange }) => {
 
   const [sumberDanaList, setSumberDanaList] = useState([])
   const [loadingSumberDana, setLoadingSumberDana] = useState(true)
+
+  // Bonus default untuk jenis "Cek Saldo" dari alat yang sedang dipilih —
+  // diambil dari tabel alat_bonus_jenis_rules (diatur admin di halaman KelolaFeeAlat).
+  // Dipakai juga sebagai pembanding di handleBonusChange untuk deteksi override manual.
+  const [defaultBonus, setDefaultBonus] = useState(0)
 
   useEffect(() => {
     const fetchAlat = async () => {
@@ -95,7 +109,7 @@ const CekSaldo = ({ formData, onChange, onValidChange }) => {
 
   const selectedAlat = alatList.find((a) => String(a.id) === String(formData.alat_id))
 
-  const handleAlatChange = (e) => {
+  const handleAlatChange = async (e) => {
     const alatId = e.target.value
     const alat = alatList.find((a) => String(a.id) === String(alatId))
 
@@ -105,9 +119,28 @@ const CekSaldo = ({ formData, onChange, onValidChange }) => {
     onChange({
       target: { name: 'alat_nama', value: alat ? alat.nama_alat : '' }
     })
+
+    // Ambil rentang bonus untuk alat + jenis "Cek Saldo" ini (KelolaFeeAlat), dicocokkan
+    // dengan nominal 0 karena form ini tidak punya field nominal transaksi. Kalau alat
+    // belum punya aturan untuk jenis ini, default-nya 0.
+    let bonusDefault = 0
+    if (alatId && window.api && window.api.getAlatBonusJenisRules) {
+      try {
+        const result = await window.api.getAlatBonusJenisRules({
+          alat_id: alatId,
+          jenis_transaksi: JENIS_TRANSAKSI
+        })
+        const matched = findMatchingRule(result || [], 0)
+        bonusDefault = matched ? Number(matched.bonus) || 0 : 0
+      } catch (error) {
+        console.error('❌ Gagal ambil bonus alat per jenis transaksi:', error)
+      }
+    }
+    setDefaultBonus(bonusDefault)
+
     // Set bonus & sumber dana tujuan ke default alat, reset flag manual setiap kali ganti alat
     onChange({
-      target: { name: 'bonus', value: alat ? (alat.bonus_cek_saldo ?? 0) : 0 }
+      target: { name: 'bonus', value: bonusDefault }
     })
     onChange({
       target: {
@@ -126,8 +159,7 @@ const CekSaldo = ({ formData, onChange, onValidChange }) => {
 
   const handleBonusChange = (e) => {
     const newBonus = parseAngkaInput(e.target.value)
-    const defaultBonus = selectedAlat ? Number(selectedAlat.bonus_cek_saldo ?? 0) : null
-    const isManual = defaultBonus !== null && Number(newBonus || 0) !== defaultBonus
+    const isManual = Number(newBonus || 0) !== defaultBonus
 
     onChange({ target: { name: 'bonus', value: newBonus } })
     onChange({ target: { name: 'is_bonus_manual', value: isManual } })

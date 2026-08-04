@@ -227,6 +227,14 @@ const KoreksiTransaksi = () => {
   const [markInfoData, setMarkInfoData] = useState(null) // { keterangan, oleh, olehId, pada, table, id }
   const [showUnmarkConfirm, setShowUnmarkConfirm] = useState(false)
 
+  // ── State Tandai Benar/Sesuai (generik semua kategori) ──
+  const [showVerifyConfirm, setShowVerifyConfirm] = useState(false)
+  const [verifyTarget, setVerifyTarget] = useState(null) // { table, id }
+
+  const [verifyInfoOpen, setVerifyInfoOpen] = useState(false)
+  const [verifyInfoData, setVerifyInfoData] = useState(null) // { oleh, olehId, pada, table, id }
+  const [showUnverifyConfirm, setShowUnverifyConfirm] = useState(false)
+
   // Mapping kategori (prefix id gabungan) → nama tabel di database
   const categoryToTable = {
     transaksi: 'transaksi',
@@ -308,12 +316,20 @@ const KoreksiTransaksi = () => {
       setIsLoading(true)
       setLoadError('')
 
+      // 🔓 Halaman Koreksi Transaksi sengaja selalu menampilkan SEMUA data,
+      // terlepas dari role yang login. Backend (get-transaksi/get-hutang/dst)
+      // membatasi hasil ke "hari ini saja" kalau role yang dikirim = 'kasir',
+      // jadi di sini kita selalu kirim 'admin' supaya kasir pun bisa melihat
+      // seluruh riwayat transaksi (bukan berarti kasir jadi admin — hak edit/
+      // hapus tetap dikontrol terpisah lewat `isAdmin` di bawah).
+      const dataFetchRole = 'admin'
+
       const [transaksiRes, hutangRes, pindahRes, ambilRes, saldoRes, usersRes] =
         await Promise.allSettled([
-          window.api?.getTransaksi?.(userRole),
-          window.api?.getHutang?.(userRole),
-          window.api?.getPindahSaldo?.(userRole),
-          window.api?.getAmbilSaldo?.(userRole),
+          window.api?.getTransaksi?.(dataFetchRole),
+          window.api?.getHutang?.(dataFetchRole),
+          window.api?.getPindahSaldo?.(dataFetchRole),
+          window.api?.getAmbilSaldo?.(dataFetchRole),
           window.api?.getSaldoAwal?.(),
           window.api?.getUsers?.()
         ])
@@ -358,7 +374,11 @@ const KoreksiTransaksi = () => {
           marked_note: item.marked_note || '',
           marked_by: item.marked_by || '',
           marked_by_id: item.marked_by_id ?? null,
-          marked_at: item.marked_at || null
+          marked_at: item.marked_at || null,
+          is_verified: !!item.is_verified,
+          verified_by: item.verified_by || '',
+          verified_by_id: item.verified_by_id ?? null,
+          verified_at: item.verified_at || null
         })),
         ...hutangList.map((item) => ({
           id: `hutang-${item.id}`,
@@ -376,7 +396,11 @@ const KoreksiTransaksi = () => {
           marked_note: item.marked_note || '',
           marked_by: item.marked_by || '',
           marked_by_id: item.marked_by_id ?? null,
-          marked_at: item.marked_at || null
+          marked_at: item.marked_at || null,
+          is_verified: !!item.is_verified,
+          verified_by: item.verified_by || '',
+          verified_by_id: item.verified_by_id ?? null,
+          verified_at: item.verified_at || null
         })),
         ...pindahList.map((item) => ({
           id: `pindah-${item.id}`,
@@ -394,7 +418,11 @@ const KoreksiTransaksi = () => {
           marked_note: item.marked_note || '',
           marked_by: item.marked_by || '',
           marked_by_id: item.marked_by_id ?? null,
-          marked_at: item.marked_at || null
+          marked_at: item.marked_at || null,
+          is_verified: !!item.is_verified,
+          verified_by: item.verified_by || '',
+          verified_by_id: item.verified_by_id ?? null,
+          verified_at: item.verified_at || null
         })),
         ...ambilList.map((item) => ({
           id: `ambil-${item.id}`,
@@ -416,9 +444,22 @@ const KoreksiTransaksi = () => {
           marked_note: item.marked_note || '',
           marked_by: item.marked_by || '',
           marked_by_id: item.marked_by_id ?? null,
-          marked_at: item.marked_at || null
+          marked_at: item.marked_at || null,
+          is_verified: !!item.is_verified,
+          verified_by: item.verified_by || '',
+          verified_by_id: item.verified_by_id ?? null,
+          verified_at: item.verified_at || null
         }))
-      ].sort((a, b) => dayjs(b.sortDate).valueOf() - dayjs(a.sortDate).valueOf())
+      ].sort((a, b) => {
+        // Baris yang belum dikoreksi (belum ditandai benar maupun salah)
+        // selalu ditampilkan lebih dulu, lalu di dalam masing-masing
+        // kelompok diurutkan dari data paling baru.
+        const isUncorrected = (row) => !row.is_marked_wrong && !row.is_verified
+        const aUncorrected = isUncorrected(a)
+        const bUncorrected = isUncorrected(b)
+        if (aUncorrected !== bUncorrected) return aUncorrected ? -1 : 1
+        return dayjs(b.sortDate).valueOf() - dayjs(a.sortDate).valueOf()
+      })
 
       setRows(mergedRows)
     } catch (error) {
@@ -1065,6 +1106,94 @@ const KoreksiTransaksi = () => {
     }
   }
 
+  // ─────────────────────────────────────────────────────────
+  // TANDAI BENAR/SESUAI (router): tampilkan konfirmasi jika belum
+  // diverifikasi, atau tampilkan info verifikasi jika sudah.
+  // ─────────────────────────────────────────────────────────
+  const handleToggleVerified = (compositeId) => {
+    if (!loggedInUser) {
+      setAlertMessage('Pengguna tidak terdeteksi.')
+      setShowAlertDialog(true)
+      return
+    }
+
+    const category = getRowCategory(compositeId)
+    const rawId = getRawId(compositeId)
+    if (!category || rawId === null) return
+
+    const row = rows.find((r) => r.id === compositeId)
+    if (!row) return
+
+    if (row.is_marked_wrong) {
+      setAlertMessage('Data ini sudah ditandai salah. Batalkan tanda salah terlebih dahulu jika ingin menandainya benar/sesuai.')
+      setShowAlertDialog(true)
+      return
+    }
+
+    if (row.is_verified) {
+      setVerifyInfoData({
+        oleh: row.verified_by || '-',
+        olehId: row.verified_by_id ?? null,
+        pada: row.verified_at ? toDisplayDateTime(row.verified_at) : '-',
+        table: categoryToTable[category],
+        id: rawId
+      })
+      setVerifyInfoOpen(true)
+      return
+    }
+
+    setVerifyTarget({ table: categoryToTable[category], id: rawId })
+    setShowVerifyConfirm(true)
+  }
+
+  const confirmVerify = async () => {
+    if (!verifyTarget) return
+    const { table, id } = verifyTarget
+    const user_name = loggedInUser?.nama || loggedInUser?.username || '-'
+    const user_id = loggedInUser?.id ?? null
+
+    try {
+      await window.api.markBenar({ table, id, user_name, user_id })
+      await fetchAll()
+      console.log('✅ Data berhasil ditandai benar/sesuai')
+    } catch (error) {
+      console.error('❌ Gagal menandai data benar/sesuai:', error)
+      setAlertMessage('Gagal menandai data sebagai benar/sesuai.')
+      setShowAlertDialog(true)
+    } finally {
+      setShowVerifyConfirm(false)
+      setVerifyTarget(null)
+    }
+  }
+
+  // Hanya admin atau orang yang memverifikasi sendiri yang boleh membatalkan verifikasi
+  const canUnverify =
+    verifyInfoData &&
+    (isAdmin || (loggedInUser && verifyInfoData.olehId != null && Number(loggedInUser.id) === Number(verifyInfoData.olehId)))
+
+  const handleUnverify = () => {
+    if (!verifyInfoData) return
+    setShowUnverifyConfirm(true)
+  }
+
+  const confirmUnverify = async () => {
+    if (!verifyInfoData) return
+
+    try {
+      await window.api.unmarkBenar({ table: verifyInfoData.table, id: verifyInfoData.id })
+      await fetchAll()
+      setVerifyInfoOpen(false)
+      setVerifyInfoData(null)
+      console.log('✅ Tandai benar/sesuai dibatalkan')
+    } catch (error) {
+      console.error('❌ Gagal membatalkan tandai benar/sesuai:', error)
+      setAlertMessage('Gagal membatalkan tandai benar/sesuai.')
+      setShowAlertDialog(true)
+    } finally {
+      setShowUnverifyConfirm(false)
+    }
+  }
+
   return (
     <PageContainer title="Koreksi Transaksi">
       <div className="px-4 pb-6">
@@ -1113,6 +1242,7 @@ const KoreksiTransaksi = () => {
             onEdit={isAdmin ? handleEdit : null}
             onDelete={isAdmin ? handleDelete : null}
             onMark={handleToggleMarkSalah}
+            onVerify={handleToggleVerified}
             info={`Total data: ${totalRows}`}
             btnSize="xs"
             userRole={userRole}
@@ -1123,7 +1253,7 @@ const KoreksiTransaksi = () => {
             showDateFilter
             showSumberDanaFilter
             showJenisTransaksiFilter
-            showMarkedFilter
+            showKoreksiFilter
           />
         )}
       </div>
@@ -1646,6 +1776,71 @@ const KoreksiTransaksi = () => {
         onConfirm={confirmUnmarkSalah}
         title="Konfirmasi"
         message="Yakin ingin membatalkan tandai salah pada data ini?"
+      />
+
+      {/* ── Konfirmasi Tandai Benar/Sesuai ── */}
+      <ConfirmDialog
+        isOpen={showVerifyConfirm}
+        onClose={() => {
+          setShowVerifyConfirm(false)
+          setVerifyTarget(null)
+        }}
+        onConfirm={confirmVerify}
+        title="Konfirmasi"
+        message="Tandai data ini sebagai benar/sesuai?"
+      />
+
+      {/* ── Info Penandaan Benar/Sesuai ── */}
+      {verifyInfoOpen && verifyInfoData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Detail Penandaan Benar/Sesuai
+            </h3>
+
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="text-xs font-medium text-gray-500 mb-0.5">Ditandai oleh</div>
+                <div className="text-gray-800">{verifyInfoData.oleh}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-gray-500 mb-0.5">Ditandai pada</div>
+                <div className="text-gray-800">{verifyInfoData.pada}</div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              {canUnverify && (
+                <button
+                  type="button"
+                  onClick={handleUnverify}
+                  className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700"
+                >
+                  Batalkan Tanda Benar
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setVerifyInfoOpen(false)
+                  setVerifyInfoData(null)
+                }}
+                className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Konfirmasi Batalkan Tanda Benar/Sesuai ── */}
+      <ConfirmDialog
+        isOpen={showUnverifyConfirm}
+        onClose={() => setShowUnverifyConfirm(false)}
+        onConfirm={confirmUnverify}
+        title="Konfirmasi"
+        message="Yakin ingin membatalkan tandai benar/sesuai pada data ini?"
       />
     </PageContainer>
   )

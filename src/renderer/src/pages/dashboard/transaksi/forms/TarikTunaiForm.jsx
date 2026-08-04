@@ -25,7 +25,7 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
   // Alat & bonus
   const [alatList, setAlatList] = useState([])
   const [feeRules, setFeeRules] = useState([])
-  const [alatBonusRules, setAlatBonusRules] = useState([])
+  const [alatBonusRules, setAlatBonusRules] = useState([]) // rentang bonus utk alat + jenis transaksi ini
   const [manualBonus, setManualBonus] = useState(false)
 
   const fetchSaldo = async () => {
@@ -67,7 +67,8 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
     fetchFeeRules()
   }, [])
 
-  // Ambil aturan bonus berjenjang untuk alat yang dipilih
+  // Ambil rentang bonus untuk alat + jenis transaksi ini (Tarik Tunai).
+  // Ini yang bikin bonus bisa beda antar jenis transaksi meski alat & nominal sama.
   useEffect(() => {
     const fetchBonusRules = async () => {
       if (!formData.alat_id) {
@@ -75,7 +76,10 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
         return
       }
       try {
-        const result = await window.api.getAlatBonusRules(formData.alat_id)
+        const result = await window.api.getAlatBonusJenisRules({
+          alat_id: formData.alat_id,
+          jenis_transaksi: JENIS_TRANSAKSI
+        })
         setAlatBonusRules(result || [])
       } catch (error) {
         console.error('❌ Gagal ambil aturan bonus alat:', error)
@@ -105,7 +109,7 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
     onChange({ target: { name: 'is_fee_manual', value: false } })
   }, [formData.nominal_transaksi, feeRules, manualFee])
 
-  // Auto-isi bonus dari aturan bonus alat (alat_bonus_rules), selama belum diubah manual
+  // Auto-isi bonus dari rentang bonus alat+jenis transaksi ini, selama belum diubah manual
   useEffect(() => {
     if (manualBonus) return
     const matched = findMatchingRule(alatBonusRules, formData.nominal_transaksi)
@@ -283,4 +287,4 @@ const TarikTunaiForm = ({ formData, onChange, onValidChange }) => {
   )
 }
 
-export default TarikTunaiForm
+export default TarikTunaiForm 
