@@ -26,13 +26,10 @@ const FormLayout = ({
   onClose = null,
   onValidChange
 }) => {
-  const [modalOpen, setModalOpen] = useState(isEdit)
-  const [formData, setFormData] = useState(initialData)
-  const [showMenu, setShowMenu] = useState(true)
-  const [selectedTransactionType, setSelectedTransactionType] = useState('')
-  const [selectedTransactionId, setSelectedTransactionId] = useState('')
-  const [formValid, setFormValid] = useState(true)
-
+  // Dipindah ke atas (sebelum useState) supaya bisa dipakai untuk inisialisasi state
+  // di bawah — biar pas mode edit, form yang benar langsung tampil di render PERTAMA,
+  // tidak nunggu useEffect (itu penyebab modal sempat keliatan kosong sekilas sebelum
+  // form aslinya muncul).
   const getTransactionId = (transactionType) => {
     const typeMap = {
       'Cash Withdrawal': 'tarik-tunai',
@@ -48,6 +45,20 @@ const FormLayout = ({
     }
     return typeMap[transactionType] || ''
   }
+
+  const [modalOpen, setModalOpen] = useState(isEdit)
+  const [formData, setFormData] = useState(isEdit && editData ? editData : initialData)
+  const [showMenu, setShowMenu] = useState(
+    isEdit && editData ? !getTransactionId(editData.jenis_transaksi) : true
+  )
+  const [selectedTransactionType, setSelectedTransactionType] = useState(
+    isEdit && editData ? editData.jenis_transaksi || '' : ''
+  )
+  const [selectedTransactionId, setSelectedTransactionId] = useState(
+    isEdit && editData ? getTransactionId(editData.jenis_transaksi) : ''
+  )
+  const [formValid, setFormValid] = useState(true)
+
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
 
