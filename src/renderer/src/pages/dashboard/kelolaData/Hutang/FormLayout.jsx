@@ -7,6 +7,7 @@ import InputField from '../../../../components/InputField'
 import Modal from '../../../../shared/ui/Modal'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAuth } from '../../../../context/AuthContext'
 import { useState } from 'react'
 import { useTheme } from '../../../../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
@@ -16,7 +17,7 @@ dayjs.extend(timezone)
 const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {} }) => {
   const { isDark } = useTheme()
   const [modalOpen, setModalOpen] = useState(false)
-  const [loggedInUser, setLoggedInUser] = useState(null)
+  const { user: loggedInUser } = useAuth()
   // Add state to persist the previously selected platform
   const [lastSelectedPlatform, setLastSelectedPlatform] = useState('')
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
@@ -27,20 +28,20 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
       return val
     }
     if (val.includes('T')) {
-      const base = val.replace('T',' ')
+      const base = val.replace('T', ' ')
       return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(base) ? `${base}:00` : base
     }
     if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return `${val} 00:00:00`
     return val
   }
   const [formData, setFormData] = useState({
-    user_id: 1, // Will be replaced with current user ID
+    user_id: '', // Will be replaced with current user ID
     platform: '',
     platformId: null, // Store the platform ID for the database
     currentBalance: '',
     amount: '',
-  transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
-  tanggal: getNowDateTimeLocalWIB(), // Default to current datetime WIB
+    transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
+    tanggal: getNowDateTimeLocalWIB(), // Default to current datetime WIB
     description: ''
   })
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
@@ -91,34 +92,31 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
   }
 
   useEffect(() => {
-    // Fetch saldo_awal data when component mounts
     fetchSaldoAwal()
+  }, [])
 
-    // Get logged in user from localStorage
-    const userString = localStorage.getItem('user')
-    if (userString) {
-      const user = JSON.parse(userString)
-      setLoggedInUser(user)
+  useEffect(() => {
+    if (loggedInUser) {
       setFormData((prev) => ({
         ...prev,
-        user_id: user.id || 1 // Set user ID from logged in user
+        user_id: loggedInUser.id
       }))
     }
-  }, [])
+  }, [loggedInUser])
 
   useEffect(() => {
     // Reset form when modal opens and fetch fresh data
     if (modalOpen) {
       fetchSaldoAwal()
       setFormData({
-        user_id: loggedInUser?.id || 1, // Use logged in user ID
+        user_id: loggedInUser?.id || '', // Use logged in user ID
         // Use the last selected platform if available
         platform: lastSelectedPlatform || '',
         platformId: null,
         currentBalance: '',
         amount: '',
-  transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
-  tanggal: getNowDateTimeLocalWIB(), // Default datetime WIB
+        transactionType: 'Ambil Hutang', // Default to "Ambil Hutang"
+        tanggal: getNowDateTimeLocalWIB(), // Default datetime WIB
         description: ''
       })
 
@@ -126,7 +124,9 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
       if (lastSelectedPlatform) {
         // We need to wait for saldoAwalOptions to be populated
         setTimeout(() => {
-          const platform = saldoAwalOptions.find((p) => p.nama_sumber_dana?.toLowerCase() === lastSelectedPlatform?.toLowerCase())
+          const platform = saldoAwalOptions.find(
+            (p) => p.nama_sumber_dana?.toLowerCase() === lastSelectedPlatform?.toLowerCase()
+          )
           if (platform) {
             handlePlatformChange(lastSelectedPlatform)
           }
@@ -229,7 +229,11 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
     }
 
     // Validate withdrawal amount doesn't exceed current balance for Bayar Hutang type
-    if (selectedPlatform && formData.amount && formData.transactionType?.toLowerCase() === 'bayar hutang') {
+    if (
+      selectedPlatform &&
+      formData.amount &&
+      formData.transactionType?.toLowerCase() === 'bayar hutang'
+    ) {
       const currentBalance = parseFloat(formData.currentBalanceRaw || 0)
       const transactionAmount = parseFloat(
         formData.amountRaw || extractNumeric(formData.amount) || 0
@@ -252,12 +256,12 @@ const FormLayout = ({ onSubmit, buttonText = 'Transaksi Hutang', initialData = {
     // Prepare data for submission
     const submissionData = {
       // Map form fields to database fields
-      petugas_id: parseInt(formData.user_id, 10) || 1,
+      petugas_id: loggedInUser.id,
       platform_id: parseInt(formData.platformId, 10),
       saldo_platform: parseFloat(formData.currentBalanceRaw || 0),
       nominal_transaksi: parseFloat(formData.amountRaw || extractNumeric(formData.amount) || 0),
       biaya_admin: parseFloat(extractNumeric(formData.biaya_admin) || 0), // Include biaya_admin field
-  tanggal_transaksi: toDbDateTime(formData.tanggal),
+      tanggal_transaksi: toDbDateTime(formData.tanggal),
       keterangan: formData.description,
       // Add the transaction type
       jenis_transaksi: formData.transactionType

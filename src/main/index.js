@@ -1,22 +1,44 @@
 import { BrowserWindow, app, screen } from 'electron'
 import {
+  createAlat,
+  createAlatBonusJenisRule,
+  createAlatBonusRule,
+  createFeeRule,
+  deleteAlat,
+  deleteAlatBonusJenisRule,
+  deleteAlatBonusRule,
+  deleteFeeRule,
+  getAlat,
+  getAlatBonusJenisRules,
+  getAlatBonusRules,
+  getFeeRules,
+  updateAlat,
+  updateAlatBonusJenisRule,
+  updateAlatBonusRule,
+  updateFeeRule
+} from './feeAlatHandler.js'
+import {
   createTransaksi,
   deleteTransaksi,
   editTransaksi,
   getTransaksi,
   getTransaksiSummary
 } from './transactionHandler.js'
+import { getDataVisibilitySetting, saveDataVisibilitySetting } from './dataVisibilityHandler.js'
+import { markBenar, markSalah, unmarkBenar, unmarkSalah, updateSchema } from './db.js'
 
 import { Menu } from 'electron'
 import dayjs from 'dayjs'
 import db from './db.js'
+import { getLaporanKeuangan } from './laporanHandler.js'
 import icon from '../../resources/iconNew.jpg?asset'
 import { ipcMain } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 import timezone from 'dayjs/plugin/timezone'
-import { updateSchema } from './db.js'
 import utc from 'dayjs/plugin/utc'
+
+// sesuaikan path relatif ke lokasi file feeAlatHandler.js kamu
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -356,33 +378,62 @@ app.whenReady().then(async () => {
       })
     })
 
+    // IPC handlers untuk fee dari admin
+    ipcMain.handle('getFeeRules', getFeeRules)
+    ipcMain.handle('createFeeRule', createFeeRule)
+    ipcMain.handle('updateFeeRule', updateFeeRule)
+    ipcMain.handle('deleteFeeRule', deleteFeeRule)
+
+
+
+    // IPC handlers untuk alat cek saldo
+    ipcMain.handle('getAlat', getAlat)
+    ipcMain.handle('createAlat', createAlat)
+    ipcMain.handle('updateAlat', updateAlat)
+    ipcMain.handle('deleteAlat', deleteAlat)
+
+    ipcMain.handle('getAlatBonusRules', getAlatBonusRules)
+    ipcMain.handle('createAlatBonusRule', createAlatBonusRule)
+    ipcMain.handle('updateAlatBonusRule', updateAlatBonusRule)
+    ipcMain.handle('deleteAlatBonusRule', deleteAlatBonusRule)
+
+    // IPC handlers untuk bonus berjenjang per alat + per jenis transaksi
+    ipcMain.handle('getAlatBonusJenisRules', getAlatBonusJenisRules)
+    ipcMain.handle('createAlatBonusJenisRule', createAlatBonusJenisRule)
+    ipcMain.handle('updateAlatBonusJenisRule', updateAlatBonusJenisRule)
+    ipcMain.handle('deleteAlatBonusJenisRule', deleteAlatBonusJenisRule)
+
     // Handler untuk ambil data summary_log
     ipcMain.handle('getSummaryLog', async () => {
       return new Promise((resolve, reject) => {
-        db.all('SELECT id, waktu, summary_json FROM summary_log ORDER BY id DESC', [], (err, rows) => {
-          if (err) {
-            console.error('❌ Gagal ambil summary_log:', err)
-            reject(err)
-          } else {
-            console.log('[DEBUG] summary_log rows:', rows)
-            // Parse summary_json agar langsung bisa dipakai di frontend
-            const parsedRows = rows.map(row => {
-              let parsed = {}
-              try {
-                parsed = JSON.parse(row.summary_json)
-              } catch (e) {
-                console.warn('[DEBUG] Gagal parse summary_json:', row.summary_json, e)
-              }
-              return {
-                id: row.id,
-                waktu_simpan: row.waktu,
-                ...parsed
-              }
-            })
-            console.log('[DEBUG] parsedRows:', parsedRows)
-            resolve(parsedRows)
+        db.all(
+          'SELECT id, waktu, summary_json FROM summary_log ORDER BY id DESC',
+          [],
+          (err, rows) => {
+            if (err) {
+              console.error('❌ Gagal ambil summary_log:', err)
+              reject(err)
+            } else {
+              console.log('[DEBUG] summary_log rows:', rows)
+              // Parse summary_json agar langsung bisa dipakai di frontend
+              const parsedRows = rows.map((row) => {
+                let parsed = {}
+                try {
+                  parsed = JSON.parse(row.summary_json)
+                } catch (e) {
+                  console.warn('[DEBUG] Gagal parse summary_json:', row.summary_json, e)
+                }
+                return {
+                  id: row.id,
+                  waktu_simpan: row.waktu,
+                  ...parsed
+                }
+              })
+              console.log('[DEBUG] parsedRows:', parsedRows)
+              resolve(parsedRows)
+            }
           }
-        })
+        )
       })
     })
 
@@ -439,158 +490,16 @@ app.whenReady().then(async () => {
     })
 
     // ============================= laporan keuangan handler =============================
-    ipcMain.handle('get-laporan-keuangan', async (event, roleRaw) => {
-      // Fetch all data
-      const getTransaksi = () =>
-        new Promise((resolve, reject) => {
-          db.all(
-            'SELECT t.*, s.nama_sumber_dana as sumber_dana, s2.nama_sumber_dana as terima_dana_nama FROM transaksi t LEFT JOIN saldo_awal s ON t.sumber_dana_id = s.id LEFT JOIN saldo_awal s2 ON t.terima_dana_id = s2.id',
-            [],
-            (err, rows) => {
-              if (err) reject(err)
-              else resolve(rows)
-            }
-          )
-        })
-      const getHutang = () =>
-        new Promise((resolve, reject) => {
-          db.all(
-            'SELECT h.*, s.nama_sumber_dana as sumber_dana FROM hutang h LEFT JOIN saldo_awal s ON h.platform_id = s.id',
-            [],
-            (err, rows) => {
-              if (err) reject(err)
-              else resolve(rows)
-            }
-          )
-        })
-      const getAmbilSaldo = () =>
-        new Promise((resolve, reject) => {
-          db.all(
-            'SELECT a.*, s.nama_sumber_dana as sumber_dana FROM ambil_saldo a LEFT JOIN saldo_awal s ON a.platform = s.nama_sumber_dana',
-            [],
-            (err, rows) => {
-              if (err) reject(err)
-              else resolve(rows)
-            }
-          )
-        })
-      const getPindahSaldo = () =>
-        new Promise((resolve, reject) => {
-          db.all(
-            'SELECT p.*, s1.nama_sumber_dana as sumber_dana, s2.nama_sumber_dana as terima_dana_nama FROM pindah_saldo p LEFT JOIN saldo_awal s1 ON p.sumber_dana_id = s1.id LEFT JOIN saldo_awal s2 ON p.tujuan_dana_id = s2.id',
-            [],
-            (err, rows) => {
-              if (err) reject(err)
-              else resolve(rows)
-            }
-          )
-        })
+    // Logic-nya sudah dipindah ke laporanHandler.js (getLaporanKeuangan) — di-import di atas.
+    // JANGAN taruh logic query/format laporan di sini lagi, biar nggak ada 2 versi yang beda.
+    ipcMain.handle('get-laporan-keuangan', getLaporanKeuangan)
 
-      // Fetch all
-      const [transaksi, hutang, ambilSaldo, pindahSaldo, totalHutangRows] = await Promise.all([
-        getTransaksi(),
-        getHutang(),
-        getAmbilSaldo(),
-        getPindahSaldo(),
-        new Promise((resolve, reject) => {
-          db.get(
-            'SELECT SUM(nominal_transaksi) as total FROM hutang WHERE status_bayar = 0',
-            [],
-            (err, row) => {
-              if (err) reject(err)
-              else resolve(row)
-            }
-          )
-        })
-      ])
-
-      const totalHutang = Number(totalHutangRows?.total || 0)
-
-      // Format transaksi
-      const formattedTransaksi = transaksi.map((item) => {
-        // Nominal keluar = nominal_transaksi + biaya_admin_bank
-        const nominalKeluar =
-          Number(item.nominal_transaksi || 0) + Number(item.biaya_admin_bank || 0)
-        const nominalMasuk = Number(item.nominal_transaksi || 0) + Number(item.fee || 0)
-        const keuntungan = nominalMasuk - nominalKeluar
-        return {
-          tanggal: item.tanggal,
-          sumber_dana: item.sumber_dana || '-',
-          terima_dana_nama: item.terima_dana_nama || '-',
-          jenis_transaksi: item.jenis_transaksi || '-',
-          nominal_transaksi: nominalKeluar,
-          nominal_masuk: nominalMasuk,
-          keuntungan,
-          total_hutang: totalHutang,
-          keterangan: item.keterangan || '-'
-        }
-      })
-
-      // Format hutang
-      const formattedHutang = hutang.map((item) => {
-        const isBayarHutang = (item.jenis_transaksi || '').toLowerCase() === 'bayar hutang'
-        const nominal = Number(item.nominal_transaksi || 0)
-        const biayaAdmin = Number(item.biaya_admin || 0)
-        // Untuk Bayar Hutang, nominal keluar = nominal + admin
-        return {
-          tanggal: item.tanggal_transaksi,
-          sumber_dana: item.sumber_dana || '-',
-          terima_dana_nama: '-',
-          jenis_transaksi: item.jenis_transaksi || 'Hutang',
-          nominal_transaksi: isBayarHutang ? nominal + biayaAdmin : 0,
-          nominal_masuk: isBayarHutang ? 0 : nominal,
-          keuntungan: 0,
-          total_hutang: totalHutang,
-          keterangan: item.keterangan || '-'
-        }
-      })
-
-      // Format ambil saldo
-      const formattedAmbilSaldo = ambilSaldo.map((item) => {
-        const nominal = Number(item.nominal_pengambilan || 0)
-        return {
-          tanggal: item.tanggal_pengambilan,
-          sumber_dana: item.sumber_dana || '-',
-          terima_dana_nama: '-',
-          jenis_transaksi: 'Ambil Saldo',
-          nominal_transaksi: nominal,
-          nominal_masuk: 0,
-          keuntungan: 0,
-          total_hutang: totalHutang,
-          keterangan: item.keterangan || '-'
-        }
-      })
-
-      // Format pindah saldo
-      const formattedPindahSaldo = pindahSaldo.map((item) => {
-        // Nominal keluar = nominal + biaya_admin
-        const nominal = Number(item.nominal || 0)
-        const biayaAdmin = Number(item.biaya_admin || 0)
-        const nominalKeluar = nominal + biayaAdmin
-        const nominalMasuk = nominal
-        // Pastikan keuntungan selalu 0 untuk pindah saldo
-        return {
-          tanggal: item.tanggal,
-          sumber_dana: item.sumber_dana || '-',
-          terima_dana_nama: item.terima_dana_nama || '-',
-          jenis_transaksi: 'Pindah Saldo',
-          nominal_transaksi: nominalKeluar,
-          nominal_masuk: nominalMasuk,
-          keuntungan: 0,
-          total_hutang: totalHutang,
-          keterangan: item.keterangan || '-'
-        }
-      })
-
-      // Gabungkan semua data
-      const allData = [
-        ...formattedTransaksi,
-        ...formattedHutang,
-        ...formattedAmbilSaldo,
-        ...formattedPindahSaldo
-      ]
-      return allData
-    })
+    // ============================= setting visibilitas data untuk kasir (per halaman) =============================
+    // Admin bisa atur, PER HALAMAN: kasir cuma boleh lihat data N hari ke belakang dari hari ini,
+    // di halaman-halaman yang sengaja menampilkan histori penuh (Semua Transaksi, Koreksi Transaksi, dst).
+    // Logic-nya ada di dataVisibilityHandler.js — sama seperti laporan, JANGAN taruh logic-nya di sini.
+    ipcMain.handle('get-data-visibility-setting', getDataVisibilitySetting)
+    ipcMain.handle('save-data-visibility-setting', saveDataVisibilitySetting)
     // // Fungsi untuk simpan snapshot saldo awal tiap awal bulan
     function saveMonthlySnapshotIfNeeded() {
       const periode = dayjs().tz('Asia/Jakarta').format('YYYY-MM')
@@ -738,9 +647,16 @@ app.whenReady().then(async () => {
 
     // ============================= Hutang handler =============================
 
-    ipcMain.handle('get-hutang', async (event, role) => {
+    // `dateFrom`/`dateTo` (format 'YYYY-MM-DD') = rentang tanggal OPSIONAL khusus ADMIN,
+    // pola sama persis dengan getTransaksi di transactionHandler.js — kasir tetap
+    // SELALU dibatasi lewat `days`, tidak terpengaruh dateFrom/dateTo sama sekali.
+    ipcMain.handle('get-hutang', async (event, role, days = 1, dateFrom, dateTo) => {
       const roleLower = (role || '').toLowerCase()
-      const today = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+      const isKasir = roleLower === 'kasir'
+      const hasAdminRange = !isKasir && dateFrom && dateTo
+      const daysCount = Math.max(1, Number(days) || 1)
+      const cutoffStart = dayjs().tz('Asia/Jakarta').startOf('day').subtract(daysCount - 1, 'day').format('YYYY-MM-DD HH:mm:ss')
+      const tomorrow = dayjs().tz('Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
 
       return new Promise((resolve, reject) => {
         const baseQuery = `
@@ -748,9 +664,20 @@ app.whenReady().then(async () => {
       FROM hutang h
       LEFT JOIN saldo_awal s ON h.platform_id = s.id
     `
-        const whereClause = roleLower === 'kasir' ? 'WHERE DATE(h.tanggal_transaksi) = ?' : ''
+        // Range komparasi (bukan DATE(h.tanggal_transaksi) = ?) supaya index
+        // idx_hutang_tanggal_transaksi kepakai — DATE() bikin index ke-skip.
+        const whereClause =
+          isKasir || hasAdminRange ? 'WHERE h.tanggal_transaksi >= ? AND h.tanggal_transaksi < ?' : ''
         const query = `${baseQuery} ${whereClause} ORDER BY h.status_bayar ASC, h.tanggal_transaksi DESC, h.id DESC`
-        const params = roleLower === 'kasir' ? [today] : []
+
+        let params = []
+        if (isKasir) {
+          params = [cutoffStart, tomorrow]
+        } else if (hasAdminRange) {
+          const rangeStart = dayjs.tz(dateFrom, 'Asia/Jakarta').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+          const rangeEnd = dayjs.tz(dateTo, 'Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+          params = [rangeStart, rangeEnd]
+        }
 
         db.all(query, params, (err, rows) => {
           if (err) {
@@ -784,16 +711,16 @@ app.whenReady().then(async () => {
 
             db.run('BEGIN TRANSACTION')
 
-      const nominal = parseFloat(latestRecord.nominal_transaksi) || 0
-      const biayaAdmin = parseFloat(latestRecord.biaya_admin || 0)
-      // Saat toggle bayar/tidak bayar, gunakan selalu nominal + admin sebagai efek pembayaran
-      const amountToUpdate = nominal + biayaAdmin
+            const nominal = parseFloat(latestRecord.nominal_transaksi) || 0
+            const biayaAdmin = parseFloat(latestRecord.biaya_admin || 0)
+            // Saat toggle bayar/tidak bayar, gunakan selalu nominal + admin sebagai efek pembayaran
+            const amountToUpdate = nominal + biayaAdmin
 
-      const saldoQuery = isBayarNow
-        ? `UPDATE saldo_awal 
+            const saldoQuery = isBayarNow
+              ? `UPDATE saldo_awal 
       SET saldo = saldo - ?, tanggal_update = CURRENT_TIMESTAMP 
       WHERE id = ?`
-        : `UPDATE saldo_awal 
+              : `UPDATE saldo_awal 
       SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP 
       WHERE id = ?`
 
@@ -923,9 +850,10 @@ app.whenReady().then(async () => {
 
                     const statusBayar = isAddingToSaldo ? 0 : 1
                     const bayarAt = !isAddingToSaldo
-                      ? (data.tanggal_bayar_hutang && String(data.tanggal_bayar_hutang).trim()
-                          ? data.tanggal_bayar_hutang
-                          : (data.tanggal_transaksi || dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')))
+                      ? data.tanggal_bayar_hutang && String(data.tanggal_bayar_hutang).trim()
+                        ? data.tanggal_bayar_hutang
+                        : data.tanggal_transaksi ||
+                          dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
                       : null
 
                     db.run(
@@ -984,7 +912,8 @@ app.whenReady().then(async () => {
                             amountEffect
                           ],
                           (logErr) => {
-                            if (logErr) console.warn('⚠️ Gagal insert hutang_history (create):', logErr)
+                            if (logErr)
+                              console.warn('⚠️ Gagal insert hutang_history (create):', logErr)
                           }
                         )
 
@@ -1069,7 +998,8 @@ app.whenReady().then(async () => {
                 const applyIsAddition = updatedData.jenis_transaksi === 'Ambil Hutang'
                 const applyAmount = applyIsAddition
                   ? parseFloat(updatedData.nominal_transaksi)
-                  : parseFloat(updatedData.nominal_transaksi) + parseFloat(updatedData.biaya_admin || 0)
+                  : parseFloat(updatedData.nominal_transaksi) +
+                    parseFloat(updatedData.biaya_admin || 0)
                 const applyOperator = applyIsAddition ? '+' : '-'
 
                 db.run(
@@ -1089,8 +1019,12 @@ app.whenReady().then(async () => {
               function applyDeltaForPaid() {
                 const oldPlatformId = oldRecord.platform_id
                 const newPlatformId = updatedData.platform_id || oldPlatformId
-                const oldEffective = (parseFloat(oldRecord.nominal_transaksi) || 0) + (parseFloat(oldRecord.biaya_admin || 0) || 0)
-                const newEffective = (parseFloat(updatedData.nominal_transaksi) || 0) + (parseFloat(updatedData.biaya_admin || 0) || 0)
+                const oldEffective =
+                  (parseFloat(oldRecord.nominal_transaksi) || 0) +
+                  (parseFloat(oldRecord.biaya_admin || 0) || 0)
+                const newEffective =
+                  (parseFloat(updatedData.nominal_transaksi) || 0) +
+                  (parseFloat(updatedData.biaya_admin || 0) || 0)
                 const platformChanged = Number(newPlatformId) !== Number(oldPlatformId)
                 const delta = newEffective - oldEffective // positive means need extra deduction
 
@@ -1142,7 +1076,8 @@ app.whenReady().then(async () => {
               }
 
               function finalizeUpdate(amountEffectLog) {
-                const forcedJenis = oldRecord.status_bayar === 1 ? 'Bayar Hutang' : updatedData.jenis_transaksi
+                const forcedJenis =
+                  oldRecord.status_bayar === 1 ? 'Bayar Hutang' : updatedData.jenis_transaksi
                 const targetPlatformId = updatedData.platform_id || oldRecord.platform_id
                 db.run(
                   `UPDATE hutang SET
@@ -1189,7 +1124,8 @@ app.whenReady().then(async () => {
                                  keterangan, ? FROM hutang WHERE id = ?`,
                         [role, effect, updatedData.id],
                         (logErr) => {
-                          if (logErr) console.warn('⚠️ Gagal insert hutang_history (update):', logErr)
+                          if (logErr)
+                            console.warn('⚠️ Gagal insert hutang_history (update):', logErr)
                         }
                       )
 
@@ -1208,11 +1144,11 @@ app.whenReady().then(async () => {
       })
     })
 
-  ipcMain.handle('delete-hutang', (event, id) => {
+    ipcMain.handle('delete-hutang', (event, id) => {
       return new Promise((resolve, reject) => {
         // First get the record to be deleted so we can adjust the saldo
         db.get(
-      'SELECT platform_id, nominal_transaksi, biaya_admin, jenis_transaksi, status_bayar, keterangan FROM hutang WHERE id = ?',
+          'SELECT platform_id, nominal_transaksi, biaya_admin, jenis_transaksi, status_bayar, keterangan FROM hutang WHERE id = ?',
           [id],
           (err, record) => {
             if (err) {
@@ -1243,12 +1179,16 @@ app.whenReady().then(async () => {
                     // Log history for delete
                     const defaultEffect = isPaid
                       ? 0
-                      : (record.jenis_transaksi === 'Ambil Hutang'
-                          ? -(parseFloat(record.nominal_transaksi))
-                          : +(parseFloat(record.nominal_transaksi) + parseFloat(record.biaya_admin || 0)))
-                    const amountEffectLog = (overrideAmountEffect === null || overrideAmountEffect === undefined)
-                      ? defaultEffect
-                      : overrideAmountEffect
+                      : record.jenis_transaksi === 'Ambil Hutang'
+                        ? -parseFloat(record.nominal_transaksi)
+                        : +(
+                            parseFloat(record.nominal_transaksi) +
+                            parseFloat(record.biaya_admin || 0)
+                          )
+                    const amountEffectLog =
+                      overrideAmountEffect === null || overrideAmountEffect === undefined
+                        ? defaultEffect
+                        : overrideAmountEffect
                     db.run(
                       `INSERT INTO hutang_history (
                         hutang_id, action, actor_role, actor_id, platform_id, saldo_platform, nominal_transaksi,
@@ -1335,7 +1275,9 @@ app.whenReady().then(async () => {
                     )
                   } else {
                     // Deleting a payment → restore saldo (add nominal + admin)
-                    const totalAmount = (parseFloat(record.nominal_transaksi) || 0) + (parseFloat(record.biaya_admin || 0) || 0)
+                    const totalAmount =
+                      (parseFloat(record.nominal_transaksi) || 0) +
+                      (parseFloat(record.biaya_admin || 0) || 0)
                     db.run(
                       `UPDATE saldo_awal SET saldo = saldo + ?, tanggal_update = CURRENT_TIMESTAMP WHERE id = ?`,
                       [totalAmount, record.platform_id],
@@ -1364,20 +1306,32 @@ app.whenReady().then(async () => {
 
     // ============================= pindah saldo handler =============================
 
-    ipcMain.handle('get-pindah-saldo', (event, roleRaw) => {
+    ipcMain.handle('get-pindah-saldo', (event, roleRaw, days = 1, dateFrom, dateTo) => {
       return new Promise((resolve, reject) => {
         const role = String(roleRaw).toLowerCase()
-        const today = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+        const isKasir = role === 'kasir'
+        const hasAdminRange = !isKasir && dateFrom && dateTo
+        const daysCount = Math.max(1, Number(days) || 1)
+        const cutoffStart = dayjs().tz('Asia/Jakarta').startOf('day').subtract(daysCount - 1, 'day').format('YYYY-MM-DD HH:mm:ss')
+        const tomorrow = dayjs().tz('Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
 
+        // Range komparasi supaya index idx_pindah_saldo_tanggal kepakai.
         const query = `
       SELECT ps.*, s1.nama_sumber_dana AS sumber_nama, s2.nama_sumber_dana AS tujuan_nama
       FROM pindah_saldo ps
       LEFT JOIN saldo_awal s1 ON ps.sumber_dana_id = s1.id
       LEFT JOIN saldo_awal s2 ON ps.tujuan_dana_id = s2.id
-      ${role === 'kasir' ? 'WHERE DATE(ps.tanggal) = ?' : ''}
+      ${isKasir || hasAdminRange ? 'WHERE ps.tanggal >= ? AND ps.tanggal < ?' : ''}
       ORDER BY ps.tanggal DESC, ps.id DESC
     `
-        const params = role === 'kasir' ? [today] : []
+        let params = []
+        if (isKasir) {
+          params = [cutoffStart, tomorrow]
+        } else if (hasAdminRange) {
+          const rangeStart = dayjs.tz(dateFrom, 'Asia/Jakarta').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+          const rangeEnd = dayjs.tz(dateTo, 'Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+          params = [rangeStart, rangeEnd]
+        }
 
         db.all(query, params, (err, rows) => {
           if (err) return reject(err)
@@ -1752,16 +1706,28 @@ app.whenReady().then(async () => {
     // ============================= ambil saldo handler =============================
 
     // Make sure this handler exists and is properly registered
-    ipcMain.handle('get-ambil-saldo', (event, userRole) => {
-      const today = getTodayWIB()
+    ipcMain.handle('get-ambil-saldo', (event, userRole, days = 1, dateFrom, dateTo) => {
       const role = (userRole || '').toLowerCase()
+      const isKasir = role === 'kasir'
+      const hasAdminRange = !isKasir && dateFrom && dateTo
+      const daysCount = Math.max(1, Number(days) || 1)
+      const cutoffStart = dayjs().tz('Asia/Jakarta').startOf('day').subtract(daysCount - 1, 'day').format('YYYY-MM-DD HH:mm:ss')
+      const tomorrow = dayjs().tz('Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
 
+      // Range komparasi supaya index idx_ambil_saldo_tanggal_pengambilan kepakai.
       const query =
-        role === 'kasir'
-          ? 'SELECT * FROM ambil_saldo WHERE DATE(tanggal_pengambilan) = ? ORDER BY tanggal_pengambilan DESC, id DESC'
+        isKasir || hasAdminRange
+          ? 'SELECT * FROM ambil_saldo WHERE tanggal_pengambilan >= ? AND tanggal_pengambilan < ? ORDER BY tanggal_pengambilan DESC, id DESC'
           : 'SELECT * FROM ambil_saldo ORDER BY tanggal_pengambilan DESC, id DESC'
 
-      const params = role === 'kasir' ? [today] : []
+      let params = []
+      if (isKasir) {
+        params = [cutoffStart, tomorrow]
+      } else if (hasAdminRange) {
+        const rangeStart = dayjs.tz(dateFrom, 'Asia/Jakarta').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+        const rangeEnd = dayjs.tz(dateTo, 'Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+        params = [rangeStart, rangeEnd]
+      }
 
       return new Promise((resolve, reject) => {
         db.all(query, params, (err, rows) => {
@@ -2255,9 +2221,9 @@ app.whenReady().then(async () => {
     })
 
     // ============================== transaksi handler ======================================
-    ipcMain.handle('get-transaksi', async (event, role) => {
+    ipcMain.handle('get-transaksi', async (event, role, days = 1, dateFrom, dateTo) => {
       try {
-        const data = await getTransaksi(role)
+        const data = await getTransaksi(role, days, dateFrom, dateTo)
         return data
       } catch (err) {
         console.error('❌ Error get-transaksi:', err)
@@ -2294,6 +2260,44 @@ app.whenReady().then(async () => {
       } catch (error) {
         console.error('❌ Error get-transaksi-summary:', error)
         return { success: false, error: error.message }
+      }
+    })
+
+    // 🚩 TANDAI SALAH (koreksi transaksi) — berlaku untuk transaksi, hutang, pindah_saldo, ambil_saldo
+    ipcMain.handle('mark-salah', async (_event, payload) => {
+      try {
+        return await markSalah(payload)
+      } catch (error) {
+        console.error('❌ Error mark-salah:', error)
+        throw error
+      }
+    })
+
+    ipcMain.handle('unmark-salah', async (_event, payload) => {
+      try {
+        return await unmarkSalah(payload)
+      } catch (error) {
+        console.error('❌ Error unmark-salah:', error)
+        throw error
+      }
+    })
+
+    // ✅ TANDAI BENAR/SESUAI (koreksi transaksi) — berlaku untuk transaksi, hutang, pindah_saldo, ambil_saldo
+    ipcMain.handle('mark-benar', async (_event, payload) => {
+      try {
+        return await markBenar(payload)
+      } catch (error) {
+        console.error('❌ Error mark-benar:', error)
+        throw error
+      }
+    })
+
+    ipcMain.handle('unmark-benar', async (_event, payload) => {
+      try {
+        return await unmarkBenar(payload)
+      } catch (error) {
+        console.error('❌ Error unmark-benar:', error)
+        throw error
       }
     })
 
@@ -2379,7 +2383,8 @@ app.whenReady().then(async () => {
            AND COALESCE(status_bayar, 0) = 0`,
         function (err) {
           if (err) console.error('❌ Repair: gagal set status_bayar=1 untuk Bayar Hutang:', err)
-          else if (this.changes) console.log(`🔧 Repair: set paid untuk ${this.changes} baris Bayar Hutang`)
+          else if (this.changes)
+            console.log(`🔧 Repair: set paid untuk ${this.changes} baris Bayar Hutang`)
         }
       )
 
@@ -2391,7 +2396,8 @@ app.whenReady().then(async () => {
            AND (tanggal_bayar_hutang IS NULL OR tanggal_bayar_hutang = '')`,
         function (err) {
           if (err) console.error('❌ Repair: gagal set tanggal_bayar_hutang:', err)
-          else if (this.changes) console.log(`🔧 Repair: isi tanggal_bayar_hutang pada ${this.changes} baris`)
+          else if (this.changes)
+            console.log(`🔧 Repair: isi tanggal_bayar_hutang pada ${this.changes} baris`)
         }
       )
 
@@ -2403,7 +2409,8 @@ app.whenReady().then(async () => {
            AND COALESCE(status_bayar, 0) <> 0`,
         function (err) {
           if (err) console.error('❌ Repair: gagal reset status_bayar untuk Ambil Hutang:', err)
-          else if (this.changes) console.log(`🔧 Repair: reset unpaid untuk ${this.changes} baris Ambil Hutang`)
+          else if (this.changes)
+            console.log(`🔧 Repair: reset unpaid untuk ${this.changes} baris Ambil Hutang`)
         }
       )
     })

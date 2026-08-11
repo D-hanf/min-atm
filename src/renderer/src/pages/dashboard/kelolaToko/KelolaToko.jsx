@@ -117,7 +117,7 @@ const KelolaToko = () => {
           { key: 'totalEmployees', label: 'Jumlah Karyawan' },
           { key: 'alamat', label: 'Alamat' }
         ]}
-        // onEdit={(item) => console.log('Edit', item)}
+        
         showView={true}
         onView={handleManageStore}
         onEdit={handleEdit}
@@ -125,6 +125,7 @@ const KelolaToko = () => {
         btnSize={'xs'}
         title={'Data Toko'}
         searchValue={filterText}
+        btnSize={'xs'}
         onSearchChange={setFilterText}
         onAdd={<FormLayout onSubmit={handleFormSubmit}></FormLayout>}
       />

@@ -1,7 +1,7 @@
 {
   "name": "mini-atm-jaya-mart",
   "productName": "mini-atm-jaya-mart",
-  "version": "1.2.6",
+  "version": "1.2.9",
   "description": "aplikasi mini ATM untuk mengelola keuangan",
   "main": "out/main/index.js",
   "author": "github.com/D-hanf & github.com/willyChairullah",

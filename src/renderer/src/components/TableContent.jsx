@@ -1,13 +1,14 @@
-import { HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
-import React, { useEffect, useState } from 'react'
+import { HiBookmark, HiCheckCircle, HiExclamationCircle, HiInformationCircle, HiOutlineExclamationCircle, HiPencilSquare, HiViewfinderCircle, HiXMark } from 'react-icons/hi2'
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react'
 
 import AlertDialog from './AlertDialog'
 import ButtonInput from './ButtonInput'
 import { FaCheck } from 'react-icons/fa6'
 import SearchField from './SearchField'
-import { useTheme } from '../context/ThemeContext'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
@@ -20,12 +21,15 @@ const TableContent = ({
   onDateChange = () => {},
   onDelete = () => {},
   onStatus = () => {},
+  onMark = () => {},
+  onVerify = () => {},
   onView = () => {},
   onAdd = () => {},
   onSearchChange = () => {},
   showView = false,
   hidden = true,
   editDelete = true,
+  marked = false,
   title,
   statusHutang,
   bayar = false,
@@ -39,15 +43,30 @@ const TableContent = ({
   showTerimaDanaFilter = false,
   showPembayarFeeFilter = false,
   showEditedFilter = false,
+  showKoreksiFilter = false,
+  showManualOverrideFilter = false,
   onSumberDanaChange = () => {},
   onJenisTransaksiChange = () => {},
   onTerimaDanaChange = () => {},
   onPembayarFeeChange = () => {},
-  onEditedFilterChange = () => {}
+  onEditedFilterChange = () => {},
+  onKoreksiFilterChange = () => {},
+  onManualOverrideFilterChange = () => {},
+  // Opsional: kalau parent kirim array di sini, dropdown pakai daftar ini
+  // (bukan hasil ekstrak dari `data`). Berguna kalau `data` sedang dibatasi
+  // rentang tanggal untuk performa — daftar opsi tetap lengkap, tidak ikut
+  // terpotong, supaya admin tetap bisa memilih nilai yang ada di luar rentang
+  // yang sedang ditampilkan.
+  sumberDanaOptions,
+  jenisTransaksiOptions,
+  terimaDanaOptions,
+  pembayarFeeOptions
 }) => {
-  const [loggedInUser, setLoggedInUser] = useState(null)
+  // const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
+  const [showManualNoteDialog, setShowManualNoteDialog] = useState(false)
+  const [manualNoteMessage, setManualNoteMessage] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedSumberDana, setSelectedSumberDana] = useState('')
@@ -55,36 +74,54 @@ const TableContent = ({
   const [selectedTerimaDana, setSelectedTerimaDana] = useState('')
   const [selectedPembayarFee, setSelectedPembayarFee] = useState('')
   const [selectedEditedFilter, setSelectedEditedFilter] = useState('')
+  const [selectedKoreksiFilter, setSelectedKoreksiFilter] = useState('')
+  const [selectedManualOverrideFilter, setSelectedManualOverrideFilter] = useState('')
   const itemsPerPage = 20
   const { isDark } = useTheme()
+  const deferredSearchValue = useDeferredValue(searchValue)
 
-  // Get unique values for filter options
-  const uniqueSumberDana = [...new Set(data.map(item => 
-    item.sumber_dana || item.platform_name || item.sumber_nama || ''
-  ).filter(Boolean))]
-  
-  const uniqueJenisTransaksi = [...new Set(data.map(item => 
-    item.jenis_transaksi || ''
-  ).filter(Boolean))]
+  const uniqueSumberDana = useMemo(
+    () =>
+      Array.isArray(sumberDanaOptions)
+        ? sumberDanaOptions
+        : [...new Set(data.map((item) => item.sumber_dana || item.platform_name || item.sumber_nama || '').filter(Boolean))],
+    [data, sumberDanaOptions]
+  )
 
-  const uniqueTerimaDana = [...new Set(data.map(item => 
-    item.terima_dana_nama || ''
-  ).filter(Boolean))]
+  const uniqueJenisTransaksi = useMemo(
+    () =>
+      Array.isArray(jenisTransaksiOptions)
+        ? jenisTransaksiOptions
+        : [...new Set(data.map((item) => item.jenis_transaksi || '').filter(Boolean))],
+    [data, jenisTransaksiOptions]
+  )
 
-  const uniquePembayarFee = [...new Set(data.map(item => 
-    item.metode_pembayaran_nama || ''
-  ).filter(Boolean))]
+  const uniqueTerimaDana = useMemo(
+    () =>
+      Array.isArray(terimaDanaOptions)
+        ? terimaDanaOptions
+        : [...new Set(data.map((item) => item.terima_dana_nama || '').filter(Boolean))],
+    [data, terimaDanaOptions]
+  )
 
-  // Hitung jumlah transaksi yang pernah diedit
-  const editedCount = data.filter(item => item.is_edited || item.edited).length
+  const uniquePembayarFee = useMemo(
+    () =>
+      Array.isArray(pembayarFeeOptions)
+        ? pembayarFeeOptions
+        : [...new Set(data.map((item) => item.metode_pembayaran_nama || '').filter(Boolean))],
+    [data, pembayarFeeOptions]
+  )
+
+  const editedCount = useMemo(() => data.filter((item) => item.is_edited || item.edited).length, [data])
+  const markedCount = useMemo(() => data.filter((item) => item.is_marked_wrong).length, [data])
+  const verifiedCount = useMemo(() => data.filter((item) => item.is_verified).length, [data])
+  const manualOverrideCount = useMemo(
+    () => data.filter((item) => item.is_fee_manual || item.is_bonus_manual).length,
+    [data]
+  )
   const totalCount = data.length
 
-  useEffect(() => {
-    const userString = localStorage.getItem('user')
-    if (userString) {
-      setLoggedInUser(JSON.parse(userString))
-    }
-  }, [])
+  const { user: loggedInUser } = useAuth()
 
   const handleEdit = (id) => {
     if (loggedInUser?.role?.toLowerCase() !== 'admin' && userRole?.toLowerCase() !== 'kasir') {
@@ -112,49 +149,117 @@ const TableContent = ({
     }
     onStatus(id)
   }
-  // Filtering berdasarkan tanggal, sumber dana, jenis transaksi, terima dana, pembayar fee dan search
-  const DataItems = data
-  const filteredData = DataItems.filter((item) => {
-    const rawDate = item.tanggal || item.tanggal_pengambilan || ''
-    // Perbaikan: gunakan dayjs dengan timezone WIB untuk konsistensi
-    const itemDate = rawDate && dayjs(rawDate).isValid() 
-      ? dayjs(rawDate).tz('Asia/Jakarta').format('YYYY-MM-DD') 
-      : ''
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [
+    data,
+    deferredSearchValue,
+    selectedDate,
+    selectedSumberDana,
+    selectedJenisTransaksi,
+    selectedTerimaDana,
+    selectedPembayarFee,
+    selectedEditedFilter,
+    selectedKoreksiFilter,
+    showDateFilter,
+    showSumberDanaFilter,
+    showJenisTransaksiFilter,
+    showTerimaDanaFilter,
+    showPembayarFeeFilter,
+    showEditedFilter,
+    showKoreksiFilter
+  ])
 
-    const matchDate = showDateFilter && selectedDate ? itemDate === selectedDate : true
+  const filteredData = useMemo(() => {
+    const query = deferredSearchValue.trim().toLowerCase()
 
-    const matchSumberDana = showSumberDanaFilter && selectedSumberDana 
-      ? (item.sumber_dana || item.platform_name || item.sumber_nama || '').toLowerCase() === (selectedSumberDana || '').toLowerCase()
-      : true
+    return data.filter((item) => {
+      const rawDate = item.tanggal || item.tanggal_pengambilan || ''
+      const itemDate = rawDate && dayjs(rawDate).isValid()
+        ? dayjs(rawDate).tz('Asia/Jakarta').format('YYYY-MM-DD')
+        : ''
 
-    const matchJenisTransaksi = showJenisTransaksiFilter && selectedJenisTransaksi
-      ? (item.jenis_transaksi || '').toLowerCase() === (selectedJenisTransaksi || '').toLowerCase()
-      : true
+      const matchDate = showDateFilter && selectedDate ? itemDate === selectedDate : true
+      const matchSumberDana = showSumberDanaFilter && selectedSumberDana
+        ? (item.sumber_dana || item.platform_name || item.sumber_nama || '').toLowerCase() === (selectedSumberDana || '').toLowerCase()
+        : true
+      const matchJenisTransaksi = showJenisTransaksiFilter && selectedJenisTransaksi
+        ? (item.jenis_transaksi || '').toLowerCase() === (selectedJenisTransaksi || '').toLowerCase()
+        : true
+      const matchTerimaDana = showTerimaDanaFilter && selectedTerimaDana
+        ? (item.terima_dana_nama || '').toLowerCase() === (selectedTerimaDana || '').toLowerCase()
+        : true
+      const matchPembayarFee = showPembayarFeeFilter && selectedPembayarFee
+        ? (item.metode_pembayaran_nama || '').toLowerCase() === (selectedPembayarFee || '').toLowerCase()
+        : true
+      const matchEditedFilter = showEditedFilter && selectedEditedFilter
+        ? (selectedEditedFilter === 'edited'
+            ? !!(item.is_edited || item.edited)
+            : selectedEditedFilter === 'not-edited'
+              ? !(item.is_edited || item.edited)
+              : true)
+        : true
+      const matchKoreksiFilter = showKoreksiFilter && selectedKoreksiFilter
+        ? (selectedKoreksiFilter === 'salah'
+            ? !!item.is_marked_wrong
+            : selectedKoreksiFilter === 'benar'
+              ? !!item.is_verified
+              : selectedKoreksiFilter === 'belum'
+                ? !item.is_marked_wrong && !item.is_verified
+                : true)
+        : true
+      const matchManualOverrideFilter = showManualOverrideFilter && selectedManualOverrideFilter
+        ? (selectedManualOverrideFilter === 'manual'
+            ? !!(item.is_fee_manual || item.is_bonus_manual)
+            : selectedManualOverrideFilter === 'not-manual'
+              ? !(item.is_fee_manual || item.is_bonus_manual)
+              : true)
+        : true
+      // Cocokkan ke SEMUA nilai di baris data ini, apa pun nama field-nya —
+      // bukan daftar kolom tertentu yang di-hardcode. Ini penting karena
+      // TableContent dipakai di banyak halaman dengan bentuk data yang beda-
+      // beda (transaksi, hutang, pindah saldo, ambil saldo, dll), jadi daftar
+      // field manual gampang ketinggalan zaman begitu ada kolom baru — hasil
+      // pencarian terlihat "kurang berfungsi" padahal datanya sebenarnya ada,
+      // cuma field-nya belum ditambahkan ke whitelist.
+      const matchSearch = query
+        ? Object.values(item)
+            .filter((val) => val !== null && val !== undefined && typeof val !== 'object' && typeof val !== 'function')
+            .join(' ')
+            .toLowerCase()
+            .includes(query)
+        : true
 
-    const matchTerimaDana = showTerimaDanaFilter && selectedTerimaDana
-      ? (item.terima_dana_nama || '').toLowerCase() === (selectedTerimaDana || '').toLowerCase()
-      : true
+      return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchKoreksiFilter && matchManualOverrideFilter && matchSearch
+    })
+  }, [
+    data,
+    deferredSearchValue,
+    selectedDate,
+    selectedSumberDana,
+    selectedJenisTransaksi,
+    selectedTerimaDana,
+    selectedPembayarFee,
+    selectedEditedFilter,
+    selectedKoreksiFilter,
+    selectedManualOverrideFilter,
+    showDateFilter,
+    showSumberDanaFilter,
+    showJenisTransaksiFilter,
+    showTerimaDanaFilter,
+    showPembayarFeeFilter,
+    showEditedFilter,
+    showKoreksiFilter,
+    showManualOverrideFilter
+  ])
 
-    const matchPembayarFee = showPembayarFeeFilter && selectedPembayarFee
-      ? (item.metode_pembayaran_nama || '').toLowerCase() === (selectedPembayarFee || '').toLowerCase()
-      : true
-
-    const matchEditedFilter = showEditedFilter && selectedEditedFilter
-      ? (selectedEditedFilter === 'edited' ? !!(item.is_edited || item.edited) : 
-         selectedEditedFilter === 'not-edited' ? !(item.is_edited || item.edited) : true)
-      : true
-
-    const matchSearch = searchValue
-      ? JSON.stringify(item).toLowerCase().includes(searchValue.toLowerCase())
-      : true
-
-    return matchDate && matchSumberDana && matchJenisTransaksi && matchTerimaDana && matchPembayarFee && matchEditedFilter && matchSearch
-  })
-
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage)
+  const totalPages = useMemo(() => Math.ceil(filteredData.length / itemsPerPage), [filteredData.length])
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentData = filteredData.slice(indexOfFirstItem, indexOfLastItem)
+  const currentData = useMemo(
+    () => filteredData.slice(indexOfFirstItem, indexOfLastItem),
+    [filteredData, indexOfFirstItem, indexOfLastItem]
+  )
 
   const renderPagination = () => (
     <div
@@ -164,6 +269,14 @@ const TableContent = ({
         Halaman {currentPage} dari {totalPages}
       </p>
       <div className="flex gap-2 items-center">
+        <button
+          onClick={() => setCurrentPage(1)}
+          disabled={currentPage === 1}
+          className={`px-3 py-1 rounded text-sm ${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50'}`}
+          aria-label="Halaman pertama"
+        >
+          &lt;&lt;
+        </button>
         <button
           onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
           disabled={currentPage === 1}
@@ -203,10 +316,17 @@ const TableContent = ({
         >
           Selanjutnya
         </button>
+        <button
+          onClick={() => setCurrentPage(totalPages)}
+          disabled={currentPage === totalPages}
+          className={`px-3 py-1 rounded text-sm ${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50'}`}
+          aria-label="Halaman terakhir"
+        >
+          &gt;&gt;
+        </button>
       </div>
     </div>
   )
-
   return (
     <>
       <div
@@ -230,7 +350,7 @@ const TableContent = ({
         </div>
 
         {/* Filters Section */}
-        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter || showEditedFilter) && (
+        {(showDateFilter || showSumberDanaFilter || showJenisTransaksiFilter || showTerimaDanaFilter || showPembayarFeeFilter || showEditedFilter || showKoreksiFilter || showManualOverrideFilter) && (
           <div className={`p-4 border-b ${isDark ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-25'}`}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4 mb-4">
               {showDateFilter && (
@@ -328,7 +448,7 @@ const TableContent = ({
                     className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
                   >
                     <option value="">Semua Pembayar Fee</option>
-                    {uniquePembayarFee.map(pembayar => (
+                    {uniquePembayarFee.map((pembayar) => (
                       <option key={pembayar} value={pembayar}>{pembayar}</option>
                     ))}
                   </select>
@@ -358,6 +478,51 @@ const TableContent = ({
                   </select>
                 </div>
               )}
+              {showKoreksiFilter && (
+                <div className="flex flex-col min-w-0">
+                  <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Filter Status Koreksi
+                  </label>
+                  <select
+                    value={selectedKoreksiFilter}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSelectedKoreksiFilter(value)
+                      onKoreksiFilterChange(value)
+                    }}
+                    className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                  >
+                    <option value="">Semua Data</option>
+                    <option value="belum">Belum Dikoreksi ({totalCount - markedCount - verifiedCount})</option>
+                    <option value="salah">Ditandai Salah ({markedCount})</option>
+                    <option value="benar">Ditandai Benar ({verifiedCount})</option>
+                  </select>
+                </div>
+              )}
+              {showManualOverrideFilter && (
+                <div className="flex flex-col min-w-0">
+                  <label className={`text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Filter Perubahan Manual {manualOverrideCount > 0 && (
+                      <span className={`inline-flex items-center justify-center min-w-[1.5rem] h-6 px-2 ml-2 rounded-full text-xs font-bold ${isDark ? 'bg-amber-500 text-amber-900' : 'bg-amber-400 text-amber-900'}`}>
+                        {manualOverrideCount}
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    value={selectedManualOverrideFilter}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setSelectedManualOverrideFilter(value)
+                      onManualOverrideFilterChange(value)
+                    }}
+                    className={`border rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isDark ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-gray-300'}`}
+                  >
+                    <option value="">Semua Data</option>
+                    <option value="manual">Hanya Fee/Bonus Diisi Manual ({manualOverrideCount})</option>
+                    <option value="not-manual">Fee & Bonus Sesuai Default ({totalCount - manualOverrideCount})</option>
+                  </select>
+                </div>
+              )}
             </div>
             
             {/* Search Field - Full width below filters */}
@@ -377,14 +542,22 @@ const TableContent = ({
 
         {/* Table */}
         <div className="overflow-x-auto">
+          {/* Trik `w-[1%]` di kolom No & Aksi + `w-full` di kolom data: kolom
+              yang isinya pendek & bentuknya sudah pasti (nomor urut, tombol
+              aksi) dikunci seukuran kontennya saja, sedangkan kolom data
+              berbagi RATA sisa lebar tabel. Efeknya kolom-kolom otomatis
+              melebar ngisi penuh card kalau jumlah kolom yang tampil dikit
+              (bukan numpuk ke kiri + 1 gap kosong raksasa di kanan), dan kalau
+              kolomnya banyak, tetap scroll horizontal seperti biasa — Aksi
+              tidak pernah ikut kestretch jadi kepanjangan/tombolnya kepencet. */}
           <table
-            className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}
+            className={`border-collapse divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}
           >
             <thead className={isDark ? 'bg-gray-700' : 'bg-gray-50'}>
               <tr>
                 {editDelete && (
                   <th
-                    className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider w-16`}
+                    className={`px-3 py-2 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap w-[1%]`}
                   >
                     No
                   </th>
@@ -392,14 +565,14 @@ const TableContent = ({
                 {columns.map((col) => (
                   <th
                     key={col.key}
-                    className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}
+                    className={`px-3 py-2 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap w-full`}
                   >
                     {col.label}
                   </th>
                 ))}
                 {editDelete && (
                   <th
-                    className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300 bg-gray-700' : 'text-gray-500 bg-gray-50'} sticky right-0 z-10`}
+                    className={`px-3 py-2 text-right text-xs font-medium uppercase tracking-wider whitespace-nowrap w-[1%] ${isDark ? 'text-gray-300 bg-gray-700' : 'text-gray-500 bg-gray-50'} sticky right-0 z-10`}
                   >
                     Aksi
                   </th>
@@ -412,11 +585,20 @@ const TableContent = ({
               {currentData.map((item, index) => (
                 <tr
                   key={item.id ?? index}
-                  className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} ${item.is_edited || item.edited ? (isDark ? 'bg-yellow-900 text-yellow-200' : 'bg-yellow-200') : ''}`}
+                  className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} ${
+                    item.is_marked_wrong
+                      ? (isDark ? 'bg-red-900 text-red-200' : 'bg-red-100')
+                      : item.is_verified
+                      ? (isDark ? 'bg-green-900 text-green-200' : 'bg-green-100')
+                      : (item.is_edited || item.edited)
+                      ? (isDark ? 'bg-yellow-900 text-yellow-200' : 'bg-yellow-200')
+                  
+                      : ''
+                  }`}
                 >
                   {editDelete && (
                     <td
-                      className={`px-6 py-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
+                      className={`px-3 py-2 text-sm whitespace-nowrap w-[1%] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
                     >
                       {(currentPage - 1) * itemsPerPage + index + 1}
                     </td>
@@ -424,7 +606,7 @@ const TableContent = ({
                   {columns.map((col) => (
                     <td
                       key={col.key}
-                      className="px-6 py-4 text-sm whitespace-nowrap truncate max-w-[180px]"
+                      className="px-3 py-2 text-sm whitespace-nowrap w-full"
                     >
                       {typeof item[col.key] === 'object' && item[col.key] !== null ? (
                         <div className="leading-snug">
@@ -432,16 +614,36 @@ const TableContent = ({
                           <div className="text-xs text-gray-500">{item[col.key].nomor}</div>
                         </div>
                       ) : (
-                        <div className={`${isDark ? 'text-gray-200' : 'text-gray-900'}`}>
+                        <div
+                          title={typeof item[col.key] === 'string' || typeof item[col.key] === 'number' ? String(item[col.key]) : undefined}
+                          className={`max-w-[280px] truncate ${isDark ? 'text-gray-200' : 'text-gray-900'}`}
+                        >
                           {item[col.key]}
                         </div>
                       )}
                     </td>
                   ))}
                   <td
-                    className={`px-6 py-4 text-right text-sm font-medium sticky right-0 z-10 ${isDark ? 'bg-gray-800' : 'bg-white'}`}
+                    className={`px-3 py-2 text-right text-sm font-medium w-[1%] sticky right-0 z-10 ${isDark ? 'bg-gray-800' : 'bg-white'}`}
                   >
                     <div className="flex justify-end gap-2">
+                      {item.manual_override_note && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setManualNoteMessage(item.manual_override_note)
+                            setShowManualNoteDialog(true)
+                          }}
+                          title="Ada perubahan manual pada transaksi ini"
+                          className={`p-2 rounded-md border transition-colors ${
+                            isDark
+                              ? 'border-amber-700 text-amber-400 hover:bg-amber-900/40'
+                              : 'border-amber-400 text-amber-600 hover:bg-amber-50'
+                          }`}
+                        >
+                          <HiOutlineExclamationCircle size={32} />
+                        </button>
+                      )}
                       {showView && (
                         <ButtonInput color="blue" size={btnSize} onClick={() => onView(item.id)}>
                           <HiViewfinderCircle className="mr-1" size={16} />
@@ -487,6 +689,50 @@ const TableContent = ({
                           )}
                         </>
                       )}
+                      { marked && !item.is_verified && (
+                        <ButtonInput
+                          color={item.is_marked_wrong ? 'red' : 'white'}
+                          outline={!item.is_marked_wrong}
+                          size={btnSize}
+                          textColor={item.is_marked_wrong ? 'white' : 'black'}
+                          onClick={() => onMark(item.id)}
+                          title={item.is_marked_wrong ? 'Lihat detail penandaan' : 'Tandai data ini salah'}
+                        >
+                          {item.is_marked_wrong ? (
+                            <>
+                              <HiExclamationCircle className="" size={16} />
+                              Lihat Detail
+                            </>
+                          ) : (
+                            <>
+                              <HiBookmark className="" size={16} />
+                              Tandai salah
+                            </>
+                          )}
+                        </ButtonInput>
+                      )}
+                      { marked && !item.is_marked_wrong && (
+                        <ButtonInput
+                          color={item.is_verified ? 'green' : 'white'}
+                          outline={!item.is_verified}
+                          size={btnSize}
+                          textColor={item.is_verified ? 'white' : 'black'}
+                          onClick={() => onVerify(item.id)}
+                          title={item.is_verified ? 'Lihat detail verifikasi' : 'Tandai transaksi ini sudah benar/sesuai'}
+                        >
+                          {item.is_verified ? (
+                            <>
+                              <HiCheckCircle className="" size={16} />
+                              Terverifikasi
+                            </>
+                          ) : (
+                            <>
+                              <FaCheck className="" size={14} />
+                              Tandai Benar
+                            </>
+                          )}
+                        </ButtonInput>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -508,6 +754,13 @@ const TableContent = ({
           onClose={() => setShowAlertDialog(false)}
           title="Akses Terbatas"
           message={alertMessage}
+        />
+
+        <AlertDialog
+          isOpen={showManualNoteDialog}
+          onClose={() => setShowManualNoteDialog(false)}
+          title="Perubahan Manual"
+          message={manualNoteMessage}
         />
       </div>
     </>

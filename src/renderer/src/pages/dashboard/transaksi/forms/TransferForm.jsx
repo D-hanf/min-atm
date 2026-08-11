@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { findMatchingRule, formatRupiahDisplay, parseRupiahInput } from './feeBonusUtils'
 
 import InputField from '../../../../components/InputField'
 import RupiahInput from '../../../../components/RupiahInput'
@@ -10,6 +11,9 @@ import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
+
+const JENIS_TRANSAKSI = 'Transfer'
+
 const TransferForm = ({ formData, onChange, onValidChange }) => {
   const { isDark } = useTheme()
   const [nominalError, setNominalError] = useState('')
@@ -19,6 +23,12 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
   const [manualFee, setManualFee] = useState(false)
   const [manualAdmin, setManualAdmin] = useState(false)
 
+  // Alat & bonus
+  const [alatList, setAlatList] = useState([])
+  const [feeRules, setFeeRules] = useState([])
+  const [alatBonusRules, setAlatBonusRules] = useState([]) // rentang bonus utk alat + jenis transaksi ini
+  const [manualBonus, setManualBonus] = useState(false)
+
   const fetchSaldo = async () => {
     try {
       const result = await window.api.getSaldoAwal()
@@ -27,10 +37,54 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
       console.error('❌ Gagal ambil data saldo:', error)
     }
   }
-const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
+  const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
   useEffect(() => {
     fetchSaldo()
   }, [])
+
+  useEffect(() => {
+    const fetchAlat = async () => {
+      try {
+        const result = await window.api.getAlat()
+        setAlatList((result || []).filter((a) => a.is_active === undefined || !!a.is_active))
+      } catch (error) {
+        console.error('❌ Gagal ambil data alat:', error)
+      }
+    }
+    fetchAlat()
+  }, [])
+
+  useEffect(() => {
+    const fetchFeeRules = async () => {
+      try {
+        const result = await window.api.getFeeRules(JENIS_TRANSAKSI)
+        setFeeRules(result || [])
+      } catch (error) {
+        console.error('❌ Gagal ambil aturan fee:', error)
+      }
+    }
+    fetchFeeRules()
+  }, [])
+
+  // Ambil rentang bonus untuk alat + jenis transaksi ini (Transfer).
+  useEffect(() => {
+    const fetchBonusRules = async () => {
+      if (!formData.alat_id) {
+        setAlatBonusRules([])
+        return
+      }
+      try {
+        const result = await window.api.getAlatBonusJenisRules({
+          alat_id: formData.alat_id,
+          jenis_transaksi: JENIS_TRANSAKSI
+        })
+        setAlatBonusRules(result || [])
+      } catch (error) {
+        console.error('❌ Gagal ambil aturan bonus alat:', error)
+      }
+    }
+    fetchBonusRules()
+  }, [formData.alat_id])
 
   useEffect(() => {
     setManualAdmin(false)
@@ -50,6 +104,22 @@ const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-
     }
   }, [formData.nominal_transaksi, manualFee])
 
+  // Auto-isi fee dari aturan fee admin (fee_rules), selama belum diubah manual oleh karyawan
+  useEffect(() => {
+    if (manualFee) return
+    const matched = findMatchingRule(feeRules, formData.nominal_transaksi)
+    onChange({ target: { name: 'fee', value: matched ? Number(matched.fee) : 0 } })
+    onChange({ target: { name: 'is_fee_manual', value: false } })
+  }, [formData.nominal_transaksi, feeRules, manualFee])
+
+  // Auto-isi bonus dari rentang bonus alat+jenis transaksi ini, selama belum diubah manual
+  useEffect(() => {
+    if (manualBonus) return
+    const matched = findMatchingRule(alatBonusRules, formData.nominal_transaksi)
+    onChange({ target: { name: 'bonus', value: matched ? Number(matched.bonus) : 0 } })
+    onChange({ target: { name: 'is_bonus_manual', value: false } })
+  }, [formData.nominal_transaksi, alatBonusRules, manualBonus])
+
   useEffect(() => {
     const nominal = parseFloat(formData.nominal_transaksi || 0)
     const admin = parseFloat(formData.biaya_admin || 0)
@@ -67,6 +137,28 @@ const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-
       onValidChange?.(true)
     }
   }, [formData.sumber_dana_id, formData.nominal_transaksi, formData.biaya_admin, sumberDanaList])
+
+  const handleFeeChange = (e) => {
+    setManualFee(true)
+    const numericFee = parseRupiahInput(e.target.value)
+    onChange({ target: { name: 'fee', value: numericFee } })
+    onChange({ target: { name: 'is_fee_manual', value: true } })
+  }
+
+  const handleAlatChange = (e) => {
+    const alatId = e.target.value
+    const alat = alatList.find((a) => String(a.id) === String(alatId))
+    onChange({ target: { name: 'alat_id', value: alatId } })
+    onChange({ target: { name: 'alat_nama', value: alat ? alat.nama_alat : '' } })
+    setManualBonus(false)
+  }
+
+  const handleBonusChange = (e) => {
+    setManualBonus(true)
+    const numericBonus = parseRupiahInput(e.target.value)
+    onChange({ target: { name: 'bonus', value: numericBonus } })
+    onChange({ target: { name: 'is_bonus_manual', value: true } })
+  }
 
   return (
     <>
@@ -92,7 +184,7 @@ const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-
       >
         Tanggal & Jam
       </InputField>
-      
+
       <InputField
         name="nama_pelanggan"
         type="text"
@@ -157,27 +249,14 @@ const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-
         required
       />
 
-      <InputField
-        name="fee"
-        type="text"
-        value={
-          formData.fee
-            ? new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-              }).format(formData.fee)
-            : ''
-        }
-        onChange={(e) => {
-          setManualFee(true)
-          const numericFee = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
-          onChange({ target: { name: 'fee', value: numericFee } })
-        }}
-      >
+      <InputField name="fee" type="text" value={formatRupiahDisplay(formData.fee)} onChange={handleFeeChange}>
         Biaya Jasa
       </InputField>
+      {formData.is_fee_manual && (
+        <div className="col-span-2 flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-md bg-yellow-100 text-yellow-800 border border-yellow-300">
+          ⚠️ Fee diisi manual oleh karyawan (berbeda dari aturan fee default)
+        </div>
+      )}
 
       <SelectItems
         options={sumberDanaList.map((item) => ({
@@ -194,25 +273,43 @@ const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-
       <InputField
         name="biaya_admin"
         type="text"
-        value={
-          formData.biaya_admin
-            ? new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-              }).format(formData.biaya_admin)
-            : ''
-        }
+        value={formatRupiahDisplay(formData.biaya_admin)}
         onChange={(e) => {
           setManualAdmin(true)
-          const numericAdmin = parseInt(e.target.value.replace(/[^\d]/g, ''), 10) || 0
+          const numericAdmin = parseRupiahInput(e.target.value)
           onChange({ target: { name: 'biaya_admin', value: numericAdmin } })
         }}
         required={false}
       >
         Biaya Admin
       </InputField>
+
+      <SelectItems
+        options={alatList.map((alat) => ({
+          label: alat.nama_alat,
+          value: alat.id
+        }))}
+        label="Alat yang Digunakan"
+        name="alat_id"
+        value={formData.alat_id || ''}
+        onChange={handleAlatChange}
+        required={false}
+      />
+
+      <InputField
+        name="bonus"
+        type="text"
+        value={formatRupiahDisplay(formData.bonus)}
+        onChange={handleBonusChange}
+        required={false}
+      >
+        Bonus Alat
+      </InputField>
+      {formData.is_bonus_manual && (
+        <div className="col-span-2 flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-md bg-yellow-100 text-yellow-800 border border-yellow-300">
+          ⚠️ Bonus diisi manual oleh karyawan (berbeda dari default alat)
+        </div>
+      )}
 
       <InputField
         name="keterangan"

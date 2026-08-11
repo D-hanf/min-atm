@@ -8,18 +8,20 @@ import { HalamanDetilToko, HalamanKelolaToko } from '../../pages/dashboard/kelol
 
 import { DashboardLayout } from '../layout'
 import { DashboardPage } from '../../pages/dashboard/home'
+import HalamanFeeAlat from '../../pages/dashboard/kelolaData/SaldoAwal/KelolaFeeAlat'
 import { HalamanProfile } from '../../pages/dashboard/profile'
 import HalamanSetting from '../../pages/dashboard/setting/HalamanSetting'
 import { HalamanTema } from '../../pages/dashboard/tema' // Import the theme page
 import { HalamanTransaksi } from '../../pages/dashboard/transaksi'
 import KelolaToko from '../../pages/dashboard/kelolaToko/KelolaToko'
 import Keuntungan from '../../pages/dashboard/laporan-keuangan/Keuntungan'
+import KoreksiTransaksi from '../../pages/dashboard/koreksi-transaksi'
 import LaporanAset from '../../pages/dashboard/transaksi/laporan-aset'
 import LaporanKeuangan from '../../pages/dashboard/laporan-keuangan'
 import LoginForm from '../../pages/Login'
 import React from 'react'
 import { Route } from 'react-router-dom'
-import SemuaTransaksi from '../../pages/dashboard/transaksi/semua-transaksi/index.jsx'
+import SemuaTransaksi from '../../pages/dashboard/semua-transaksi'
 
 // import ProtectedRoute from "./ProtectedRoute";
 
@@ -30,11 +32,13 @@ const DashboardRoutes = () => {
       <Route path="/dashboard" element={<DashboardLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="transaksi" element={<HalamanTransaksi />} />
-        <Route path="transaksi/semua-transaksi" element={<SemuaTransaksi />} />
+        <Route path="koreksi-transaksi" element={<KoreksiTransaksi />} />
+        <Route path="semua-transaksi" element={<SemuaTransaksi />} />
         <Route path="transaksi/laporan-aset" element={<LaporanAset />} />
         <Route path="pindah-saldo" element={<HalamanPindahSaldo />} />
         <Route path="ambil-saldo" element={<HalamanAmbilSaldo />} />
         <Route path="saldo-awal" element={<HalamanAwalSaldo />} />
+        <Route path="fee-alat" element={<HalamanFeeAlat />} />
         <Route path="hutang" element={<HalamanHutang />} />
         <Route path="laporan-keuangan" element={<LaporanKeuangan />} />
         <Route path="laporan-keuangan/keuntungan" element={<Keuntungan />} />

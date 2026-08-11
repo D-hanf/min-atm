@@ -1,10 +1,12 @@
 import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus } from 'react-icons/hi'
 import { IoMdPrint, IoMdSave } from 'react-icons/io'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import AdminRangeFilterBar from '../../../components/AdminRangeFilterBar'
 import AlertDialog from '../../../components/AlertDialog'
 import ButtonInput from '../../../components/ButtonInput'
 import ConfirmDialog from '../../../components/ConfirmDialog'
+import DataVisibilitySettings from '../../../components/DataVisibilitySettings'
 import Dropdown from '../../../components/Dropdown'
 import FinancialSummaryCards from '../../../components/FinancialSummaryCards'
 import FormLayout from './FormLayout'
@@ -17,6 +19,8 @@ import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAdminDateRange } from '../../../hooks/useAdminDateRange'
+import { useAuth } from '../../../context/AuthContext'
 import { useColumnSettings } from '../../../hooks/useColumnSettings'
 import { useLock } from '../../../context/LockContext'
 import { useTheme } from '../../../context/ThemeContext'
@@ -26,6 +30,7 @@ dayjs.extend(utc)
 dayjs.extend(timezone)
 
 const HalamanTransaksi = () => {
+  const { user } = useAuth()
   const { isDark } = useTheme()
   const { isColumnVisible } = useColumnSettings('transaksi')
   const [stores, setStore] = useState([])
@@ -43,28 +48,60 @@ const HalamanTransaksi = () => {
   const [showSaveOptionsDialog, setShowSaveOptionsDialog] = useState(false)
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [userRole, setUserRole] = useState(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'))
-    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
+  const userRole = user?.role?.toLowerCase() || 'kasir'
+  const isAdmin = userRole === 'admin'
+  const [visibilitySetting, setVisibilitySetting] = useState({ days: 1 })
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+  const [filterText, setFilterText] = useState('')
+
+  // Filter TableContent (jenis transaksi, sumber dana, terima dana, pembayar
+  // fee, tanggal, edited, manual override) dilacak lewat callback onXxxChange
+  // di bawah — MURNI buat notice informatif di AdminRangeFilterBar. Filter ini
+  // TIDAK memicu fetch ulang atau mengubah rentang tanggal chip; ia bekerja di
+  // dalam data yang sudah ke-load sesuai chip yang aktif (lihat penjelasan
+  // lengkap di useAdminDateRange.js).
+  const [activeSubFilters, setActiveSubFilters] = useState({
+    date: '',
+    jenisTransaksi: '',
+    sumberDana: '',
+    terimaDana: '',
+    pembayarFee: '',
+    edited: '',
+    manualOverride: ''
   })
+  const isFilteringActive = Object.values(activeSubFilters).some(Boolean)
+  const makeSubFilterHandler = (key) => (value) =>
+    setActiveSubFilters((prev) => ({ ...prev, [key]: value }))
+
+  const isSearchingActive = isAdmin && filterText.trim().length > 0
+
+  const {
+    rangePreset,
+    setRangePreset,
+    customFrom,
+    setCustomFrom,
+    customTo,
+    setCustomTo,
+    isReady: isRangeReady,
+    range
+  } = useAdminDateRange()
 
   const { isGloballyLocked, checkGlobalLock, lockGlobal } = useLock()
-  
+
   // State untuk melacak kasir yang print dan logic lock
-  const [isTransactionLocked, setIsTransactionLocked] = useState(() => {
-    const currentUser = JSON.parse(localStorage.getItem('user'))
+  const [isTransactionLocked, setIsTransactionLocked] = useState(false)
+  useEffect(() => {
+    if (!user) return
+
     const lockedKasirId = localStorage.getItem('locked_kasir_id')
-    
-    // Jika admin, tidak pernah lock
-    if (currentUser?.role?.toLowerCase() === 'admin') return false
-    
-    // Jika ada kasir yang terkunci dan ID sama dengan user saat ini
-    if (lockedKasirId && currentUser?.id && lockedKasirId === currentUser.id.toString()) {
-      return true
+
+    if (user.role?.toLowerCase() === 'admin') {
+      setIsTransactionLocked(false)
+      return
     }
-    
-    return false
-  })
+
+    setIsTransactionLocked(lockedKasirId === String(user.id))
+  }, [user])
 
   const [formData, setFormData] = useState({
     source: '',
@@ -73,21 +110,27 @@ const HalamanTransaksi = () => {
     dateUpdated: '',
     description: ''
   })
-  const [filterText, setFilterText] = useState('')
   const [selectedDate, setSelectedDate] = useState('26/12/2024')
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
   const toDbDateTime = (val) => {
     if (!val) return dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
-    if (val.includes(' ')) { if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(val)) return `${val}:00`; return val }
-    if (val.includes('T')) { const base = val.replace('T',' '); return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(base)?`${base}:00`:base }
+    if (val.includes(' ')) {
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(val)) return `${val}:00`
+      return val
+    }
+    if (val.includes('T')) {
+      const base = val.replace('T', ' ')
+      return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(base) ? `${base}:00` : base
+    }
     if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return `${val} 00:00:00`
     return val
   }
-  const toDisplayDateTime = (val) => (dayjs(val).isValid()? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'): val || '')
+  const toDisplayDateTime = (val) =>
+    dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : val || ''
 
   const [transactionFormData, setTransactionFormData] = useState({
-  tanggal: getNowDateTimeLocalWIB(),
+    tanggal: getNowDateTimeLocalWIB(),
     no_transaksi: '',
     sumber_dana: '',
     terima_dana_id: '',
@@ -97,11 +140,16 @@ const HalamanTransaksi = () => {
     nominal_transaksi: 0,
     fee: 0,
     metode_pembayaran: '',
-  biaya_admin: 0,
+    biaya_admin: 0,
     saldo_akhir: 0,
     keterangan: '',
     nama_pelanggan: '',
-    nomor_tujuan: ''
+    nomor_tujuan: '',
+    alat_id: '',
+    alat_nama: '',
+    is_fee_manual: false,
+    bonus: 0,
+    is_bonus_manual: false
   })
 
   const [financialSummary, setFinancialSummary] = useState({
@@ -126,7 +174,7 @@ const HalamanTransaksi = () => {
   useEffect(() => {
     fetchToko()
     fetchFundSources()
-    
+
     // Cek lock status saat komponen mount
     checkTransactionLock()
   }, [])
@@ -214,8 +262,22 @@ const HalamanTransaksi = () => {
   // ✅ Tambahan ambil data transaksi dari DB
   const fetchTransaksi = async () => {
     try {
-      const user = JSON.parse(localStorage.getItem('user'))
-      const data = await window.api.getTransaksi(user.role) // ⬅️ kirim role ke IPC
+      if (!user) return
+      // 🔒 Ambil setting visibilitas dulu, baru minta data ke backend dengan role
+      // asli + jumlah hari itu. Backend yang filter di SQL (pakai index), jadi
+      // kasir tidak lagi menarik+memformat SELURUH histori transaksi tiap buka
+      // halaman ini — itu penyebab utama lemot/freeze-nya halaman ini.
+      const visibility = await window.api?.getDataVisibilitySetting?.('transaksi')
+      const days = Number(visibility?.days) > 0 ? Number(visibility.days) : 1
+      setVisibilitySetting({ days })
+
+      // Admin: kirim rentang tanggal sesuai chip yang aktif ('all', atau
+      // sedang mencari/memfilter di tabel → from/to undefined, artinya tarik
+      // seluruh riwayat, supaya hasil pencarian/filter tidak pernah hilang
+      // gara-gara di luar jendela default). Kasir tetap seperti semula.
+      const { from, to } = isAdmin ? range : {}
+
+      const data = await window.api.getTransaksi(userRole, days, from || undefined, to || undefined)
 
       const formatted = data.map((item) => {
         const nominal = Number(item.nominal_transaksi || 0)
@@ -240,6 +302,7 @@ const HalamanTransaksi = () => {
             }
             break
           case 'jasa transfer':
+          case 'cek saldo':
             break
         }
 
@@ -247,20 +310,39 @@ const HalamanTransaksi = () => {
           final += fee
         }
 
+        // Susun keterangan perubahan manual (fee dan/atau bonus alat) — dipakai TableContent
+        // untuk menampilkan ikon info di kolom Aksi, bukan sebagai kolom terpisah.
+        const jamTransaksi = toDisplayDateTime(item.tanggal)
+        const manualParts = []
+        if (item.is_fee_manual) {
+          manualParts.push(`Fee diisi manual oleh ${item.user_name || 'kasir'} saat transaksi dibuat (${jamTransaksi} WIB).`)
+        }
+        if (item.is_bonus_manual) {
+          manualParts.push(`Bonus alat diisi manual oleh ${item.user_name || 'kasir'} saat transaksi dibuat (${jamTransaksi} WIB).`)
+        }
+
         return {
           id: item.id,
           tanggal: toDisplayDateTime(item.tanggal),
+          tanggal_raw: item.tanggal,
           no_transaksi: item.no_transaksi,
           sumber_dana: item.sumber_dana,
+          sumber_dana_id: item.sumber_dana_id ?? '',
           terima_dana_nama: item.terima_dana_nama || '-',
           jenis_transaksi: item.jenis_transaksi || '-',
           tipe_transaksi: item.tipe_transaksi || '-',
           saldo_awal: formatRupiah(saldoAwal),
-          terima_dana_id: item.terima_dana_id || '-',
+          terima_dana_id: item.terima_dana_id ?? '',
           nama_pelanggan: item.nama_pelanggan || '-',
           nomor_tujuan: item.nomor_tujuan || '-',
           nominal_transaksi: formatRupiah(nominal),
           fee: formatRupiah(fee),
+          alat_id: item.alat_id ?? '',
+          alat_nama: item.alat_nama || '-',
+          bonus: formatRupiah(Number(item.bonus || 0)),
+          is_fee_manual: !!item.is_fee_manual,
+          is_bonus_manual: !!item.is_bonus_manual,
+          manual_override_note: manualParts.join(' '),
           metode_pembayaran: Number(item.metode_pembayaran) || null,
           metode_pembayaran_nama: getNamaSumberDanaById(item.metode_pembayaran) || '-',
           biaya_admin: formatRupiah(adminBank),
@@ -275,15 +357,18 @@ const HalamanTransaksi = () => {
       setTransactions(formatted)
     } catch (error) {
       console.error('❌ Gagal ambil data transaksi:', error)
+    } finally {
+      setHasLoadedOnce(true)
     }
   }
 
   useEffect(() => {
     if (fundSources.length > 0) {
+      if (isAdmin && !isRangeReady) return
       fetchTransaksi()
       fetchFinancialSummary()
     }
-  }, [fundSources, userRole])
+  }, [fundSources, userRole, isAdmin, rangePreset, customFrom, customTo])
 
   const allTransactionColumns = [
     { key: 'tanggal', label: 'Tanggal' },
@@ -297,6 +382,8 @@ const HalamanTransaksi = () => {
     { key: 'saldo_awal', label: 'Saldo Awal' },
     { key: 'nominal_transaksi', label: 'Nominal' },
     { key: 'fee', label: 'Fee' },
+    { key: 'alat_nama', label: 'Alat' },
+    { key: 'bonus', label: 'Bonus Alat' },
     { key: 'biaya_admin', label: 'Adm Bank' },
     { key: 'saldo_akhir', label: 'Saldo Akhir' },
     { key: 'terima_dana_nama', label: 'Terima Dana' },
@@ -305,8 +392,16 @@ const HalamanTransaksi = () => {
   ]
 
   // Filter kolom berdasarkan setting
-  const transactionColumns = allTransactionColumns.filter(col => 
-    isColumnVisible(col.key)
+  const transactionColumns = allTransactionColumns.filter((col) => isColumnVisible(col.key))
+
+  // Daftar nama sumber dana APA ADANYA dari master data — selalu ditarik penuh
+  // (fetchFundSources tidak ikut dibatasi rentang tanggal), dipakai sebagai
+  // opsi dropdown "Sumber Dana"/"Terima Dana"/"Pembayar Fee" supaya opsinya
+  // tidak diam-diam hilang gara-gara transaksi yang memakainya kebetulan di
+  // luar rentang yang sedang aktif.
+  const sumberDanaOptions = useMemo(
+    () => [...new Set(fundSources.map((item) => item.nama_sumber_dana).filter(Boolean))],
+    [fundSources]
   )
 
   const handleDelete = (id) => {
@@ -346,16 +441,17 @@ const HalamanTransaksi = () => {
 
   const submitTransaction = async (data) => {
     try {
-      const storedUser = JSON.parse(localStorage.getItem('user'))
-      console.log('🔍 Stored user data:', storedUser) // Debug log
-      const normalized = { 
-        ...data, 
+      const normalized = {
+        ...data,
         tanggal: toDbDateTime(data.tanggal),
-        user_id: storedUser?.id || storedUser?.userId || '',
-        user_role: storedUser?.role || 'kasir',
-        user_name: storedUser?.name || storedUser?.username || storedUser?.fullName || 'System'
+        user_id: user?.id,
+        user_role: user?.role,
+        user_name: user?.nama || user?.name || user?.username || 'System'
       }
-      console.log('🔍 User info being sent:', { user_role: normalized.user_role, user_name: normalized.user_name }) // Debug log
+      console.log('🔍 User info being sent:', {
+        user_role: normalized.user_role,
+        user_name: normalized.user_name
+      }) // Debug log
       const newTransaction = await window.api.createTransaksi(normalized)
       // console.log('✅ Transaksi berhasil:', newTransaction)
 
@@ -382,7 +478,7 @@ const HalamanTransaksi = () => {
     if (!transactionToEdit) return
 
     const today = getTodayWIB()
-    const currentUser = JSON.parse(localStorage.getItem('user'))
+    const currentUser = user
     const currentUserId = currentUser?.id || currentUser?.userId || ''
     const currentUserRole = (currentUser?.role || 'kasir').toLowerCase()
 
@@ -400,19 +496,24 @@ const HalamanTransaksi = () => {
     // Pengecekan role dan user ID
     if (currentUserRole === 'kasir') {
       // Cek tanggal - kasir hanya bisa edit transaksi hari ini
-      if (toDisplayDateTime(transactionToEdit.tanggal).slice(0,10) !== today) {
+      if (toDisplayDateTime(transactionToEdit.tanggal).slice(0, 10) !== today) {
         setInfoMessage(
           'Kasir hanya bisa mengedit transaksi hari ini. Hubungi admin untuk mengubah data lama.'
         )
         setShowInfoDialog(true)
         return
       }
-      
+
       // Cek user ID atau nama - kasir hanya bisa edit transaksi milik sendiri
       const transactionUserRole = (transactionToEdit.user_role || '').toLowerCase()
-      const currentUserName = (currentUser?.nama || currentUser?.name || currentUser?.username || '').toLowerCase()
+      const currentUserName = (
+        currentUser?.nama ||
+        currentUser?.name ||
+        currentUser?.username ||
+        ''
+      ).toLowerCase()
       const transactionUserName = (transactionToEdit.user_name || '').toLowerCase()
-      
+
       // Cek apakah transaksi dibuat oleh admin
       if (transactionUserRole === 'admin' || transactionUserName.includes('admin')) {
         setInfoMessage(
@@ -421,11 +522,12 @@ const HalamanTransaksi = () => {
         setShowInfoDialog(true)
         return
       }
-      
+
       // Cek apakah transaksi milik user lain (ID ATAU nama harus cocok)
-      const isOwner = (transactionToEdit.user_id && transactionToEdit.user_id === currentUserId) || 
-                      (transactionUserName && transactionUserName === currentUserName)
-      
+      const isOwner =
+        (transactionToEdit.user_id && transactionToEdit.user_id === currentUserId) ||
+        (transactionUserName && transactionUserName === currentUserName)
+
       if (!isOwner && (transactionToEdit.user_id || transactionUserName)) {
         console.log('❌ Bukan pemilik transaksi:', {
           transactionUserId: transactionToEdit.user_id,
@@ -446,7 +548,7 @@ const HalamanTransaksi = () => {
     // Jika lolos, ubah format rupiah ke angka
     const cleanedData = {
       ...transactionToEdit,
-  saldo_awal: parseRupiah(transactionToEdit.saldo_awal),
+      saldo_awal: parseRupiah(transactionToEdit.saldo_awal),
       nominal_transaksi: parseRupiah(transactionToEdit.nominal_transaksi),
       fee: parseRupiah(transactionToEdit.fee),
       biaya_admin: parseRupiah(transactionToEdit.biaya_admin || transactionToEdit.biaya_admin_bank),
@@ -485,9 +587,13 @@ const HalamanTransaksi = () => {
     setEditingTransaction(null)
   }
 
+  // Data dari backend sudah difilter sesuai role + setting visibilitas
+  // (lihat fetchTransaksi), jadi tidak perlu dipotong ulang di sini.
   const filteredData = transactions
     .filter((item) =>
-      Object.values(item).some((val) => String(val).toLowerCase().includes(filterText.toLowerCase()))
+      Object.values(item).some((val) =>
+        String(val).toLowerCase().includes(filterText.toLowerCase())
+      )
     )
     .filter((item) => (showOnlyEdited ? !!item.is_edited : true))
   const printRef = useRef(null)
@@ -545,14 +651,11 @@ const HalamanTransaksi = () => {
       console.error('❌ Gagal simpan summary:', err)
     } finally {
       // Lock kasir setelah save (kecuali admin)
-      const currentUser = JSON.parse(localStorage.getItem('user'))
-      if (currentUser && currentUser.role !== 'admin') {
-        lockGlobal(currentUser.id)
-        console.log('🔒 Kasir terkunci setelah save:', currentUser.id)
-        // Trigger recheck untuk update UI
+      if (user && user.role?.toLowerCase() !== 'admin') {
+        lockGlobal(user.id)
         checkTransactionLock()
       }
-      
+
       setShowSaveOptionsDialog(false)
     }
   }
@@ -579,14 +682,11 @@ const HalamanTransaksi = () => {
       console.error('❌ Gagal simpan summary sebelum print:', err)
     } finally {
       // Lock kasir setelah print (kecuali admin)
-      const currentUser = JSON.parse(localStorage.getItem('user'))
-      if (currentUser && currentUser.role !== 'admin') {
-        lockGlobal(currentUser.id)
-        console.log('🔒 Kasir terkunci setelah print:', currentUser.id)
-        // Trigger recheck untuk update UI
+      if (user && user.role?.toLowerCase() !== 'admin') {
+        lockGlobal(user.id)
         checkTransactionLock()
       }
-      
+
       // Tetap lanjutkan proses print meski simpan gagal
       printSummaryOnly()
       setShowSaveOptionsDialog(false)
@@ -600,21 +700,22 @@ const HalamanTransaksi = () => {
   return (
     <PageContainer title="Transaksi">
       {isGloballyLocked && (
-        <div className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}>
+        <div
+          className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}
+        >
           <div className="flex items-center gap-2">
             <span className="text-lg">🔒</span>
             <div>
               <strong>Sistem Terkunci!</strong>
               <p className="text-sm mt-1">
-                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur terkunci kecuali logout dan ganti tema.
+                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur
+                terkunci kecuali logout dan ganti tema.
               </p>
             </div>
           </div>
         </div>
       )}
 
-
-      
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
@@ -623,18 +724,55 @@ const HalamanTransaksi = () => {
             </h1>
           </div>
           <div className="flex gap-6 max-w-xs">
-            <ButtonInput 
-              size="xs" 
-              color={isGloballyLocked ? 'gray' : 'indigo'} 
+            <ButtonInput
+              size="xs"
+              color={isGloballyLocked ? 'gray' : 'indigo'}
               onClick={isGloballyLocked ? undefined : handleShowSaveOptions}
               disabled={isGloballyLocked}
-              title={isGloballyLocked ? 'Sistem terkunci - kasir lain harus login untuk membuka' : ''}
+              title={
+                isGloballyLocked ? 'Sistem terkunci - kasir lain harus login untuk membuka' : ''
+              }
             >
               <IoMdSave size={20} />
               {isTransactionLocked ? 'Terkunci' : 'Simpan'}
             </ButtonInput>
           </div>
         </div>
+      </div>
+
+      <div className="px-4">
+        {isAdmin && (
+          <DataVisibilitySettings
+            pageKey="transaksi"
+            pageLabel="Transaksi"
+            onSaved={(setting) => setVisibilitySetting(setting)}
+          />
+        )}
+
+        {isAdmin && (
+          <AdminRangeFilterBar
+            rangePreset={rangePreset}
+            setRangePreset={setRangePreset}
+            customFrom={customFrom}
+            setCustomFrom={setCustomFrom}
+            customTo={customTo}
+            setCustomTo={setCustomTo}
+            filterNotice={
+              isSearchingActive
+                ? 'Mencari kata kunci — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                : isFilteringActive
+                  ? 'Filter tabel aktif — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                  : null
+            }
+            hasLoadedOnce={hasLoadedOnce}
+          />
+        )}
+
+        {!isAdmin && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+            Menampilkan data {visibilitySetting.days} hari terakhir (diatur oleh admin).
+          </div>
+        )}
       </div>
 
       <div ref={printRef} id="print-summary" className="hidden print:block">
@@ -661,15 +799,23 @@ const HalamanTransaksi = () => {
         <div
           className={`${isDark ? 'bg-yellow-900 border-yellow-800 text-yellow-200' : 'bg-yellow-100 border-yellow-300 text-yellow-800'} border px-4 py-3 rounded mb-4 mx-4 transition-all duration-300 ease-in-out`}
         >
-          <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowEmptyBalanceAlert(!showEmptyBalanceAlert)}>
+          <div
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setShowEmptyBalanceAlert(!showEmptyBalanceAlert)}
+          >
             <div>
-              <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya hampir habis/kosong
+              <strong>Perhatian:</strong> Ada {emptyBalances.length} sumber dana yang saldonya
+              hampir habis/kosong
             </div>
-            <button className={`ml-2 text-lg transform transition-transform duration-300 ${showEmptyBalanceAlert ? 'rotate-180' : 'rotate-0'}`}>
+            <button
+              className={`ml-2 text-lg transform transition-transform duration-300 ${showEmptyBalanceAlert ? 'rotate-180' : 'rotate-0'}`}
+            >
               ▼
             </button>
           </div>
-          <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showEmptyBalanceAlert ? 'max-h-96 opacity-100 mt-2' : 'max-h-0 opacity-0 mt-0'}`}>
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${showEmptyBalanceAlert ? 'max-h-96 opacity-100 mt-2' : 'max-h-0 opacity-0 mt-0'}`}
+          >
             <ul className="list-disc list-inside ml-4">
               {emptyBalances.map((item) => (
                 <li key={item.id}>{item.nama_sumber_dana}</li>
@@ -679,8 +825,6 @@ const HalamanTransaksi = () => {
         </div>
       )}
 
-
-
       <TableContent
         data={filteredData}
         columns={transactionColumns}
@@ -689,11 +833,22 @@ const HalamanTransaksi = () => {
         btnSize={'xs'}
         userRole={userRole}
         showJenisTransaksiFilter={true}
+        onJenisTransaksiChange={makeSubFilterHandler('jenisTransaksi')}
         showSumberDanaFilter={true}
+        onSumberDanaChange={makeSubFilterHandler('sumberDana')}
+        sumberDanaOptions={sumberDanaOptions}
         showTerimaDanaFilter={true}
+        onTerimaDanaChange={makeSubFilterHandler('terimaDana')}
+        terimaDanaOptions={sumberDanaOptions}
         showPembayarFeeFilter={true}
+        onPembayarFeeChange={makeSubFilterHandler('pembayarFee')}
+        pembayarFeeOptions={sumberDanaOptions}
         showDateFilter={true}
+        onDateChange={makeSubFilterHandler('date')}
         showEditedFilter={true}
+        onEditedFilterChange={makeSubFilterHandler('edited')}
+        showManualOverrideFilter={true}
+        onManualOverrideFilterChange={makeSubFilterHandler('manualOverride')}
         onDelete={isGloballyLocked ? null : handleDelete}
         onEdit={isGloballyLocked ? null : handleTransactionEdit}
         onAdd={
@@ -744,7 +899,7 @@ const HalamanTransaksi = () => {
           setFormData({ source: '', saldo: '', dateCreated: '', dateUpdated: '', description: '' })
         }}
       />
-      
+
       <SaveOptionsDialog
         isOpen={showSaveOptionsDialog}
         onClose={() => setShowSaveOptionsDialog(false)}

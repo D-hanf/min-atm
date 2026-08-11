@@ -4,15 +4,16 @@ import React, { useEffect, useState } from 'react'
 import AlertDialog from '../../../components/AlertDialog'
 import ButtonInput from '../../../components/ButtonInput'
 import PageContainer from '../../../components/PageContainer'
+import { useAuth } from '../../../context/AuthContext'
 import { useTheme } from '../../../context/ThemeContext'
 
 const HalamanSetting = () => {
   const { isDark } = useTheme()
-  
+
   // Cek role user
-  const currentUser = JSON.parse(localStorage.getItem('user'))
-  const isAdmin = currentUser?.role?.toLowerCase() === 'admin'
-  
+  const { user } = useAuth()
+  const isAdmin = user?.role?.toLowerCase() === 'admin'
+
   // Default column configurations for each page
   const defaultColumns = {
     transaksi: {
@@ -65,6 +66,34 @@ const HalamanSetting = () => {
       metode_pengambilan: { label: 'Metode Pengambilan', visible: true },
       tujuan_pengambilan: { label: 'Tujuan Pengambilan', visible: true },
       keterangan: { label: 'Keterangan', visible: true }
+    },
+    semuaTransaksi: {
+      tanggal: { label: 'Tanggal', visible: true },
+      tgl_bayar: { label: 'Tgl Bayar', visible: true },
+      oleh: { label: 'Oleh', visible: true },
+      jenis: { label: 'Jenis', visible: true },
+      nominal: { label: 'Nominal', visible: true },
+      fee: { label: 'Fee', visible: true },
+      alat_nama: { label: 'Alat', visible: true },
+      bonus: { label: 'Bonus Alat', visible: true },
+      biaya_admin: { label: 'Adm Bank', visible: true },
+      sumber_dana: { label: 'Sumber Dana', visible: true },
+      tujuan_dana: { label: 'Terima Dana', visible: true },
+      metode_pembayaran_nama: { label: 'Pembayaran Fee', visible: true }
+    },
+    koreksiTransaksi: {
+      tanggal: { label: 'Tanggal', visible: true },
+      tgl_bayar: { label: 'Tgl Bayar', visible: true },
+      oleh: { label: 'Oleh', visible: true },
+      jenis: { label: 'Jenis', visible: true },
+      nominal: { label: 'Nominal', visible: true },
+      fee: { label: 'Fee', visible: true },
+      alat_nama: { label: 'Alat', visible: true },
+      bonus: { label: 'Bonus Alat', visible: true },
+      biaya_admin: { label: 'Adm Bank', visible: true },
+      sumber_dana: { label: 'Sumber Dana', visible: true },
+      tujuan_dana: { label: 'Terima Dana', visible: true },
+      metode_pembayaran_nama: { label: 'Pembayaran Fee', visible: true }
     }
   }
 
@@ -79,7 +108,14 @@ const HalamanSetting = () => {
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings)
-        setColumnSettings(parsed)
+        // Merge per-halaman: kalau ada halaman/kolom baru (mis. baru ditambahkan di update ini)
+        // yang belum ada di localStorage lama, tetap dapat default 'visible: true' alih-alih
+        // hilang begitu saja karena localStorage user belum punya entry untuk itu.
+        const merged = { ...defaultColumns }
+        Object.keys(defaultColumns).forEach((pageKey) => {
+          merged[pageKey] = { ...defaultColumns[pageKey], ...(parsed[pageKey] || {}) }
+        })
+        setColumnSettings(merged)
       } catch (error) {
         console.error('Error parsing column settings:', error)
       }
@@ -89,14 +125,16 @@ const HalamanSetting = () => {
   // Save settings to localStorage
   const saveSettings = () => {
     console.log('💾 Saving column settings:', columnSettings)
-    
+
     localStorage.setItem('tableColumnSettings', JSON.stringify(columnSettings))
-    
+
     // Dispatch custom event to notify other components
-    window.dispatchEvent(new CustomEvent('columnSettingsChanged', { 
-      detail: columnSettings 
-    }))
-    
+    window.dispatchEvent(
+      new CustomEvent('columnSettingsChanged', {
+        detail: columnSettings
+      })
+    )
+
     console.log('✅ Column settings saved and event dispatched')
     setSuccessMessage('Pengaturan kolom berhasil disimpan! Perubahan akan langsung diterapkan.')
     setShowSuccessDialog(true)
@@ -104,7 +142,7 @@ const HalamanSetting = () => {
 
   // Toggle column visibility
   const toggleColumn = (page, columnKey) => {
-    setColumnSettings(prev => ({
+    setColumnSettings((prev) => ({
       ...prev,
       [page]: {
         ...prev[page],
@@ -120,19 +158,23 @@ const HalamanSetting = () => {
   const resetColumnsToDefault = () => {
     setColumnSettings(defaultColumns)
     localStorage.removeItem('tableColumnSettings')
-    window.dispatchEvent(new CustomEvent('columnSettingsChanged', { 
-      detail: defaultColumns 
-    }))
-    setSuccessMessage('Pengaturan kolom berhasil direset ke default! Semua kolom sekarang ditampilkan.')
+    window.dispatchEvent(
+      new CustomEvent('columnSettingsChanged', {
+        detail: defaultColumns
+      })
+    )
+    setSuccessMessage(
+      'Pengaturan kolom berhasil direset ke default! Semua kolom sekarang ditampilkan.'
+    )
     setShowSuccessDialog(true)
   }
 
-  const tabs = [
-    { key: 'columns', label: 'Kolom Tabel' }
-  ]
+  const tabs = [{ key: 'columns', label: 'Kolom Tabel' }]
 
   const pageOptions = [
     { key: 'transaksi', label: 'Transaksi' },
+    { key: 'semuaTransaksi', label: 'Semua Transaksi' },
+    { key: 'koreksiTransaksi', label: 'Koreksi Transaksi' },
     { key: 'pindahSaldo', label: 'Pindah Saldo' },
     { key: 'hutang', label: 'Hutang' },
     { key: 'ambilSaldo', label: 'Ambil Saldo' }
@@ -142,13 +184,13 @@ const HalamanSetting = () => {
 
   return (
     <PageContainer>
-      <div className={`p-6 ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} rounded-lg shadow-md`}>
+      <div
+        className={`p-6 ${isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} rounded-lg shadow-md`}
+      >
         {/* Header */}
         <div className="flex items-center gap-2 mb-6">
           <HiCog className="text-2xl text-blue-500" />
-          <h1 className="text-2xl font-bold">
-            Pengaturan Kolom Tabel
-          </h1>
+          <h1 className="text-2xl font-bold">Pengaturan Kolom Tabel</h1>
         </div>
 
         <p className={`mb-6 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
@@ -157,7 +199,7 @@ const HalamanSetting = () => {
 
         {/* Tabs */}
         <div className="flex border-b border-gray-300 mb-6">
-          {tabs.map(tab => (
+          {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
@@ -177,7 +219,7 @@ const HalamanSetting = () => {
           <div className="space-y-4 mb-8">
             {/* Page Selector for Columns */}
             <div className="flex gap-2 mb-4">
-              {pageOptions.map(page => (
+              {pageOptions.map((page) => (
                 <button
                   key={page.key}
                   onClick={() => setSelectedPage(page.key)}
@@ -191,19 +233,17 @@ const HalamanSetting = () => {
                 </button>
               ))}
             </div>
-            
+
             <h3 className="text-lg font-semibold mb-4">
-              Kolom untuk Halaman {pageOptions.find(p => p.key === selectedPage)?.label}
+              Kolom untuk Halaman {pageOptions.find((p) => p.key === selectedPage)?.label}
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(columnSettings[selectedPage] || {}).map(([columnKey, columnData]) => (
                 <div
                   key={columnKey}
                   className={`flex items-center justify-between p-3 rounded-lg border ${
-                    isDark 
-                      ? 'border-gray-600 bg-gray-700' 
-                      : 'border-gray-200 bg-gray-50'
+                    isDark ? 'border-gray-600 bg-gray-700' : 'border-gray-200 bg-gray-50'
                   }`}
                 >
                   <span className="font-medium">{columnData.label}</span>
@@ -227,8 +267,6 @@ const HalamanSetting = () => {
           </div>
         )}
 
-
-
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-4">
           <ButtonInput
@@ -237,7 +275,7 @@ const HalamanSetting = () => {
           >
             Simpan Pengaturan
           </ButtonInput>
-          
+
           <ButtonInput
             onClick={resetColumnsToDefault}
             className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2"
@@ -247,13 +285,14 @@ const HalamanSetting = () => {
         </div>
 
         {/* Info */}
-        <div className={`mt-6 p-4 rounded-lg ${isDark ? 'bg-blue-900/20 border-blue-500/30' : 'bg-blue-50 border-blue-200'} border`}>
+        <div
+          className={`mt-6 p-4 rounded-lg ${isDark ? 'bg-blue-900/20 border-blue-500/30' : 'bg-blue-50 border-blue-200'} border`}
+        >
           <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-600'}`}>
-            💡 <strong>Tips:</strong> 
-            {activeTab === 'columns' 
+            💡 <strong>Tips:</strong>
+            {activeTab === 'columns'
               ? 'Kolom yang disembunyikan tidak akan muncul di tabel, namun data tetap tersimpan.'
-              : 'Pengaturan lock akan membatasi akses karyawan sesuai dengan aturan yang ditetapkan admin.'
-            }
+              : 'Pengaturan lock akan membatasi akses karyawan sesuai dengan aturan yang ditetapkan admin.'}
           </p>
         </div>
       </div>

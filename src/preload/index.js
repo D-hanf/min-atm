@@ -19,7 +19,7 @@ const api = {
   deleteSaldoAwal: (id) => ipcRenderer.invoke('delete-saldo-awal', id),
 
   // hutang
-  getHutang: (params) => ipcRenderer.invoke('get-hutang', params),
+  getHutang: (role, days, dateFrom, dateTo) => ipcRenderer.invoke('get-hutang', role, days, dateFrom, dateTo),
   createHutang: (data) => ipcRenderer.invoke('create-hutang', data),
   updateHutang: (data) => ipcRenderer.invoke('update-hutang', data),
   deleteHutang: (id) => ipcRenderer.invoke('delete-hutang', id),
@@ -31,7 +31,7 @@ const api = {
   getSummaryLog: () => ipcRenderer.invoke('getSummaryLog'),
   
   // pindah saldo
-  getPindahSaldo: (params) => ipcRenderer.invoke('get-pindah-saldo', params),
+  getPindahSaldo: (role, days, dateFrom, dateTo) => ipcRenderer.invoke('get-pindah-saldo', role, days, dateFrom, dateTo),
   createPindahSaldo: (data) => ipcRenderer.invoke('create-pindah-saldo', data),
   updatePindahSaldo: (data) => ipcRenderer.invoke('update-pindah-saldo', data),
   deletePindahSaldo: (id) => ipcRenderer.invoke('delete-pindah-saldo', id),
@@ -39,12 +39,16 @@ const api = {
   // laporan keuangan
   getLaporanKeuangan: (role) => ipcRenderer.invoke('get-laporan-keuangan', role),
 
+  // setting visibilitas data untuk kasir (N hari ke belakang dari hari ini), PER HALAMAN
+  getDataVisibilitySetting: (pageKey) => ipcRenderer.invoke('get-data-visibility-setting', pageKey),
+  saveDataVisibilitySetting: (payload) => ipcRenderer.invoke('save-data-visibility-setting', payload),
+
   // snapshot saldo awal
   getSnapshotSaldoAwal: (params) => ipcRenderer.invoke('get-snapshot-saldo-awal', params),
   saveSnapshotSaldoAwal: (periodeManual) => ipcRenderer.invoke('save-snapshot-saldo-awal', periodeManual),
 
   // ambil saldo - make sure these are correctly defined
-  getAmbilSaldo: (params) => ipcRenderer.invoke('get-ambil-saldo', params),
+  getAmbilSaldo: (role, days, dateFrom, dateTo) => ipcRenderer.invoke('get-ambil-saldo', role, days, dateFrom, dateTo),
   createAmbilSaldo: (data) => ipcRenderer.invoke('create-ambil-saldo', data),
   updateAmbilSaldo: (data) => ipcRenderer.invoke('update-ambil-saldo', data),
   deleteAmbilSaldo: (id) => ipcRenderer.invoke('delete-ambil-saldo', id),
@@ -68,11 +72,41 @@ const api = {
   loginUser: (credentials) => ipcRenderer.invoke('login-user', credentials),
 
   // transaksi
-  getTransaksi: (role) => ipcRenderer.invoke('get-transaksi', role),
+  getTransaksi: (role, days, dateFrom, dateTo) => ipcRenderer.invoke('get-transaksi', role, days, dateFrom, dateTo),
   createTransaksi: (data) => ipcRenderer.invoke('create-transaksi', data),
   editTransaksi: (data) => ipcRenderer.invoke('edit-transaksi', data),
   deleteTransaksi: (id) => ipcRenderer.invoke('delete-transaksi', id),
   getTransaksiSummary: (role) => ipcRenderer.invoke('get-transaksi-summary', role),
+
+  // tandai salah (koreksi transaksi)
+  markSalah: (payload) => ipcRenderer.invoke('mark-salah', payload),
+  unmarkSalah: (payload) => ipcRenderer.invoke('unmark-salah', payload),
+
+  // tandai benar/sesuai (koreksi transaksi)
+  markBenar: (payload) => ipcRenderer.invoke('mark-benar', payload),
+  unmarkBenar: (payload) => ipcRenderer.invoke('unmark-benar', payload),
+
+  // pengaturan fee berjenjang per jenis transaksi
+  getFeeRules: (jenisTransaksi) => ipcRenderer.invoke('getFeeRules', jenisTransaksi),
+  createFeeRule: (data) => ipcRenderer.invoke('createFeeRule', data),
+  updateFeeRule: (data) => ipcRenderer.invoke('updateFeeRule', data),
+  deleteFeeRule: (id) => ipcRenderer.invoke('deleteFeeRule', id),
+
+  // pengaturan alat & bonus berjenjang per alat
+  getAlat: () => ipcRenderer.invoke('getAlat'),
+  createAlat: (data) => ipcRenderer.invoke('createAlat', data),
+  updateAlat: (data) => ipcRenderer.invoke('updateAlat', data),
+  deleteAlat: (id) => ipcRenderer.invoke('deleteAlat', id),
+  getAlatBonusRules: (alatId) => ipcRenderer.invoke('getAlatBonusRules', alatId),
+  createAlatBonusRule: (data) => ipcRenderer.invoke('createAlatBonusRule', data),
+  updateAlatBonusRule: (data) => ipcRenderer.invoke('updateAlatBonusRule', data),
+  deleteAlatBonusRule: (id) => ipcRenderer.invoke('deleteAlatBonusRule', id),
+
+  // bonus berjenjang per alat + per jenis transaksi
+  getAlatBonusJenisRules: (filter) => ipcRenderer.invoke('getAlatBonusJenisRules', filter),
+  createAlatBonusJenisRule: (data) => ipcRenderer.invoke('createAlatBonusJenisRule', data),
+  updateAlatBonusJenisRule: (data) => ipcRenderer.invoke('updateAlatBonusJenisRule', data),
+  deleteAlatBonusJenisRule: (id) => ipcRenderer.invoke('deleteAlatBonusJenisRule', id),
 
   // asset snapshots
   getAssetSnapshots: () => ipcRenderer.invoke('get-asset-snapshots'),

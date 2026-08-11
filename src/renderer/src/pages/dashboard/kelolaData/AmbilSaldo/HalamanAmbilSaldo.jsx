@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
+import AdminRangeFilterBar from '../../../../components/AdminRangeFilterBar'
 import AlertDialog from '../../../../components/AlertDialog'
 import ButtonInput from '../../../../components/ButtonInput'
 import ConfirmDialog from '../../../../components/ConfirmDialog'
+import DataVisibilitySettings from '../../../../components/DataVisibilitySettings'
 import Dropdown from '../../../../components/Dropdown'
 import FormLayout from './FormLayout'
 import InputField from '../../../../components/InputField'
@@ -11,9 +13,11 @@ import SearchField from '../../../../components/SearchField'
 import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
-import { useTheme } from '../../../../context/ThemeContext'
-import { useLock } from '../../../../context/LockContext'
+import { useAdminDateRange } from '../../../../hooks/useAdminDateRange'
+import { useAuth } from '../../../../context/AuthContext'
 import { useColumnSettings } from '../../../../hooks/useColumnSettings'
+import { useLock } from '../../../../context/LockContext'
+import { useTheme } from '../../../../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
 
 dayjs.extend(utc)
@@ -31,11 +35,11 @@ const HalamanAmbilSaldo = () => {
   const [modalOpen, setModalOpen] = useState(false)
 
   const [users, setUsers] = useState([])
-  const [loggedInUser, setLoggedInUser] = useState(null)
-  const [userRole, setUserRole] = useState(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'))
-    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
-  })
+  const { user: loggedInUser } = useAuth()
+
+  const userRole = loggedInUser?.role?.toLowerCase() || 'kasir'
+  const isAdmin = userRole === 'admin'
+  const [visibilitySetting, setVisibilitySetting] = useState({ days: 1 })
 
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
@@ -45,9 +49,7 @@ const HalamanAmbilSaldo = () => {
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
   const toDateOnly = (val) =>
-    dayjs(val).isValid()
-      ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD')
-      : ''
+    dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD') : ''
   const toInputDateTimeLocal = (val) => {
     if (!val) return getNowDateTimeLocalWIB()
     return dayjs(val).isValid()
@@ -70,7 +72,7 @@ const HalamanAmbilSaldo = () => {
 
   const [formData, setFormData] = useState({
     id: null,
-    petugas_pengambil_id: 1,
+    petugas_pengambil_id: loggedInUser?.id ?? '',
     platform: '',
     saldo_platform: '',
     nominal_pengambilan: '',
@@ -83,7 +85,26 @@ const HalamanAmbilSaldo = () => {
   const [filterText, setFilterText] = useState('')
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [selectedPlatform, setSelectedPlatform] = useState(null)
+
+  // Filter sumber dana/pencarian di tabel dilacak MURNI buat notice informatif
+  // di AdminRangeFilterBar — TIDAK memicu fetch ulang atau mengubah rentang.
+  // Filter bekerja di dalam data yang sudah ke-load sesuai chip yang aktif.
+  const [activeSumberDanaFilter, setActiveSumberDanaFilter] = useState('')
+  const isSearchingActive = isAdmin && filterText.trim().length > 0
+  const isFilteringActive = isAdmin && Boolean(activeSumberDanaFilter)
+
+  const {
+    rangePreset,
+    setRangePreset,
+    customFrom,
+    setCustomFrom,
+    customTo,
+    setCustomTo,
+    isReady: isRangeReady,
+    range
+  } = useAdminDateRange()
 
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -121,38 +142,40 @@ const HalamanAmbilSaldo = () => {
 
   const fetchAmbilSaldo = async () => {
     try {
-      const result = await window.api?.getAmbilSaldo(userRole)
+      // 🔒 Ambil setting visibilitas dulu, baru minta data ke backend dengan role
+      // asli + jumlah hari itu. Backend yang filter di SQL (pakai index).
+      const visibility = await window.api?.getDataVisibilitySetting?.('ambil-saldo')
+      const days = Number(visibility?.days) > 0 ? Number(visibility.days) : 1
+      setVisibilitySetting({ days })
 
-      let filtered = result
+      // Admin: rentang sesuai chip yang dipilih ('all' → from/to undefined,
+      // artinya seluruh histori — pilihan sadar admin lewat chip). Filter tabel
+      // (sumber dana/pencarian) TIDAK mengubah rentang ini. Kasir: tidak
+      // terpengaruh sama sekali, tetap dibatasi `days`.
+      const { from, to } = isAdmin ? range : {}
+
+      const result = await window.api?.getAmbilSaldo(userRole, days, from || undefined, to || undefined)
       console.log('📊 Data ambil saldo:', result)
-      if (userRole.toLowerCase() === 'kasir') {
-        const today = getTodayWIB()
-        filtered = result.filter((item) => toDateOnly(item.tanggal_pengambilan) === today)
-      }
-
-      setAmbilSaldo(filtered)
+      setAmbilSaldo(result || [])
     } catch (error) {
       console.error('❌ Gagal ambil data ambil saldo:', error)
+    } finally {
+      setHasLoadedOnce(true)
     }
   }
 
   useEffect(() => {
-    const userString = localStorage.getItem('user')
-    if (userString) {
-      const user = JSON.parse(userString)
-      setLoggedInUser(user)
-      setUserRole(user.role.toLowerCase())
-    }
     fetchSaldoAwal()
     fetchUsers()
   }, [])
 
   useEffect(() => {
     if (userRole) {
+      if (isAdmin && !isRangeReady) return
       console.log('🧪 Role terdeteksi:', userRole)
       fetchAmbilSaldo()
     }
-  }, [userRole])
+  }, [userRole, isAdmin, rangePreset, customFrom, customTo])
 
   // Handle platform selection in edit mode
   const handlePlatformChange = (selectedPlatformName) => {
@@ -182,7 +205,7 @@ const HalamanAmbilSaldo = () => {
     try {
       // Process form data for database
       const newAmbilSaldo = {
-        petugas_pengambil_id: parseInt(formData.user_id || 1), // Default to 1 if not provided
+        petugas_pengambil_id: Number(formData.user_id), // Default to 1 if not provided
         platform: formData.platform,
         saldo_platform: parseFloat(formData.currentBalance?.replace(/[^0-9]/g, '') || 0),
         nominal_pengambilan: parseFloat(formData.amount?.replace(/[^0-9]/g, '') || 0),
@@ -243,7 +266,7 @@ const HalamanAmbilSaldo = () => {
 
     const itemDate = dayjs(itemToEdit.tanggal_pengambilan).format('YYYY-MM-DD')
     const today = getTodayWIB()
-    const currentUser = JSON.parse(localStorage.getItem('user'))
+    const currentUser = loggedInUser
     const currentUserId = currentUser?.id || currentUser?.userId || ''
     const currentUserRole = (currentUser?.role || 'kasir').toLowerCase()
 
@@ -265,11 +288,16 @@ const HalamanAmbilSaldo = () => {
         setShowAlertDialog(true)
         return
       }
-      
+
       // Cek user ID atau nama - kasir hanya bisa edit data milik sendiri
-      const currentUserName = (currentUser?.nama || currentUser?.name || currentUser?.username || '').toLowerCase()
+      const currentUserName = (
+        currentUser?.nama ||
+        currentUser?.name ||
+        currentUser?.username ||
+        ''
+      ).toLowerCase()
       const itemUserName = (itemToEdit.user_name || '').toLowerCase()
-      
+
       // Cek apakah data dibuat oleh admin
       if (itemUserName.includes('admin')) {
         setInfoMessage(
@@ -278,11 +306,12 @@ const HalamanAmbilSaldo = () => {
         setShowInfoDialog(true)
         return
       }
-      
+
       // Cek apakah data milik user lain (ID ATAU nama harus cocok)
-      const isOwner = (itemToEdit.user_id && itemToEdit.user_id === currentUserId) || 
-                      (itemUserName && itemUserName === currentUserName)
-      
+      const isOwner =
+        (itemToEdit.user_id && itemToEdit.user_id === currentUserId) ||
+        (itemUserName && itemUserName === currentUserName)
+
       if (!isOwner && (itemToEdit.user_id || itemUserName)) {
         setInfoMessage(
           `Anda tidak dapat mengedit data ambil saldo yang dibuat oleh karyawan lain. (Dibuat oleh: ${itemToEdit.user_name || 'Unknown'})`
@@ -338,8 +367,8 @@ const HalamanAmbilSaldo = () => {
 
   const handleSubmitEdit = async () => {
     try {
-  // Normalize to full WIB timestamp for DB
-  const formattedDate = toDbDateTime(formData.tanggal_pengambilan)
+      // Normalize to full WIB timestamp for DB
+      const formattedDate = toDbDateTime(formData.tanggal_pengambilan)
 
       console.log('📅 Date before submission:', formData.tanggal_pengambilan)
       console.log('📅 Formatted date for submission:', formattedDate)
@@ -358,7 +387,7 @@ const HalamanAmbilSaldo = () => {
         biaya_admin: parseFloat(numericBiayaAdmin) || 0,
         metode_pengambilan: formData.metode_pengambilan,
         tujuan_pengambilan: formData.tujuan_pengambilan,
-  tanggal_pengambilan: formattedDate, // Store full datetime
+        tanggal_pengambilan: formattedDate, // Store full datetime
         keterangan: formData.keterangan
       }
 
@@ -377,14 +406,9 @@ const HalamanAmbilSaldo = () => {
   }
 
   // Process data for display - don't add the index field
+  // Data dari backend sudah difilter sesuai role + setting visibilitas
+  // (lihat fetchAmbilSaldo), jadi tidak perlu dipotong ulang di sini.
   const filteredData = ambilSaldo
-    .filter((item) => {
-      // (Redundant with fetchAmbilSaldo role filter, but keep safe normalization)
-      if (userRole.toLowerCase() === 'kasir') {
-        return toDateOnly(item.tanggal_pengambilan) === getTodayWIB()
-      }
-      return true
-    })
     .filter((item) =>
       Object.values(item).some((val) =>
         String(val).toLowerCase().includes(filterText.toLowerCase())
@@ -400,7 +424,9 @@ const HalamanAmbilSaldo = () => {
       }
       return {
         ...item,
-  tanggal_pengambilan: dayjs(item.tanggal_pengambilan).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm'),
+        tanggal_pengambilan: dayjs(item.tanggal_pengambilan)
+          .tz('Asia/Jakarta')
+          .format('YYYY-MM-DD HH:mm'),
         petugas_pengambil_id: petugasName,
         saldo_platform: formatRupiah(item.saldo_platform),
         nominal_pengambilan: formatRupiah(item.nominal_pengambilan),
@@ -421,23 +447,35 @@ const HalamanAmbilSaldo = () => {
   ]
 
   // Filter kolom berdasarkan setting
-  const columns = allColumns.filter(col => isColumnVisible(col.key))
+  const columns = allColumns.filter((col) => isColumnVisible(col.key))
+
+  // Daftar nama sumber dana APA ADANYA dari master data — selalu ditarik penuh
+  // (fetchSaldoAwal tidak ikut dibatasi rentang tanggal), dipakai sebagai opsi
+  // dropdown filter supaya opsinya tidak diam-diam hilang gara-gara transaksi
+  // yang memakainya kebetulan di luar rentang yang sedang aktif.
+  const sumberDanaOptions = useMemo(
+    () => [...new Set(saldoAwalOptions.map((item) => item.nama_sumber_dana).filter(Boolean))],
+    [saldoAwalOptions]
+  )
   return (
     <>
       {isGloballyLocked && (
-        <div className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}>
+        <div
+          className={`${isDark ? 'bg-red-900 border-red-800 text-red-200' : 'bg-red-100 border-red-300 text-red-800'} border px-4 py-3 rounded mb-4 mx-4`}
+        >
           <div className="flex items-center gap-2">
             <span className="text-lg">🔒</span>
             <div>
               <strong>Sistem Terkunci!</strong>
               <p className="text-sm mt-1">
-                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur terkunci kecuali logout dan ganti tema.
+                Kasir ID {localStorage.getItem('locked_kasir_id')} telah menyimpan data. Semua fitur
+                terkunci kecuali logout dan ganti tema.
               </p>
             </div>
           </div>
         </div>
       )}
-      
+
       <div className="flex w-full gap-4 items-center mb-6">
         <div className="flex w-full gap-4 items-center p-4">
           <div className="flex items-center">
@@ -456,28 +494,67 @@ const HalamanAmbilSaldo = () => {
         </div>
       </div>
 
+      <div className="px-4">
+        {isAdmin && (
+          <DataVisibilitySettings
+            pageKey="ambil-saldo"
+            pageLabel="Ambil Saldo"
+            onSaved={(setting) => setVisibilitySetting(setting)}
+          />
+        )}
+
+        {isAdmin && (
+          <AdminRangeFilterBar
+            rangePreset={rangePreset}
+            setRangePreset={setRangePreset}
+            customFrom={customFrom}
+            setCustomFrom={setCustomFrom}
+            customTo={customTo}
+            setCustomTo={setCustomTo}
+            filterNotice={
+              isSearchingActive
+                ? 'Mencari kata kunci — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                : isFilteringActive
+                  ? 'Filter tabel aktif — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                  : null
+            }
+            isLoading={isLoading}
+            hasLoadedOnce={hasLoadedOnce}
+          />
+        )}
+
+        {!isAdmin && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+            Menampilkan data {visibilitySetting.days} hari terakhir (diatur oleh admin).
+          </div>
+        )}
+      </div>
+
       <div>
-      
-         <TableContent
-              searchValue={filterText}
-              showSumberDanaFilter={true}
-              onSearchChange={setFilterText}
-              btnSize={'xs'}
-              data={filteredData}
-              showDateFilter={true}
-              userRole={userRole}
-              title={'Data Ambil Saldo'}
-              columns={columns}
-              onDelete={isGloballyLocked ? null : handleDelete}
-              onEdit={isGloballyLocked ? null : handleEdit}
-              rowPerPage={10}
-              onAdd={isGloballyLocked ? null : (
-                <FormLayout
-                  onSubmit={handleAddAmbilSaldo}
-                  buttonText="Tambah Ambil Saldo"
-                ></FormLayout>
-              )}
-            />
+        <TableContent
+          searchValue={filterText}
+          showSumberDanaFilter={true}
+          onSumberDanaChange={setActiveSumberDanaFilter}
+          sumberDanaOptions={sumberDanaOptions}
+          onSearchChange={setFilterText}
+          btnSize={'xs'}
+          data={filteredData}
+          showDateFilter={true}
+          userRole={userRole}
+          title={'Data Ambil Saldo'}
+          columns={columns}
+          onDelete={isGloballyLocked ? null : handleDelete}
+          onEdit={isGloballyLocked ? null : handleEdit}
+          rowPerPage={10}
+          onAdd={
+            isGloballyLocked ? null : (
+              <FormLayout
+                onSubmit={handleAddAmbilSaldo}
+                buttonText="Tambah Ambil Saldo"
+              ></FormLayout>
+            )
+          }
+        />
       </div>
 
       <ConfirmDialog

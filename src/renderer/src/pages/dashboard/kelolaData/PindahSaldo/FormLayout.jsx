@@ -8,6 +8,7 @@ import Modal from '../../../../shared/ui/Modal'
 import SelectItems from '../../../../components/SelectItems'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import {useAuth} from '../../../../context/AuthContext'
 import { useTheme } from '../../../../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
 
@@ -23,7 +24,7 @@ const FormLayout = ({
   const [modalOpen, setModalOpen] = useState(false)
   const [formData, setFormData] = useState(initialData)
   const [saldoData, setSaldoData] = useState([])
-  const [loggedInUser, setLoggedInUser] = useState(null)
+  const {user: loggedInUser} = useAuth()
 
   const [platformSourceOptions, setPlatformSourceOptions] = useState('')
   const [platformDestinationOptions, setPlatformDestinationOptions] = useState('')
@@ -52,14 +53,6 @@ const FormLayout = ({
     if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return `${val} 00:00:00`
     return val
   }
-
-  useEffect(() => {
-    const userString = localStorage.getItem('user')
-    if (userString) {
-      const user = JSON.parse(userString)
-      setLoggedInUser(user)
-    }
-  }, [])
 
   const formatBalanceDisplay = (value) => {
     if (value === null || value === undefined) return 'Tidak ada Saldo'
@@ -107,7 +100,7 @@ const FormLayout = ({
       setFormData((prevData) => ({
         ...prevData,
         user: loggedInUser?.username || loggedInUser?.nama || 'User ID: ' + loggedInUser?.id,
-        user_id: loggedInUser?.id || 1,
+        user_id: loggedInUser?.id || '',
   tanggal: getNowDateTimeLocalWIB() // default datetime (local WIB)
       }))
     }
@@ -243,7 +236,7 @@ const FormLayout = ({
       receiverBalanceId: selectedDestSaldo?.id,
       amount: formData.amountRaw || extractNumeric(formData.amount),
       operational: formData.operationalRaw || extractNumeric(formData.operational),
-      user_id: loggedInUser?.id || 1,
+      user_id: loggedInUser?.id,
       tanggal: toDbDateTime(formData.tanggal)
     }
 

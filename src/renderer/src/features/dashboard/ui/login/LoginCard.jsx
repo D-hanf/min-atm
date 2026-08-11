@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 
 import ButtonInput from '../../../../components/ButtonInput'
 import InputField from '../../../../components/InputField'
+import { useAuth } from '../../../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../../../context/ThemeContext'
 
@@ -11,6 +12,7 @@ const LoginCard = () => {
   const [error, setError] = useState('')
   const navigate = useNavigate()
   const { isDark } = useTheme()
+  const { login } = useAuth()
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -20,7 +22,7 @@ const LoginCard = () => {
 
       if (result.success) {
         const user = result.user
-        localStorage.setItem('user', JSON.stringify(user))
+        login(user)
         
         // Reset kasir lock jika user yang login berbeda dengan yang terkunci
         const lockedKasirId = localStorage.getItem('locked_kasir_id')

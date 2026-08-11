@@ -2,11 +2,14 @@ import {
   HiOutlineArrowLeftEndOnRectangle,
   HiOutlineBars4,
   HiOutlineChevronDoubleLeft,
+  HiOutlineChevronDown,
+  HiOutlineCircleStack,
   HiOutlineCog,
   HiOutlineCube,
   HiOutlineHome,
   HiOutlineShoppingBag,
-  HiOutlineSwatch
+  HiOutlineSwatch,
+  HiOutlineViewColumns
 } from 'react-icons/hi2'
 import { Link, useLocation } from 'react-router-dom'
 import React, { useEffect, useState } from 'react'
@@ -15,10 +18,12 @@ import { AiOutlineShop } from 'react-icons/ai'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { PiMoneyLight } from 'react-icons/pi'
 import { TbReportMoney } from 'react-icons/tb'
+import { useAuth } from '../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../../context/ThemeContext'
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const currentLocation = location.pathname
@@ -32,8 +37,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     if (!hoveringSidebar) setOpenSubmenu(null)
   }, [hoveringSidebar])
 
-  const user = JSON.parse(localStorage.getItem('user'))
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.role?.toLowerCase() === 'admin'
 
   const toggleSubmenu = (index) => {
     if (isOpen) {
@@ -47,10 +51,10 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('user')
-    navigate('/')
-  }
+const handleLogout = () => {
+    logout()
+    navigate("/")
+}
 
   const navigations = [
     {
@@ -71,10 +75,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           to: '/dashboard/transaksi'
         },
         {
-          label: "Semua transaksi",
-          icon: <HiOutlineShoppingBag size={18} />,
-          to: '/dashboard/transaksi/semua-transaksi'
+          label: "Koreksi transaksi",
+          icon: <HiOutlineCircleStack size={18} />,
+          to: '/dashboard/koreksi-transaksi'
         },
+        {
+          label: "Semua transaksi",
+          icon: <HiOutlineViewColumns size={18} />,
+          to: '/dashboard/semua-transaksi'
+        },
+        
         {
           label: 'Kelola Data',
           icon: <HiOutlineCube size={18} />,
@@ -83,7 +93,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             { label: 'Pindah Saldo', to: '/dashboard/pindah-saldo' },
             { label: 'Ambil Saldo', to: '/dashboard/ambil-saldo' },
             { label: 'Hutang', to: '/dashboard/hutang' },
-            ...(isAdmin ? [{ label: 'Saldo Awal', to: '/dashboard/saldo-awal' }] : [])
+            ...(isAdmin ? [{ label: 'Saldo Awal', to: '/dashboard/saldo-awal' }] : []),
+            ...(isAdmin ? [{ label: 'Fee & Alat', to: '/dashboard/fee-alat' }] : [])
           ]
         },
         ...(isAdmin
@@ -179,9 +190,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </div>
           {isOpen && (
             <div className="select-none">
-              <p className={`font-medium text-sm ${isDark ? 'text-white' : ''}`}>{user.nama}</p>
-              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-zinc-500'}`}>{user.role}</p>
-              {user.role === 'admin' && (
+              <p className={`font-medium text-sm ${isDark ? 'text-white' : ''}`}>{user?.nama}</p>
+              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-zinc-500'}`}>{user?.role}</p>
+              {isAdmin && (
                 <Link
                   to="/dashboard/profile"
                   className="mt-1 block text-blue-600 hover:underline text-xs"
@@ -193,7 +204,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           )}
         </div>
 
-        <div className="flex-1 py-6 px-5">
+        <div
+          className={`flex-1 min-h-0 py-4 px-5 ${
+            isOpen ? 'overflow-y-auto overflow-x-hidden' : 'overflow-visible'
+          }`}
+        >
           {navigations.map((section, iSection) => (
             <div key={iSection} className={iSection > 0 ? 'mt-6' : ''}>
               {isOpen && (
@@ -215,8 +230,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                       <>
                         <button
                           onClick={() => toggleSubmenu(`${iSection}-${iItem}`)}
-                          className={`flex items-center gap-x-3 w-full p-2.5 rounded-md
-                          transition-colors duration-200
+                          className={`flex items-center w-full p-2.5 rounded-md
+                          transition-all duration-300
+                          ${isOpen ? 'gap-x-3' : 'gap-x-0 justify-center'}
                           ${
                             isDark
                               ? 'hover:bg-gray-700 text-gray-300'
@@ -228,11 +244,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                             {item.icon}
                           </span>
                           <span
-                            className={`transition-all duration-300 ease-in-out
-                            ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
+                            className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out
+                            ${isOpen ? 'max-w-[160px] opacity-100 translate-x-0' : 'max-w-0 opacity-0 -translate-x-4 pointer-events-none'}`}
                           >
                             {item.label}
                           </span>
+                          {isOpen && (
+                            <HiOutlineChevronDown
+                              size={14}
+                              className={`ml-auto shrink-0 transition-transform duration-200
+                              ${isDark ? 'text-gray-400' : 'text-zinc-500'}
+                              ${openSubmenu === `${iSection}-${iItem}` ? 'rotate-180' : 'rotate-0'}`}
+                            />
+                          )}
                         </button>
 
                         {isOpen && openSubmenu === `${iSection}-${iItem}` && (
@@ -280,7 +304,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                     ) : (
                       <button
                         onClick={() => (item.action ? item.action() : navigate(item.to))}
-                        className={`flex items-center gap-x-3 p-2.5 w-full text-left rounded-md transition-colors duration-200
+                        className={`flex items-center p-2.5 w-full text-left rounded-md transition-all duration-300
+                        ${isOpen ? 'gap-x-3' : 'gap-x-0 justify-center'}
                         ${
                           currentLocation === item.to
                             ? isDark
@@ -296,8 +321,8 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                           {item.icon}
                         </span>
                         <span
-                          className={`transition-all duration-300 ease-in-out
-                          ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'}`}
+                          className={`whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out
+                          ${isOpen ? 'max-w-[160px] opacity-100 translate-x-0' : 'max-w-0 opacity-0 -translate-x-4 pointer-events-none'}`}
                         >
                           {item.label}
                         </span>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 
 import ButtonInput from '../../../components/ButtonInput'
+import CekSaldoForm from './forms/CekSaldo'
 import { HiPlus } from 'react-icons/hi'
 import InputField from '../../../components/InputField'
 import JasaTransferForm from './forms/JasaTransferForm'
@@ -25,13 +26,10 @@ const FormLayout = ({
   onClose = null,
   onValidChange
 }) => {
-  const [modalOpen, setModalOpen] = useState(isEdit)
-  const [formData, setFormData] = useState(initialData)
-  const [showMenu, setShowMenu] = useState(true)
-  const [selectedTransactionType, setSelectedTransactionType] = useState('')
-  const [selectedTransactionId, setSelectedTransactionId] = useState('')
-  const [formValid, setFormValid] = useState(true)
-
+  // Dipindah ke atas (sebelum useState) supaya bisa dipakai untuk inisialisasi state
+  // di bawah — biar pas mode edit, form yang benar langsung tampil di render PERTAMA,
+  // tidak nunggu useEffect (itu penyebab modal sempat keliatan kosong sekilas sebelum
+  // form aslinya muncul).
   const getTransactionId = (transactionType) => {
     const typeMap = {
       'Cash Withdrawal': 'tarik-tunai',
@@ -42,10 +40,53 @@ const FormLayout = ({
       'Sesama Bank': 'transfer',
       'Jasa Transfer': 'jasa-transfer',
       'Mode Pulsa': 'mode-pulsa',
-      Pulsa: 'mode-pulsa'
+      Pulsa: 'mode-pulsa',
+      'Cek Saldo': 'cek-saldo'
     }
     return typeMap[transactionType] || ''
   }
+
+  const [modalOpen, setModalOpen] = useState(isEdit)
+  const [formData, setFormData] = useState(isEdit && editData ? editData : initialData)
+  const [showMenu, setShowMenu] = useState(
+    isEdit && editData ? !getTransactionId(editData.jenis_transaksi) : true
+  )
+  const [selectedTransactionType, setSelectedTransactionType] = useState(
+    isEdit && editData ? editData.jenis_transaksi || '' : ''
+  )
+  const [selectedTransactionId, setSelectedTransactionId] = useState(
+    isEdit && editData ? getTransactionId(editData.jenis_transaksi) : ''
+  )
+  const [formValid, setFormValid] = useState(true)
+
+  // Baseline field-field transaksi yang HARUS di-reset tiap kali kasir pindah
+  // ke jenis transaksi yang beda (baik dari menu maupun setelah submit). Dipusatkan
+  // di satu tempat supaya tidak dobel-tulis & tidak gampang beda-beda antara
+  // handleTransactionSelect dan handleSubmit seperti sebelumnya — itu yang bikin
+  // field sisa dari jenis transaksi sebelumnya (mis. `fee` dari Tarik Tunai) bisa
+  // nyangkut kebawa ke jenis transaksi lain (mis. Cek Saldo) tanpa disadari.
+  const getEmptyTransactionFields = () => ({
+    sumber_dana_id: '',
+    metode_pembayaran: '',
+    tipe_transaksi: '',
+    saldo_awal: 0,
+    nominal_transaksi: 0,
+    fee: 0,
+    biaya_admin: 0,
+    biaya_admin_bank: 0,
+    terima_dana_id: '',
+    saldo_akhir: 0,
+    keterangan: '',
+    nomor_tujuan: '',
+    alat_id: '',
+    alat_nama: '',
+    is_fee_manual: false,
+    // Cek Saldo
+    bonus: 0,
+    is_bonus_manual: false,
+    nama_pelanggan: ''
+  })
+
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
 
@@ -81,15 +122,22 @@ const FormLayout = ({
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData({ ...formData, [name]: value })
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleTransactionSelect = (id, name) => {
     setSelectedTransactionId(id)
     setSelectedTransactionType(name)
     setShowMenu(false)
+    // Reset SEMUA field spesifik-jenis ke default begitu kasir pilih jenis
+    // transaksi (baru atau ganti dari yang lain) — cuma tanggal & no_transaksi
+    // (yang sudah digenerate di atas) yang dipertahankan. Ini mencegah field
+    // dari jenis transaksi sebelumnya (fee, bonus, alat_id, dll) nyangkut ke
+    // jenis transaksi yang baru dipilih.
     setFormData((prev) => ({
-      ...prev,
+      tanggal: prev.tanggal,
+      no_transaksi: prev.no_transaksi,
+      ...getEmptyTransactionFields(),
       jenis_transaksi: name
     }))
   }
@@ -113,15 +161,8 @@ const FormLayout = ({
       setFormData({
         tanggal: getNowDateTimeLocalWIB(),
         no_transaksi: '',
-        sumber_dana_id: '',
-        metode_pembayaran: '',
         jenis_transaksi: '',
-        saldo_awal: 0,
-        nominal_transaksi: 0,
-        fee: 0,
-        biaya_admin: 0,
-        saldo_akhir: 0,
-        keterangan: ''
+        ...getEmptyTransactionFields()
       })
     }
   }
@@ -159,6 +200,8 @@ const FormLayout = ({
         return <JasaTransferForm {...formProps} />
       case 'mode-pulsa':
         return <ModePulsaForm {...formProps} />
+      case 'cek-saldo':
+        return <CekSaldoForm {...formProps} />
       default:
         return null
     }

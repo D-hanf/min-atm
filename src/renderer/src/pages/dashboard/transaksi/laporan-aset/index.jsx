@@ -1,4 +1,4 @@
-import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus, HiTrash } from 'react-icons/hi'
+import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus, HiSwitchHorizontal, HiTrash } from 'react-icons/hi'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 import ConfirmDialog from '../../../../components/ConfirmDialog'
@@ -7,6 +7,7 @@ import PageContainer from '../../../../components/PageContainer'
 import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAuth } from '../../../../context/AuthContext'
 import { useTheme } from '../../../../context/ThemeContext'
 import utc from 'dayjs/plugin/utc'
 
@@ -14,6 +15,7 @@ dayjs.extend(utc)
 dayjs.extend(timezone)
 
 const LaporanAset = () => {
+  const { user } = useAuth()
   const { isDark } = useTheme()
   const [assetSnapshots, setAssetSnapshots] = useState([])
   const [filterText, setFilterText] = useState('')
@@ -23,10 +25,27 @@ const LaporanAset = () => {
   const [selectedSnapshot, setSelectedSnapshot] = useState(null)
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false)
   const [cardRefreshTrigger, setCardRefreshTrigger] = useState(0)
-  const [userRole, setUserRole] = useState(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'))
-    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
+  const [isFeatureEnabled, setIsFeatureEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem('laporanAset_featureEnabled')
+      return saved === null ? true : saved === 'true'
+    } catch (error) {
+      return true
+    }
   })
+  const userRole = user?.role?.toLowerCase() || 'kasir'
+
+  const toggleFeature = () => {
+    setIsFeatureEnabled(prev => {
+      const next = !prev
+      try {
+        localStorage.setItem('laporanAset_featureEnabled', String(next))
+      } catch (error) {
+        console.error('❌ Gagal menyimpan status fitur:', error)
+      }
+      return next
+    })
+  }
 
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const toDisplayDateTime = (val) => (dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm') : val || '')
@@ -40,6 +59,7 @@ const LaporanAset = () => {
   }
 
   const fetchAssetSnapshots = async () => {
+    if (!isFeatureEnabled) return
     try {
       setIsLoading(true)
       const snapshots = await window.api.getAssetSnapshots()
@@ -62,6 +82,7 @@ const LaporanAset = () => {
   }
 
   const fetchCurrentTotalAsset = async () => {
+    if (!isFeatureEnabled) return
     try {
       const total = await window.api.calculateTotalAssets()
       setCurrentTotalAsset(total || 0)
@@ -74,6 +95,7 @@ const LaporanAset = () => {
 
   
   const handleDeleteSnapshot = async (snapshotId) => {
+    if (!isFeatureEnabled) return
     try {
       console.log('🔄 Menghapus snapshot dengan ID:', snapshotId)
       setIsLoading(true)
@@ -98,6 +120,7 @@ const LaporanAset = () => {
   }
 
   const handleDelete = (snapshotId) => {
+    if (!isFeatureEnabled) return
     console.log('🔍 ID snapshot yang akan dihapus:', snapshotId)
     // Cari data snapshot berdasarkan ID
     const snapshot = assetSnapshots.find(s => s.id === snapshotId)
@@ -107,11 +130,13 @@ const LaporanAset = () => {
   }
   
   const confirmDelete = (snapshot) => {
+    if (!isFeatureEnabled) return
     setSelectedSnapshot(snapshot)
     setShowDeleteDialog(true)
   }
 
   const handleDeleteAll = async () => {
+    if (!isFeatureEnabled) return
     try {
       console.log('🔄 Menghapus semua snapshot...')
       setIsLoading(true)
@@ -135,12 +160,19 @@ const LaporanAset = () => {
   }
 
   useEffect(() => {
+    if (!isFeatureEnabled) {
+      // Fitur nonaktif: jangan lakukan apa-apa, hemat pemanggilan DB
+      setAssetSnapshots([])
+      setCurrentTotalAsset(0)
+      setIsLoading(false)
+      return
+    }
     const loadData = async () => {
       await fetchCurrentTotalAsset()
       await fetchAssetSnapshots()
     }
     loadData()
-  }, [])
+  }, [isFeatureEnabled])
   // Format data untuk tampilan tabel
   const formattedSnapshots = assetSnapshots.map(snapshot => ({
     ...snapshot,
@@ -179,7 +211,44 @@ const LaporanAset = () => {
   ]
   return (
     <PageContainer title="Laporan Aset" subtitle="Daftar snapshot total aset">
-      
+
+      {/* Tombol Aktif/Nonaktif Fitur */}
+      <div className="flex items-center justify-between mb-4 px-4">
+        <div className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          <HiSwitchHorizontal className="w-4 h-4" />
+          <span>
+            Status Fitur: {isFeatureEnabled ? (
+              <span className="font-semibold text-green-500">Aktif</span>
+            ) : (
+              <span className="font-semibold text-red-500">Nonaktif</span>
+            )}
+          </span>
+        </div>
+        <button
+          onClick={toggleFeature}
+          className={`relative inline-flex items-center h-7 w-14 rounded-full transition-colors duration-200 ${
+            isFeatureEnabled ? 'bg-green-500' : (isDark ? 'bg-gray-600' : 'bg-gray-300')
+          }`}
+          title={isFeatureEnabled ? 'Klik untuk menonaktifkan fitur' : 'Klik untuk mengaktifkan fitur'}
+        >
+          <span
+            className={`inline-block w-5 h-5 bg-white rounded-full shadow transform transition-transform duration-200 ${
+              isFeatureEnabled ? 'translate-x-8' : 'translate-x-1'
+            }`}
+          />
+        </button>
+      </div>
+
+      {!isFeatureEnabled ? (
+        <div className={`text-center py-16 px-4 rounded-lg mx-4 border-2 border-dashed ${
+          isDark ? 'border-gray-600 text-gray-400' : 'border-gray-300 text-gray-500'
+        }`}>
+          <HiSwitchHorizontal className="w-10 h-10 mx-auto mb-3 opacity-60" />
+          <p className="font-medium mb-1">Fitur Laporan Aset sedang nonaktif</p>
+          <p className="text-sm">Tidak ada data yang dimuat dari database. Aktifkan tombol di atas untuk menggunakan fitur ini kembali.</p>
+        </div>
+      ) : (
+      <>
       {/* Card Total Aset Laporan */}
       <CumulativeAssetCard refreshTrigger={cardRefreshTrigger} />
       
@@ -220,6 +289,8 @@ const LaporanAset = () => {
           onDelete={handleDelete}
           hidden={false}
         />
+      )}
+      </>
       )}
 
       {/* Dialog Konfirmasi Hapus */}

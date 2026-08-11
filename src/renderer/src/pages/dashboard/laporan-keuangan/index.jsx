@@ -1,3 +1,16 @@
+import * as XLSX from 'xlsx'
+
+import React, { useEffect, useState } from 'react'
+
+import TableContent from '../../../components/TableContent'
+import TableRekapTahunan from '../../../components/TableRekapTahunan'
+import autoTable from 'jspdf-autotable'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
+import { saveAs } from 'file-saver'
+import { useAuth } from '../../../context/AuthContext'
+import { useRef } from 'react'
+
 // Helper untuk konversi bulan ke format Indonesia
 const bulanIndo = [
   'Januari',
@@ -53,19 +66,8 @@ function formatTanggalTanpaDetik(val) {
   return s
 }
 
-import * as XLSX from 'xlsx'
-
-import React, { useEffect, useState } from 'react'
-
-import TableContent from '../../../components/TableContent'
-import TableRekapTahunan from '../../../components/TableRekapTahunan'
-import autoTable from 'jspdf-autotable'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
-import { saveAs } from 'file-saver'
-import { useRef } from 'react'
-
 const LaporanKeuangan = () => {
+  
   // Helper untuk konversi periode ke format 'Agustus 2025'
   const bulanIndo = [
     'Januari',
@@ -181,10 +183,8 @@ const LaporanKeuangan = () => {
   }, [periodeSnapshot, periodeType])
   const [laporan, setLaporan] = useState([])
   const [filterText, setFilterText] = useState('')
-  const [userRole, setUserRole] = useState(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'))
-    return storedUser?.role ? storedUser.role.toLowerCase() : 'kasir'
-  })
+  const { user } = useAuth()
+  const userRole = user?.role?.toLowerCase() || 'kasir'
   const [totalKeuntungan, setTotalKeuntungan] = useState(0)
   const [totalHutang, setTotalHutang] = useState(0)
 
@@ -268,7 +268,7 @@ const LaporanKeuangan = () => {
   // Untuk bulanan: filter data transaksi sesuai bulan
   const filteredData =
     periodeType === 'bulanan'
-  ? laporan
+      ? laporan
           .filter((item) => {
             // Asumsi item.tanggal format 'YYYY-MM-DD'
             if (!item.tanggal) return false
@@ -287,7 +287,9 @@ const LaporanKeuangan = () => {
             nominal_transaksi: formatRupiah(item.nominal_transaksi),
             nominal_masuk: formatRupiah(item.nominal_masuk),
             selisih_masuk_keluar: formatRupiah(
-              Number(item.nominal_masuk || 0) - Number(item.nominal_transaksi || 0)
+              item.keuntungan !== undefined
+                ? Number(item.keuntungan || 0)
+                : Number(item.nominal_masuk || 0) - Number(item.nominal_transaksi || 0)
             )
           }))
       : []
@@ -694,77 +696,110 @@ const LaporanKeuangan = () => {
     }
     return searchString.includes(filterLogText.toLowerCase()) && matchDate
   })
-  const logTotalPages = logItemsPerPage === 'all' ? 1 : Math.ceil(filteredLog.length / logItemsPerPage)
-  const logIndexOfLastItem = logItemsPerPage === 'all' ? filteredLog.length : logCurrentPage * logItemsPerPage
+  const logTotalPages =
+    logItemsPerPage === 'all' ? 1 : Math.ceil(filteredLog.length / logItemsPerPage)
+  const logIndexOfLastItem =
+    logItemsPerPage === 'all' ? filteredLog.length : logCurrentPage * logItemsPerPage
   const logIndexOfFirstItem = logItemsPerPage === 'all' ? 0 : logIndexOfLastItem - logItemsPerPage
   const logCurrentData = filteredLog.slice(logIndexOfFirstItem, logIndexOfLastItem)
   return (
-    <div>
-      {/* Pilih tipe periode dan periode snapshot saldo awal */}
-      <div
-        style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: 12 }}
-        className="flex flex-wrap justify-between"
-      >
-        <div>
-          <label style={{ fontWeight: 'bold', marginRight: 8 }}>Tipe Periode:</label>
-          <select
-            value={periodeType}
-            onChange={(e) => {
-              setPeriodeType(e.target.value)
-              // Reset periodeSnapshot sesuai tipe
-              const now = new Date()
-              setPeriodeSnapshot(
-                e.target.value === 'bulanan'
-                  ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-                  : `${now.getFullYear()}`
-              )
-            }}
-            style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
-          >
-            <option value="bulanan">Bulanan</option>
-            <option value="tahunan">Tahunan</option>
-          </select>
-          <label style={{ fontWeight: 'bold', marginLeft: 16, marginRight: 8 }}>
-            Periode Saldo Awal:
-          </label>
-          {periodeType === 'bulanan' ? (
-            <input
-              type="month"
-              value={periodeSnapshot}
-              onChange={(e) => setPeriodeSnapshot(e.target.value)}
-              style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc' }}
-            />
-          ) : (
-            <input
-              type="number"
-              min="2000"
-              max="2100"
-              value={periodeSnapshot}
-              onChange={(e) => setPeriodeSnapshot(e.target.value)}
-              style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #ccc', width: 100 }}
-            />
-          )}
-        </div>
-        {/* Tombol export */}
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }} className="">
-          <button
-            onClick={handlePrint}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
-          >
-            Cetak
-          </button>
-          <button
-            onClick={exportToPDF}
-            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-          >
-            Export PDF
-          </button>
-          <button
-            onClick={exportToExcel}
-            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
-          >
-            Export Excel
-          </button>
+    <div className="pb-8">
+      {/* Header halaman */}
+      <div className="mb-4">
+        <h1 className="text-xl font-semibold text-gray-800">Laporan Keuangan</h1>
+        <p className="text-sm text-gray-500">
+          Ringkasan keuntungan, hutang, dan riwayat transaksi per periode.
+        </p>
+      </div>
+
+      {/* Toolbar: filter periode & aksi export */}
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4 mb-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          {/* Filter periode */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Tipe Periode
+              </label>
+              <select
+                value={periodeType}
+                onChange={(e) => {
+                  setPeriodeType(e.target.value)
+                  // Reset periodeSnapshot sesuai tipe
+                  const now = new Date()
+                  setPeriodeSnapshot(
+                    e.target.value === 'bulanan'
+                      ? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+                      : `${now.getFullYear()}`
+                  )
+                }}
+                className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="bulanan">Bulanan</option>
+                <option value="tahunan">Tahunan</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Periode
+              </label>
+              {periodeType === 'bulanan' ? (
+                <input
+                  type="month"
+                  value={periodeSnapshot}
+                  onChange={(e) => setPeriodeSnapshot(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              ) : (
+                <input
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  value={periodeSnapshot}
+                  onChange={(e) => setPeriodeSnapshot(e.target.value)}
+                  className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white text-gray-700 w-28 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              )}
+            </div>
+            <span className="text-sm text-gray-500 pb-1.5">
+              Menampilkan data{' '}
+              <span className="font-medium text-gray-700">
+                {periodeType === 'bulanan' ? formatPeriodeIndo(periodeSnapshot) : periodeSnapshot}
+              </span>
+            </span>
+          </div>
+
+          {/* Tombol export */}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handlePrint}
+              className="inline-flex items-center gap-1.5 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 transition-colors text-white px-3 py-1.5 rounded-md text-sm font-medium shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5 4a1 1 0 011-1h8a1 1 0 011 1v2H5V4zm-2 4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a1 1 0 001 1h10a1 1 0 001-1v-2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3zm10 6H7v-2h6v2z" clipRule="evenodd" />
+              </svg>
+              Cetak
+            </button>
+            <button
+              onClick={exportToPDF}
+              className="inline-flex items-center gap-1.5 bg-red-500 hover:bg-red-600 active:bg-red-700 transition-colors text-white px-3 py-1.5 rounded-md text-sm font-medium shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 000 2h.01a1 1 0 100-2H6zm3 0a1 1 0 100 2h5a1 1 0 100-2H9zm-3 4a1 1 0 000 2h.01a1 1 0 100-2H6zm3 0a1 1 0 100 2h5a1 1 0 100-2H9z" clipRule="evenodd" />
+              </svg>
+              Export PDF
+            </button>
+            <button
+              onClick={exportToExcel}
+              className="inline-flex items-center gap-1.5 bg-green-500 hover:bg-green-600 active:bg-green-700 transition-colors text-white px-3 py-1.5 rounded-md text-sm font-medium shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M3 4a2 2 0 012-2h6.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a2 2 0 01-2 2H5a2 2 0 01-2-2V4z" opacity="0.3" />
+                <path fillRule="evenodd" d="M7 9a1 1 0 011.6-.8L11 10l2.4-1.8a1 1 0 111.2 1.6L12 11.8V14a1 1 0 11-2 0v-2.2l-2.6-1.95A1 1 0 017 9z" clipRule="evenodd" />
+              </svg>
+              Export Excel
+            </button>
+          </div>
         </div>
       </div>
       {/* ========================================= ini yang di print ======================================== */}
@@ -860,48 +895,54 @@ const LaporanKeuangan = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <div
-            style={{
-              background: '#e0f7fa',
-              padding: '1rem',
-              borderRadius: '8px',
-              minWidth: '180px'
-            }}
-          >
-            <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>Total Keuntungan</div>
-            <div style={{ fontSize: '1.3rem', color: '#00796b' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          {/* Total Keuntungan */}
+          <div className="bg-white rounded-lg shadow-md border-l-4 border-teal-500 p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-teal-500" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.093c.622-.117 1.197-.342 1.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" />
+              </svg>
+              Total Keuntungan
+            </div>
+            <div className="text-2xl font-bold text-teal-600 mt-1">
               {formatRupiah(totalKeuntungan)}
             </div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              Periode {periodeType === 'bulanan' ? formatPeriodeIndo(periodeSnapshot) : periodeSnapshot}
+            </div>
           </div>
-          <div
-            style={{
-              background: '#fff3e0',
-              padding: '1rem',
-              borderRadius: '8px',
-              minWidth: '180px'
-            }}
-          >
-            <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>Total Hutang</div>
-            <div style={{ fontSize: '1.3rem', color: '#e65100' }}>{formatRupiah(totalHutang)}</div>
+
+          {/* Total Hutang */}
+          <div className="bg-white rounded-lg shadow-md border-l-4 border-orange-500 p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+              </svg>
+              Total Hutang
+            </div>
+            <div className="text-2xl font-bold text-orange-600 mt-1">
+              {formatRupiah(totalHutang)}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">Belum lunas hingga saat ini</div>
           </div>
-          <div
-            style={{
-              background: '#f3e5f5',
-              padding: '1rem',
-              borderRadius: '8px',
-              minWidth: '180px'
-            }}
-          >
-            <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>Keuntungan Harian</div>
-              <div style={{ fontSize: '1.3rem', color: '#6a1b9a' }}>
-                {totalKeuntunganHarian === null
-                  ? 'Pilih tanggal'
-                  : formatRupiah(totalKeuntunganHarian)}
-              </div>
-              <div style={{ fontSize: '0.9rem', color: '#333', marginTop: 4 }}>
-                {filterTanggal ? `Tanggal: ${filterTanggal}` : ''}
-              </div>
+
+          {/* Keuntungan Harian */}
+          <div className="bg-white rounded-lg shadow-md border-l-4 border-purple-500 p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+              </svg>
+              Keuntungan Harian
+            </div>
+            <div className="text-2xl font-bold text-purple-600 mt-1">
+              {totalKeuntunganHarian === null
+                ? '—'
+                : formatRupiah(totalKeuntunganHarian)}
+            </div>
+            <div className="text-xs text-gray-400 mt-0.5">
+              {filterTanggal ? `Tanggal: ${filterTanggal}` : 'Pilih tanggal di tabel transaksi'}
+            </div>
           </div>
         </div>
         {periodeType === 'bulanan' ? (
@@ -934,17 +975,20 @@ const LaporanKeuangan = () => {
                 type="date"
                 value={filterLogDate}
                 onChange={(e) => setFilterLogDate(e.target.value)}
-                className="border px-2 py-1 rounded text-sm"
-                style={{ minWidth: 120 }}
+                className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[130px]"
               />
-              <input
-                type="text"
-                placeholder="Cari log..."
-                value={filterLogText}
-                onChange={(e) => setFilterLogText(e.target.value)}
-                className="border px-2 py-1 rounded text-sm"
-                style={{ minWidth: 180 }}
-              />
+              <div className="relative">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Cari log..."
+                  value={filterLogText}
+                  onChange={(e) => setFilterLogText(e.target.value)}
+                  className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-[180px]"
+                />
+              </div>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -1045,7 +1089,7 @@ const LaporanKeuangan = () => {
               <span className="text-sm text-gray-600">Tampilkan:</span>
               <select
                 value={logItemsPerPage}
-                onChange={e => {
+                onChange={(e) => {
                   const val = e.target.value === 'all' ? 'all' : Number(e.target.value)
                   setLogItemsPerPage(val)
                   setLogCurrentPage(1)
@@ -1103,7 +1147,6 @@ const LaporanKeuangan = () => {
               </div>
             )}
           </div>
-     
         </div>
       </div>
     </div>

@@ -12,6 +12,21 @@ const colorVariants = {
   white: "bg-white hover:bg-gray-50 focus-visible:outline-gray-600",
 };
 
+const textColorVariants = {
+  white: "text-white",
+  black: "text-black",
+  gray: "text-gray-700",
+  red: "text-red-700",
+  green: "text-green-700",
+  blue: "text-blue-700",
+  yellow: "text-yellow-700",
+  indigo: "text-indigo-700",
+  purple: "text-purple-700",
+  pink: "text-pink-700",
+  teal: "text-teal-700",
+  cyan: "text-cyan-700",
+  lime: "text-lime-700",
+};
 // Map ukuran ke padding dan font-size
 const sizeVariants = {
   xs: "px-1.5 py-0.5 text-xs min-w-20 rounded-md font-medium",     // ~80px
@@ -24,21 +39,25 @@ const sizeVariants = {
 const ButtonInput = ({
   children,
   type = "button",
+  textColor = "white",
   color = "sky",
+  outline = false,
   size = "md",
   className,
   ...props
 }) => {
   const colorClass = colorVariants[color] || colorVariants["sky"];
   const sizeClass = sizeVariants[size] || sizeVariants["md"];
-
+  const textColorClass = textColorVariants[textColor] || textColorVariants["white"];
   return (
     <button
       type={type}
       {...props}
       className={clsx(
-        "flex justify-center py-3 px-4 rounded-md font-semibold text-white shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2",
+        "flex justify-center py-3 px-4 rounded-md font-semibold  shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2",
         colorClass,
+        textColorClass,
+        outline ? "bg-transparent text-gray-700 border border-gray-300 hover:bg-gray-50 focus-visible:outline-gray-600" : "",
         sizeClass,
         className
       )}
