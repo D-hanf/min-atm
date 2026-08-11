@@ -10,6 +10,11 @@ const db = new sqlite3.Database(dbPath, (err) => {
     console.error('❌ Error opening database:', err.message)
   } else {
     console.log('✅ Connected to the SQLite database.')
+    // WAL: query baca (mis. buka halaman Semua Transaksi) tidak nunggu/nge-block
+    // proses tulis (create transaksi dll) yang jalan bersamaan, dan sebaliknya.
+    // synchronous=NORMAL: cukup aman dipakai bareng WAL, fsync lebih jarang → lebih cepat.
+    db.run('PRAGMA journal_mode = WAL;')
+    db.run('PRAGMA synchronous = NORMAL;')
   }
 })
 
@@ -36,6 +41,19 @@ function createTableIfNotExists(tableName, createQuery) {
     db.run(createQuery, (err) => {
       if (err) return reject(err)
       resolve(`✅ Tabel '${tableName}' berhasil dibuat/diverifikasi`)
+    })
+  })
+}
+
+// 🔧 Buat index jika belum ada — PENTING untuk performa query yang WHERE/JOIN/ORDER BY
+// kolom ini, terutama tabel transaksi/hutang/pindah_saldo/ambil_saldo yang baris-nya
+// terus bertambah tiap hari. Tanpa index, SQLite full-scan seluruh tabel setiap kali
+// halaman riwayat/koreksi transaksi dibuka.
+function createIndexIfNotExists(indexName, createQuery) {
+  return new Promise((resolve, reject) => {
+    db.run(createQuery, (err) => {
+      if (err) return reject(err)
+      resolve(`✅ Index '${indexName}' berhasil dibuat/diverifikasi`)
     })
   })
 }
@@ -80,6 +98,13 @@ export async function updateSchema() {
     // Tambahkan kolom user_role dan user_name jika belum ada
     await addColumnIfNotExists('asset_snapshots', 'user_role', 'TEXT DEFAULT "kasir"')
     await addColumnIfNotExists('asset_snapshots', 'user_name', 'TEXT DEFAULT "System"')
+    // ⚠️ Dipakai getLastTotalAssetNoEdit() (WHERE is_edited = 0) — tanpa kolom ini
+    // query itu gagal dengan SQLITE_ERROR: no such column: is_edited, dan snapshot
+    // aset otomatis setelah tiap transaksi ikut gagal tersimpan (dibungkus try/catch
+    // di createTransaksi jadi tidak sampai gagalkan transaksinya, tapi snapshot-nya
+    // memang tidak pernah tersimpan). Sama seperti kasus user_id kemarin: dipakai di
+    // query tapi kolomnya sendiri tidak pernah ada di CREATE TABLE atau migrasi manapun.
+    await addColumnIfNotExists('asset_snapshots', 'is_edited', 'BOOLEAN DEFAULT 0')
 
     // 💸 Tabel aturan fee berjenjang per jenis transaksi
     // (mis. Tarik Tunai 0 - 1jt = fee 2000, 1jt - 5jt = fee 5000, dst)
@@ -170,6 +195,16 @@ export async function updateSchema() {
       addColumnIfNotExists('transaksi', 'nama_pelanggan', 'TEXT'),
       addColumnIfNotExists('transaksi', 'nomor_tujuan', 'TEXT'),
 
+      // ⚠️ Kolom siapa yang membuat transaksi — dipakai createTransaksi() di
+      // transactionHandler.js (INSERT INTO transaksi (... user_id, user_name,
+      // user_role ...)). Kalau salah satu dari 3 ini kehapus dari sini
+      // (mis. kepencet pas beres-beres migrasi), createTransaksi akan gagal
+      // dengan SQLITE_ERROR: table transaksi has no column named ... — jadi
+      // sengaja dijaga ketiganya di sini sekaligus, bukan cuma user_id.
+      addColumnIfNotExists('transaksi', 'user_id', 'INTEGER'),
+      addColumnIfNotExists('transaksi', 'user_name', 'TEXT'),
+      addColumnIfNotExists('transaksi', 'user_role', 'TEXT'),
+
       // Kolom untuk tracking edit transaksi
       addColumnIfNotExists('transaksi', 'is_edited', 'BOOLEAN DEFAULT 0'),
       addColumnIfNotExists('transaksi', 'edited_at', 'DATETIME'),
@@ -240,6 +275,74 @@ export async function updateSchema() {
     ])
 
     results.forEach(msg => console.log(msg))
+
+    // ⚡ Index — dibuat belakangan supaya kolomnya sudah pasti ada (beberapa baru
+    // ditambah lewat addColumnIfNotExists di atas). Aman dijalankan berkali-kali,
+    // CREATE INDEX IF NOT EXISTS tidak akan error kalau index-nya sudah ada.
+    const indexResults = await Promise.all([
+      // transaksi — dipakai WHERE (filter kasir/hari ini), ORDER BY (semua query getTransaksi),
+      // dan JOIN (history_transaksi, alat, saldo_awal)
+      createIndexIfNotExists(
+        'idx_transaksi_tanggal',
+        'CREATE INDEX IF NOT EXISTS idx_transaksi_tanggal ON transaksi(tanggal)'
+      ),
+      createIndexIfNotExists(
+        'idx_transaksi_alat_id',
+        'CREATE INDEX IF NOT EXISTS idx_transaksi_alat_id ON transaksi(alat_id)'
+      ),
+      createIndexIfNotExists(
+        'idx_transaksi_sumber_dana_id',
+        'CREATE INDEX IF NOT EXISTS idx_transaksi_sumber_dana_id ON transaksi(sumber_dana_id)'
+      ),
+      createIndexIfNotExists(
+        'idx_transaksi_terima_dana_id',
+        'CREATE INDEX IF NOT EXISTS idx_transaksi_terima_dana_id ON transaksi(terima_dana_id)'
+      ),
+
+      // history_transaksi — di-JOIN ke transaksi lewat transaksi_id di setiap getTransaksi()
+      createIndexIfNotExists(
+        'idx_history_transaksi_transaksi_id',
+        'CREATE INDEX IF NOT EXISTS idx_history_transaksi_transaksi_id ON history_transaksi(transaksi_id)'
+      ),
+
+      // hutang — WHERE (kasir/hari ini) + ORDER BY status_bayar, tanggal_transaksi
+      createIndexIfNotExists(
+        'idx_hutang_tanggal_transaksi',
+        'CREATE INDEX IF NOT EXISTS idx_hutang_tanggal_transaksi ON hutang(tanggal_transaksi)'
+      ),
+      createIndexIfNotExists(
+        'idx_hutang_platform_id',
+        'CREATE INDEX IF NOT EXISTS idx_hutang_platform_id ON hutang(platform_id)'
+      ),
+
+      // pindah_saldo — WHERE (kasir/hari ini) + JOIN dua arah ke saldo_awal
+      createIndexIfNotExists(
+        'idx_pindah_saldo_tanggal',
+        'CREATE INDEX IF NOT EXISTS idx_pindah_saldo_tanggal ON pindah_saldo(tanggal)'
+      ),
+      createIndexIfNotExists(
+        'idx_pindah_saldo_sumber_dana_id',
+        'CREATE INDEX IF NOT EXISTS idx_pindah_saldo_sumber_dana_id ON pindah_saldo(sumber_dana_id)'
+      ),
+      createIndexIfNotExists(
+        'idx_pindah_saldo_tujuan_dana_id',
+        'CREATE INDEX IF NOT EXISTS idx_pindah_saldo_tujuan_dana_id ON pindah_saldo(tujuan_dana_id)'
+      ),
+
+      // ambil_saldo — WHERE (kasir/hari ini)
+      createIndexIfNotExists(
+        'idx_ambil_saldo_tanggal_pengambilan',
+        'CREATE INDEX IF NOT EXISTS idx_ambil_saldo_tanggal_pengambilan ON ambil_saldo(tanggal_pengambilan)'
+      ),
+
+      // alat_bonus_jenis_rules — dipakai findBonusForAlatJenis saat SETIAP transaksi dibuat
+      createIndexIfNotExists(
+        'idx_alat_bonus_jenis_rules_lookup',
+        'CREATE INDEX IF NOT EXISTS idx_alat_bonus_jenis_rules_lookup ON alat_bonus_jenis_rules(alat_id, jenis_transaksi)'
+      )
+    ])
+
+    indexResults.forEach(msg => console.log(msg))
   } catch (err) {
     console.error('❌ Gagal update schema:', err)
   }

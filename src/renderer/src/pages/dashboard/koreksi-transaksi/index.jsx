@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 
+import AdminRangeFilterBar from '../../../components/AdminRangeFilterBar'
 import AlertDialog from '../../../components/AlertDialog'
 import ConfirmDialog from '../../../components/ConfirmDialog'
+import DataVisibilitySettings from '../../../components/DataVisibilitySettings'
 import InputField from '../../../components/InputField'
 import ModalEdit from '../../../shared/ui/Modal'
 import PageContainer from '../../../components/PageContainer'
@@ -10,7 +12,9 @@ import TableContent from '../../../components/TableContent'
 import TransactionFormLayout from '../transaksi/FormLayout'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAdminDateRange } from '../../../hooks/useAdminDateRange'
 import { useAuth } from '../../../context/AuthContext'
+import { useColumnSettings } from '../../../hooks/useColumnSettings'
 import utc from 'dayjs/plugin/utc'
 
 // ⚠️ SESUAIKAN path ini ke lokasi folder Transaksi kamu yang sebenarnya.
@@ -88,6 +92,19 @@ const normalizeJenisTransaksi = (value) => {
 }
 
 const parseMoney = (value) => Number(String(value || 0).replace(/[^0-9]/g, '')) || 0
+
+// Daftar tetap, sesuai keluaran normalizeJenisTransaksi di atas — dipakai
+// sebagai opsi dropdown filter jenis transaksi supaya TIDAK bergantung pada
+// data yang sedang ter-load (lihat penjelasan lengkap di semuaTransaksi.jsx).
+const JENIS_TRANSAKSI_OPTIONS = [
+  'tarik tunai',
+  'transfer',
+  'jasa transfer',
+  'mode pulsa',
+  'hutang',
+  'ambil saldo',
+  'pindah saldo'
+]
 
 // parseRupiah — persis di HalamanTransaksi.jsx (dipakai untuk konversi string rupiah balik ke angka)
 const parseRupiah = (value) =>
@@ -198,11 +215,51 @@ const KoreksiTransaksi = () => {
   const { user: loggedInUser } = useAuth()
   const userRole = loggedInUser?.role?.toLowerCase() || 'kasir'
   const isAdmin = userRole === 'admin'
+  const { isColumnVisible } = useColumnSettings('koreksiTransaksi')
 
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [searchValue, setSearchValue] = useState('')
   const [rows, setRows] = useState([])
+  const [visibilitySetting, setVisibilitySetting] = useState({ days: 1 })
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+
+  // Daftar nama sumber dana APA ADANYA dari master data (saldo_awal) — selalu
+  // ditarik penuh setiap fetch, dipakai sebagai opsi dropdown "Sumber Dana"/
+  // "Terima Dana"/"Pembayar Fee" supaya opsinya tidak diam-diam hilang hanya
+  // karena transaksi yang memakainya kebetulan di luar rentang aktif.
+  const [saldoOptions, setSaldoOptions] = useState([])
+
+  // Rentang tanggal khusus ADMIN (lihat penjelasan lengkap di semuaTransaksi.jsx
+  // dan di dalam hook useAdminDateRange).
+  const [activeSubFilters, setActiveSubFilters] = useState({
+    date: '',
+    jenisTransaksi: '',
+    sumberDana: '',
+    edited: '',
+    koreksi: ''
+  })
+  const isFilteringActive = Object.values(activeSubFilters).some(Boolean)
+  const makeSubFilterHandler = (key) => (value) =>
+    setActiveSubFilters((prev) => ({ ...prev, [key]: value }))
+
+  const isSearchingActive = isAdmin && searchValue.trim().length > 0
+
+  const {
+    rangePreset,
+    setRangePreset,
+    customFrom,
+    setCustomFrom,
+    customTo,
+    setCustomTo,
+    isReady: isRangeReady,
+    range
+  } = useAdminDateRange()
+
+  // Menandai request fetch yang paling baru, supaya kalau admin ganti-ganti
+  // rentang dengan cepat, respon yang datang belakangan (stale) tidak menimpa
+  // respon dari rentang yang sudah ditinggalkan.
+  const requestIdRef = useRef(0)
 
   // ── Data mentah per kategori, dipakai untuk isi form edit ──
   const [rawData, setRawData] = useState({
@@ -318,27 +375,45 @@ const KoreksiTransaksi = () => {
   const [transaksiEditData, setTransaksiEditData] = useState(null)
 
   const fetchAll = async () => {
+    const requestId = ++requestIdRef.current
     try {
       setIsLoading(true)
       setLoadError('')
 
-      // 🔓 Halaman Koreksi Transaksi sengaja selalu menampilkan SEMUA data,
-      // terlepas dari role yang login. Backend (get-transaksi/get-hutang/dst)
-      // membatasi hasil ke "hari ini saja" kalau role yang dikirim = 'kasir',
-      // jadi di sini kita selalu kirim 'admin' supaya kasir pun bisa melihat
-      // seluruh riwayat transaksi (bukan berarti kasir jadi admin — hak edit/
-      // hapus tetap dikontrol terpisah lewat `isAdmin` di bawah).
-      const dataFetchRole = 'admin'
+      // 🔒 Ambil setting visibilitas dulu, lalu minta data ke backend pakai role
+      // asli + jumlah hari itu (backend yang filter di SQL, pakai index). Hak
+      // edit/hapus tetap dikontrol terpisah lewat `isAdmin`, ini cuma soal
+      // berapa banyak data historis yang ditarik & ditampilkan.
+      const visibilityRes = await window.api?.getDataVisibilitySetting?.('koreksi-transaksi')
+      const currentVisibility = {
+        days: Number(visibilityRes?.days) > 0 ? Number(visibilityRes.days) : 1
+      }
+      setVisibilitySetting(currentVisibility)
+
+      const dataFetchRole = isAdmin ? 'admin' : 'kasir'
+      const fetchDays = currentVisibility.days
+
+      // Admin: kirim rentang tanggal sesuai chip yang aktif ('all' → from/to
+      // undefined, artinya tarik seluruh riwayat — pilihan sadar admin lewat
+      // chip). Filter tabel (jenis transaksi/sumber dana/pencarian/dst) TIDAK
+      // mengubah rentang ini — filter bekerja di dalam data yang sudah ke-load,
+      // supaya tetap ringan. Kasir tetap seperti semula, tidak terpengaruh.
+      const { from, to } = isAdmin ? range : {}
 
       const [transaksiRes, hutangRes, pindahRes, ambilRes, saldoRes, usersRes] =
         await Promise.allSettled([
-          window.api?.getTransaksi?.(dataFetchRole),
-          window.api?.getHutang?.(dataFetchRole),
-          window.api?.getPindahSaldo?.(dataFetchRole),
-          window.api?.getAmbilSaldo?.(dataFetchRole),
+          window.api?.getTransaksi?.(dataFetchRole, fetchDays, from || undefined, to || undefined),
+          window.api?.getHutang?.(dataFetchRole, fetchDays, from || undefined, to || undefined),
+          window.api?.getPindahSaldo?.(dataFetchRole, fetchDays, from || undefined, to || undefined),
+          window.api?.getAmbilSaldo?.(dataFetchRole, fetchDays, from || undefined, to || undefined),
           window.api?.getSaldoAwal?.(),
           window.api?.getUsers?.()
         ])
+
+      // Kalau admin sudah ganti rentang/filter lagi sebelum request ini
+      // selesai, respon ini basi — abaikan supaya tidak menimpa data dari
+      // scope yang sedang aktif.
+      if (requestId !== requestIdRef.current) return
 
       const transaksiList = asArray(transaksiRes.status === 'fulfilled' ? transaksiRes.value : [])
       const hutangList = asArray(hutangRes.status === 'fulfilled' ? hutangRes.value : [])
@@ -354,6 +429,7 @@ const KoreksiTransaksi = () => {
         ambil: ambilList
       })
       setSaldoAwalOptions(saldoListRaw)
+      setSaldoOptions([...new Set(saldoListRaw.map((item) => item.nama_sumber_dana).filter(Boolean))])
       setUsers(userList)
 
       const saldoById = new Map(
@@ -487,20 +563,31 @@ const KoreksiTransaksi = () => {
         return dayjs(b.sortDate).valueOf() - dayjs(a.sortDate).valueOf()
       })
 
+      // Kalau respon ini sudah basi (rentang/filter sudah berganti lagi),
+      // jangan timpa rows yang sedang sesuai dengan scope yang aktif.
+      if (requestId !== requestIdRef.current) return
+
+      // Data dari backend sudah difilter sesuai role + setting visibilitas
+      // (lihat fetch di atas), jadi tidak perlu dipotong ulang di sini.
       setRows(mergedRows)
     } catch (error) {
+      if (requestId !== requestIdRef.current) return
       console.error('❌ Gagal memuat data:', error)
       setLoadError('Gagal memuat data.')
     } finally {
-      setIsLoading(false)
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false)
+        setHasLoadedOnce(true)
+      }
     }
   }
 
   useEffect(() => {
     if (!loggedInUser) return
+    if (isAdmin && !isRangeReady) return
 
     fetchAll()
-  }, [loggedInUser])
+  }, [loggedInUser, isAdmin, rangePreset, customFrom, customTo])
 
   const totalRows = useMemo(() => rows.length, [rows.length])
   const summaryCards = useMemo(() => {
@@ -1231,6 +1318,34 @@ const KoreksiTransaksi = () => {
           </p>
         </div>
 
+        {isAdmin && (
+          <DataVisibilitySettings
+            pageKey="koreksi-transaksi"
+            pageLabel="Koreksi Transaksi"
+            onSaved={(setting) => setVisibilitySetting(setting)}
+          />
+        )}
+
+        {isAdmin && (
+          <AdminRangeFilterBar
+            rangePreset={rangePreset}
+            setRangePreset={setRangePreset}
+            customFrom={customFrom}
+            setCustomFrom={setCustomFrom}
+            customTo={customTo}
+            setCustomTo={setCustomTo}
+            filterNotice={
+              isSearchingActive
+                ? 'Mencari kata kunci — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                : isFilteringActive
+                  ? 'Filter tabel aktif — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                  : null
+            }
+            isLoading={isLoading}
+            hasLoadedOnce={hasLoadedOnce}
+          />
+        )}
+
         <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {summaryCards.map((card) => (
             <div
@@ -1244,49 +1359,63 @@ const KoreksiTransaksi = () => {
           ))}
         </div>
 
+        {!isAdmin && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+            Menampilkan data {visibilitySetting.days} hari terakhir (diatur oleh admin).
+          </div>
+        )}
+
         {loadError && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {loadError}
           </div>
         )}
 
-        {isLoading ? (
+        {isLoading && !hasLoadedOnce ? (
           <div className="rounded-lg border bg-white px-4 py-10 text-center text-gray-600">
             Memuat data...
           </div>
         ) : (
-          <TableContent
-            data={rows}
-            columns={[
-              { key: 'tanggal', label: 'Tanggal' },
-              { key: 'tgl_bayar', label: 'Tgl Bayar' },
-              { key: 'oleh', label: 'Oleh' },
-              { key: 'jenis', label: 'Jenis' },
-              { key: 'nominal', label: 'Nominal' },
-              { key: 'fee', label: 'Fee' },
-              { key: 'alat_nama', label: 'Alat' },
-              { key: 'bonus', label: 'Bonus Alat' },
-              { key: 'biaya_admin', label: 'Adm Bank' },
-              { key: 'sumber_dana', label: 'Sumber Dana' },
-              { key: 'tujuan_dana', label: 'Terima Dana' },
-              { key: 'metode_pembayaran_nama', label: 'Pembayaran Fee' }
-            ]}
-            onEdit={isAdmin ? handleEdit : null}
-            onDelete={isAdmin ? handleDelete : null}
-            onMark={handleToggleMarkSalah}
-            onVerify={handleToggleVerified}
-            info={`Total data: ${totalRows}`}
-            btnSize="xs"
-            userRole={userRole}
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-            editDelete={isAdmin ? true : false}
-            marked={true}
-            showDateFilter
-            showSumberDanaFilter
-            showJenisTransaksiFilter
-            showKoreksiFilter
-          />
+          <div className={isLoading ? 'pointer-events-none opacity-60 transition-opacity' : 'transition-opacity'}>
+            <TableContent
+              data={rows}
+              columns={[
+                { key: 'tanggal', label: 'Tanggal' },
+                { key: 'tgl_bayar', label: 'Tgl Bayar' },
+                { key: 'oleh', label: 'Oleh' },
+                { key: 'jenis', label: 'Jenis' },
+                { key: 'nominal', label: 'Nominal' },
+                { key: 'fee', label: 'Fee' },
+                { key: 'alat_nama', label: 'Alat' },
+                { key: 'bonus', label: 'Bonus Alat' },
+                { key: 'biaya_admin', label: 'Adm Bank' },
+                { key: 'sumber_dana', label: 'Sumber Dana' },
+                { key: 'tujuan_dana', label: 'Terima Dana' },
+                { key: 'metode_pembayaran_nama', label: 'Pembayaran Fee' }
+              ].filter((col) => isColumnVisible(col.key))}
+              onEdit={isAdmin ? handleEdit : null}
+              onDelete={isAdmin ? handleDelete : null}
+              onMark={handleToggleMarkSalah}
+              onVerify={handleToggleVerified}
+              info={`Total data: ${totalRows}`}
+              btnSize="xs"
+              userRole={userRole}
+              searchValue={searchValue}
+              onSearchChange={setSearchValue}
+              editDelete={isAdmin ? true : false}
+              marked={true}
+              showDateFilter
+              onDateChange={makeSubFilterHandler('date')}
+              showSumberDanaFilter
+              onSumberDanaChange={makeSubFilterHandler('sumberDana')}
+              sumberDanaOptions={saldoOptions}
+              showJenisTransaksiFilter
+              onJenisTransaksiChange={makeSubFilterHandler('jenisTransaksi')}
+              jenisTransaksiOptions={JENIS_TRANSAKSI_OPTIONS}
+              showKoreksiFilter
+              onKoreksiFilterChange={makeSubFilterHandler('koreksi')}
+            />
+          </div>
         )}
       </div>
 

@@ -51,7 +51,16 @@ const TableContent = ({
   onPembayarFeeChange = () => {},
   onEditedFilterChange = () => {},
   onKoreksiFilterChange = () => {},
-  onManualOverrideFilterChange = () => {}
+  onManualOverrideFilterChange = () => {},
+  // Opsional: kalau parent kirim array di sini, dropdown pakai daftar ini
+  // (bukan hasil ekstrak dari `data`). Berguna kalau `data` sedang dibatasi
+  // rentang tanggal untuk performa — daftar opsi tetap lengkap, tidak ikut
+  // terpotong, supaya admin tetap bisa memilih nilai yang ada di luar rentang
+  // yang sedang ditampilkan.
+  sumberDanaOptions,
+  jenisTransaksiOptions,
+  terimaDanaOptions,
+  pembayarFeeOptions
 }) => {
   // const [loggedInUser, setLoggedInUser] = useState(null)
   const [showAlertDialog, setShowAlertDialog] = useState(false)
@@ -72,23 +81,35 @@ const TableContent = ({
   const deferredSearchValue = useDeferredValue(searchValue)
 
   const uniqueSumberDana = useMemo(
-    () => [...new Set(data.map((item) => item.sumber_dana || item.platform_name || item.sumber_nama || '').filter(Boolean))],
-    [data]
+    () =>
+      Array.isArray(sumberDanaOptions)
+        ? sumberDanaOptions
+        : [...new Set(data.map((item) => item.sumber_dana || item.platform_name || item.sumber_nama || '').filter(Boolean))],
+    [data, sumberDanaOptions]
   )
 
   const uniqueJenisTransaksi = useMemo(
-    () => [...new Set(data.map((item) => item.jenis_transaksi || '').filter(Boolean))],
-    [data]
+    () =>
+      Array.isArray(jenisTransaksiOptions)
+        ? jenisTransaksiOptions
+        : [...new Set(data.map((item) => item.jenis_transaksi || '').filter(Boolean))],
+    [data, jenisTransaksiOptions]
   )
 
   const uniqueTerimaDana = useMemo(
-    () => [...new Set(data.map((item) => item.terima_dana_nama || '').filter(Boolean))],
-    [data]
+    () =>
+      Array.isArray(terimaDanaOptions)
+        ? terimaDanaOptions
+        : [...new Set(data.map((item) => item.terima_dana_nama || '').filter(Boolean))],
+    [data, terimaDanaOptions]
   )
 
   const uniquePembayarFee = useMemo(
-    () => [...new Set(data.map((item) => item.metode_pembayaran_nama || '').filter(Boolean))],
-    [data]
+    () =>
+      Array.isArray(pembayarFeeOptions)
+        ? pembayarFeeOptions
+        : [...new Set(data.map((item) => item.metode_pembayaran_nama || '').filter(Boolean))],
+    [data, pembayarFeeOptions]
   )
 
   const editedCount = useMemo(() => data.filter((item) => item.is_edited || item.edited).length, [data])
@@ -194,23 +215,16 @@ const TableContent = ({
               ? !(item.is_fee_manual || item.is_bonus_manual)
               : true)
         : true
+      // Cocokkan ke SEMUA nilai di baris data ini, apa pun nama field-nya —
+      // bukan daftar kolom tertentu yang di-hardcode. Ini penting karena
+      // TableContent dipakai di banyak halaman dengan bentuk data yang beda-
+      // beda (transaksi, hutang, pindah saldo, ambil saldo, dll), jadi daftar
+      // field manual gampang ketinggalan zaman begitu ada kolom baru — hasil
+      // pencarian terlihat "kurang berfungsi" padahal datanya sebenarnya ada,
+      // cuma field-nya belum ditambahkan ke whitelist.
       const matchSearch = query
-        ? [
-            item.tanggal,
-            item.tanggal_pengambilan,
-            item.sumber_dana,
-            item.platform_name,
-            item.sumber_nama,
-            item.jenis_transaksi,
-            item.terima_dana_nama,
-            item.metode_pembayaran_nama,
-            item.keterangan,
-            item.deskripsi,
-            item.oleh,
-            item.nama,
-            item.user_name
-          ]
-            .filter(Boolean)
+        ? Object.values(item)
+            .filter((val) => val !== null && val !== undefined && typeof val !== 'object' && typeof val !== 'function')
             .join(' ')
             .toLowerCase()
             .includes(query)
@@ -528,14 +542,22 @@ const TableContent = ({
 
         {/* Table */}
         <div className="overflow-x-auto">
+          {/* Trik `w-[1%]` di kolom No & Aksi + `w-full` di kolom data: kolom
+              yang isinya pendek & bentuknya sudah pasti (nomor urut, tombol
+              aksi) dikunci seukuran kontennya saja, sedangkan kolom data
+              berbagi RATA sisa lebar tabel. Efeknya kolom-kolom otomatis
+              melebar ngisi penuh card kalau jumlah kolom yang tampil dikit
+              (bukan numpuk ke kiri + 1 gap kosong raksasa di kanan), dan kalau
+              kolomnya banyak, tetap scroll horizontal seperti biasa — Aksi
+              tidak pernah ikut kestretch jadi kepanjangan/tombolnya kepencet. */}
           <table
-            className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}
+            className={`border-collapse divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}
           >
             <thead className={isDark ? 'bg-gray-700' : 'bg-gray-50'}>
               <tr>
                 {editDelete && (
                   <th
-                    className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider w-16`}
+                    className={`px-3 py-2 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap w-[1%]`}
                   >
                     No
                   </th>
@@ -543,14 +565,14 @@ const TableContent = ({
                 {columns.map((col) => (
                   <th
                     key={col.key}
-                    className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider`}
+                    className={`px-3 py-2 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap w-full`}
                   >
                     {col.label}
                   </th>
                 ))}
                 {editDelete && (
                   <th
-                    className={`px-6 py-3 text-right text-xs font-medium uppercase tracking-wider ${isDark ? 'text-gray-300 bg-gray-700' : 'text-gray-500 bg-gray-50'} sticky right-0 z-10`}
+                    className={`px-3 py-2 text-right text-xs font-medium uppercase tracking-wider whitespace-nowrap w-[1%] ${isDark ? 'text-gray-300 bg-gray-700' : 'text-gray-500 bg-gray-50'} sticky right-0 z-10`}
                   >
                     Aksi
                   </th>
@@ -576,7 +598,7 @@ const TableContent = ({
                 >
                   {editDelete && (
                     <td
-                      className={`px-6 py-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
+                      className={`px-3 py-2 text-sm whitespace-nowrap w-[1%] ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
                     >
                       {(currentPage - 1) * itemsPerPage + index + 1}
                     </td>
@@ -584,7 +606,7 @@ const TableContent = ({
                   {columns.map((col) => (
                     <td
                       key={col.key}
-                      className="px-6 py-4 text-sm whitespace-nowrap truncate max-w-[180px]"
+                      className="px-3 py-2 text-sm whitespace-nowrap w-full"
                     >
                       {typeof item[col.key] === 'object' && item[col.key] !== null ? (
                         <div className="leading-snug">
@@ -592,14 +614,17 @@ const TableContent = ({
                           <div className="text-xs text-gray-500">{item[col.key].nomor}</div>
                         </div>
                       ) : (
-                        <div className={`${isDark ? 'text-gray-200' : 'text-gray-900'}`}>
+                        <div
+                          title={typeof item[col.key] === 'string' || typeof item[col.key] === 'number' ? String(item[col.key]) : undefined}
+                          className={`max-w-[280px] truncate ${isDark ? 'text-gray-200' : 'text-gray-900'}`}
+                        >
                           {item[col.key]}
                         </div>
                       )}
                     </td>
                   ))}
                   <td
-                    className={`px-6 py-4 text-right text-sm font-medium sticky right-0 z-10 ${isDark ? 'bg-gray-800' : 'bg-white'}`}
+                    className={`px-3 py-2 text-right text-sm font-medium w-[1%] sticky right-0 z-10 ${isDark ? 'bg-gray-800' : 'bg-white'}`}
                   >
                     <div className="flex justify-end gap-2">
                       {item.manual_override_note && (

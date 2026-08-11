@@ -66,6 +66,34 @@ const HalamanSetting = () => {
       metode_pengambilan: { label: 'Metode Pengambilan', visible: true },
       tujuan_pengambilan: { label: 'Tujuan Pengambilan', visible: true },
       keterangan: { label: 'Keterangan', visible: true }
+    },
+    semuaTransaksi: {
+      tanggal: { label: 'Tanggal', visible: true },
+      tgl_bayar: { label: 'Tgl Bayar', visible: true },
+      oleh: { label: 'Oleh', visible: true },
+      jenis: { label: 'Jenis', visible: true },
+      nominal: { label: 'Nominal', visible: true },
+      fee: { label: 'Fee', visible: true },
+      alat_nama: { label: 'Alat', visible: true },
+      bonus: { label: 'Bonus Alat', visible: true },
+      biaya_admin: { label: 'Adm Bank', visible: true },
+      sumber_dana: { label: 'Sumber Dana', visible: true },
+      tujuan_dana: { label: 'Terima Dana', visible: true },
+      metode_pembayaran_nama: { label: 'Pembayaran Fee', visible: true }
+    },
+    koreksiTransaksi: {
+      tanggal: { label: 'Tanggal', visible: true },
+      tgl_bayar: { label: 'Tgl Bayar', visible: true },
+      oleh: { label: 'Oleh', visible: true },
+      jenis: { label: 'Jenis', visible: true },
+      nominal: { label: 'Nominal', visible: true },
+      fee: { label: 'Fee', visible: true },
+      alat_nama: { label: 'Alat', visible: true },
+      bonus: { label: 'Bonus Alat', visible: true },
+      biaya_admin: { label: 'Adm Bank', visible: true },
+      sumber_dana: { label: 'Sumber Dana', visible: true },
+      tujuan_dana: { label: 'Terima Dana', visible: true },
+      metode_pembayaran_nama: { label: 'Pembayaran Fee', visible: true }
     }
   }
 
@@ -80,7 +108,14 @@ const HalamanSetting = () => {
     if (savedSettings) {
       try {
         const parsed = JSON.parse(savedSettings)
-        setColumnSettings(parsed)
+        // Merge per-halaman: kalau ada halaman/kolom baru (mis. baru ditambahkan di update ini)
+        // yang belum ada di localStorage lama, tetap dapat default 'visible: true' alih-alih
+        // hilang begitu saja karena localStorage user belum punya entry untuk itu.
+        const merged = { ...defaultColumns }
+        Object.keys(defaultColumns).forEach((pageKey) => {
+          merged[pageKey] = { ...defaultColumns[pageKey], ...(parsed[pageKey] || {}) }
+        })
+        setColumnSettings(merged)
       } catch (error) {
         console.error('Error parsing column settings:', error)
       }
@@ -138,6 +173,8 @@ const HalamanSetting = () => {
 
   const pageOptions = [
     { key: 'transaksi', label: 'Transaksi' },
+    { key: 'semuaTransaksi', label: 'Semua Transaksi' },
+    { key: 'koreksiTransaksi', label: 'Koreksi Transaksi' },
     { key: 'pindahSaldo', label: 'Pindah Saldo' },
     { key: 'hutang', label: 'Hutang' },
     { key: 'ambilSaldo', label: 'Ambil Saldo' }

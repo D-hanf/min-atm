@@ -2,6 +2,7 @@ import {
   HiOutlineArrowLeftEndOnRectangle,
   HiOutlineBars4,
   HiOutlineChevronDoubleLeft,
+  HiOutlineChevronDown,
   HiOutlineCircleStack,
   HiOutlineCog,
   HiOutlineCube,
@@ -203,7 +204,11 @@ const handleLogout = () => {
           )}
         </div>
 
-        <div className="flex-1 py-4 px-5">
+        <div
+          className={`flex-1 min-h-0 py-4 px-5 ${
+            isOpen ? 'overflow-y-auto overflow-x-hidden' : 'overflow-visible'
+          }`}
+        >
           {navigations.map((section, iSection) => (
             <div key={iSection} className={iSection > 0 ? 'mt-6' : ''}>
               {isOpen && (
@@ -244,6 +249,14 @@ const handleLogout = () => {
                           >
                             {item.label}
                           </span>
+                          {isOpen && (
+                            <HiOutlineChevronDown
+                              size={14}
+                              className={`ml-auto shrink-0 transition-transform duration-200
+                              ${isDark ? 'text-gray-400' : 'text-zinc-500'}
+                              ${openSubmenu === `${iSection}-${iItem}` ? 'rotate-180' : 'rotate-0'}`}
+                            />
+                          )}
                         </button>
 
                         {isOpen && openSubmenu === `${iSection}-${iItem}` && (

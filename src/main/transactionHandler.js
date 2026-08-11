@@ -9,9 +9,26 @@ import utc from 'dayjs/plugin/utc'
 dayjs.extend(utc)
 dayjs.extend(timezone)
 
-export function getTransaksi(role) {
-  const today = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+// `days` = berapa hari ke belakang dari hari ini yang boleh diambil untuk role kasir
+// (dikirim dari setting dataVisibilityHandler, default 1 = hari ini saja).
+// Kasir SELALU dibatasi lewat `days` (requirement dataVisibilityHandler.js), tidak bisa
+// dioverride oleh dateFrom/dateTo.
+//
+// `dateFrom` / `dateTo` (format 'YYYY-MM-DD') = rentang tanggal OPSIONAL, dipakai untuk
+// ADMIN saja. Ini BUKAN pembatasan hak akses (admin tetap boleh lihat semua data kapan
+// saja, sesuai requirement asli) — ini murni default performa: histori penuh admin bisa
+// jutaan baris, jadi tarik "bulan ini" dulu itu jauh lebih cepat dan pakai index yang
+// sama dengan kasir (idx_transaksi_tanggal). Kalau dateFrom/dateTo tidak dikirim
+// (undefined), admin tetap dapat SELURUH histori seperti sebelumnya (mis. saat admin
+// eksplisit klik "Muat Semua Riwayat").
+export function getTransaksi(role, days = 1, dateFrom, dateTo) {
+  const daysCount = Math.max(1, Number(days) || 1)
+  const cutoffStart = dayjs().tz('Asia/Jakarta').startOf('day').subtract(daysCount - 1, 'day').format('YYYY-MM-DD HH:mm:ss')
+  const tomorrow = dayjs().tz('Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
   const roleLower = (role || '').toLowerCase()
+
+  const isKasir = roleLower === 'kasir'
+  const hasAdminRange = !isKasir && dateFrom && dateTo
 
   return new Promise((resolve, reject) => {
     const query = `
@@ -25,11 +42,21 @@ export function getTransaksi(role) {
       LEFT JOIN history_transaksi h ON t.id = h.transaksi_id
       LEFT JOIN saldo_awal s1 ON h.sumber_dana_id = s1.id
       LEFT JOIN saldo_awal s2 ON h.terima_dana_id = s2.id
-      ${roleLower === 'kasir' ? 'WHERE DATE(t.tanggal) = ?' : ''}
+      ${isKasir || hasAdminRange ? 'WHERE t.tanggal >= ? AND t.tanggal < ?' : ''}
       ORDER BY t.tanggal DESC, t.id DESC
     `
 
-    const params = roleLower === 'kasir' ? [today] : []
+    // Range komparasi (bukan DATE(t.tanggal) = ?) supaya index idx_transaksi_tanggal
+    // bisa dipakai SQLite — membungkus kolom dengan fungsi seperti DATE() bikin index
+    // di kolom itu tidak kepakai sama sekali (functional expression, bukan raw kolom).
+    let params = []
+    if (isKasir) {
+      params = [cutoffStart, tomorrow]
+    } else if (hasAdminRange) {
+      const rangeStart = dayjs.tz(dateFrom, 'Asia/Jakarta').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+      const rangeEnd = dayjs.tz(dateTo, 'Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+      params = [rangeStart, rangeEnd]
+    }
 
     db.all(query, params, (err, rows) => {
       if (err) return reject(err)

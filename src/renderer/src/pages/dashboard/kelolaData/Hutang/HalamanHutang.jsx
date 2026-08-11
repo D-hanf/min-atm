@@ -1,7 +1,9 @@
-import React, { use, useEffect, useState } from 'react'
+import React, { use, useEffect, useRef, useState } from 'react'
 
+import AdminRangeFilterBar from '../../../../components/AdminRangeFilterBar'
 import AlertDialog from '../../../../components/AlertDialog'
 import ConfirmDialog from '../../../../components/ConfirmDialog'
+import DataVisibilitySettings from '../../../../components/DataVisibilitySettings'
 import FormLayout from './FormLayout'
 import { HiSearch } from 'react-icons/hi'
 import InputField from '../../../../components/InputField'
@@ -12,6 +14,7 @@ import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAdminDateRange } from '../../../../hooks/useAdminDateRange'
 import { useAuth } from '../../../../context/AuthContext'
 import { useColumnSettings } from '../../../../hooks/useColumnSettings'
 import { useLock } from '../../../../context/LockContext'
@@ -49,6 +52,33 @@ function HalamanHutang() {
   const [isEditingPaid, setIsEditingPaid] = useState(false)
   const { user: loggedInUser } = useAuth()
   const userRole = loggedInUser?.role?.toLowerCase() || 'kasir'
+  const isAdmin = userRole === 'admin'
+  const [visibilitySetting, setVisibilitySetting] = useState({ days: 1 })
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+  const [isHutangLoading, setIsHutangLoading] = useState(false)
+
+  // Rentang tanggal khusus ADMIN — state & logikanya terpusat di
+  // useAdminDateRange.js (satu sumber kebenaran buat semua halaman histori).
+  const {
+    rangePreset,
+    setRangePreset,
+    customFrom,
+    setCustomFrom,
+    customTo,
+    setCustomTo,
+    isReady: isRangeReady,
+    range
+  } = useAdminDateRange()
+  // Menandai request fetch paling baru, supaya respon yang datang belakangan
+  // (basi, karena admin sudah ganti rentang lagi) tidak menimpa data aktif.
+  const requestIdRef = useRef(0)
+  // Filter sumber dana/tanggal dilacak MURNI buat notice informatif — tidak
+  // memicu fetch ulang, tidak mengubah rentang. Filter bekerja di dalam data
+  // yang sudah ke-load sesuai chip yang aktif.
+  const [activeSubFilters, setActiveSubFilters] = useState({ date: '', sumberDana: '' })
+  const makeSubFilterHandler = (key) => (value) =>
+    setActiveSubFilters((prev) => (prev[key] === value ? prev : { ...prev, [key]: value }))
+  const isFilteringActive = isAdmin && Object.values(activeSubFilters).some(Boolean)
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const toDateOnly = (val) =>
     dayjs(val).isValid() ? dayjs(val).tz('Asia/Jakarta').format('YYYY-MM-DD') : ''
@@ -109,8 +139,26 @@ function HalamanHutang() {
   }
 
   const fetchHutang = async () => {
+    if (isAdmin && !isRangeReady) return
+
+    const requestId = ++requestIdRef.current
+    setIsHutangLoading(true)
     try {
-      const result = await window.api.getHutang(userRole)
+      // 🔒 Ambil setting visibilitas dulu, baru minta data ke backend dengan role
+      // asli + jumlah hari itu. Backend yang filter di SQL (pakai index), jadi
+      // kasir tidak lagi menarik SELURUH histori hutang tiap buka halaman ini.
+      const visibility = await window.api?.getDataVisibilitySetting?.('hutang')
+      const days = Number(visibility?.days) > 0 ? Number(visibility.days) : 1
+      setVisibilitySetting({ days })
+
+      // Admin: rentang sesuai chip yang dipilih ('all' → from/to undefined,
+      // artinya seluruh histori — pilihan sadar admin lewat chip). Filter tabel
+      // (sumber dana/tanggal) TIDAK mengubah rentang ini. Kasir: tidak
+      // terpengaruh sama sekali, tetap dibatasi `days`.
+      const { from, to } = isAdmin ? range : {}
+
+      const result = await window.api.getHutang(userRole, days, from || undefined, to || undefined)
+      if (requestId !== requestIdRef.current) return
       setHutang(result)
 
       const initialMap = {}
@@ -126,7 +174,13 @@ function HalamanHutang() {
       console.log('Total hutang belum dibayar (semua tanggal):', totalAwal)
       return result
     } catch (error) {
+      if (requestId !== requestIdRef.current) return
       console.error('❌ Gagal ambil data hutang:', error)
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setHasLoadedOnce(true)
+        setIsHutangLoading(false)
+      }
     }
   }
 
@@ -152,10 +206,13 @@ function HalamanHutang() {
   }
 
   useEffect(() => {
-    fetchHutang()
     fetchSaldoAwal()
     fetchUsers()
   }, [])
+
+  useEffect(() => {
+    fetchHutang()
+  }, [isAdmin, rangePreset, customFrom, customTo])
 
   const handleAddhutang = async (formData) => {
     try {
@@ -287,6 +344,8 @@ function HalamanHutang() {
     }
   }
 
+  // Data dari backend sudah difilter sesuai role + setting visibilitas
+  // (lihat fetchHutang), jadi tidak perlu dipotong ulang di sini.
   const filteredData = hutang
     .filter((item) =>
       Object.values(item).some((val) =>
@@ -566,37 +625,78 @@ function HalamanHutang() {
         </div>
       </div>
 
+      <div className="px-4">
+        {isAdmin && (
+          <DataVisibilitySettings
+            pageKey="hutang"
+            pageLabel="Hutang"
+            onSaved={(setting) => setVisibilitySetting(setting)}
+          />
+        )}
+
+        {isAdmin && (
+          <AdminRangeFilterBar
+            rangePreset={rangePreset}
+            setRangePreset={setRangePreset}
+            customFrom={customFrom}
+            setCustomFrom={setCustomFrom}
+            customTo={customTo}
+            setCustomTo={setCustomTo}
+            filterNotice={
+              isFilteringActive
+                ? 'Filter tabel aktif — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                : null
+            }
+            isLoading={isHutangLoading}
+            hasLoadedOnce={hasLoadedOnce}
+          />
+        )}
+
+        {!isAdmin && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+            Menampilkan data {visibilitySetting.days} hari terakhir (diatur oleh admin).
+          </div>
+        )}
+      </div>
+
       <div>
         {isLoading ? (
           <div className="flex justify-center items-center h-40">
             <p>Loading...</p>
           </div>
         ) : (
-          <TableContent
-            info={`Total Hutang Belum Dibayar${filterTanggal ? ` (${filterTanggal})` : ''}: ${formatRupiah(totalBelumDibayarDisplay)}`}
-            title={'Hutang'}
-            bayar={true}
-            showSumberDanaFilter={true}
-            statusHutang={statusBayarMap}
-            userRole={userRole}
-            columns={columns}
-            showDateFilter={true}
-            onDateChange={(date) => setFilterTanggal(date)}
-            data={filteredData}
-            onAdd={
-              isGloballyLocked ? null : (
-                <FormLayout onSubmit={handleAddhutang} buttonText="Transaksi Hutang" />
-              )
-            }
-            onEdit={isGloballyLocked ? null : handleEdit}
-            onDelete={isGloballyLocked ? null : handleDelete}
-            onStatus={isGloballyLocked ? null : handleToggleStatus}
-            btnSize={'xs'}
-            currentPage={1}
-            totalPages={1}
-            rowsPerPage={10}
-            className={isDark ? 'dark' : ''}
-          />
+          <div className={isHutangLoading && hasLoadedOnce ? 'pointer-events-none opacity-60 transition-opacity' : 'transition-opacity'}>
+            <TableContent
+              info={`Total Hutang Belum Dibayar${filterTanggal ? ` (${filterTanggal})` : ''}: ${formatRupiah(totalBelumDibayarDisplay)}`}
+              title={'Hutang'}
+              bayar={true}
+              showSumberDanaFilter={true}
+              onSumberDanaChange={makeSubFilterHandler('sumberDana')}
+              sumberDanaOptions={saldoAwalOptions.map((item) => item.nama_sumber_dana).filter(Boolean)}
+              statusHutang={statusBayarMap}
+              userRole={userRole}
+              columns={columns}
+              showDateFilter={true}
+              onDateChange={(date) => {
+                setFilterTanggal(date)
+                makeSubFilterHandler('date')(date)
+              }}
+              data={filteredData}
+              onAdd={
+                isGloballyLocked ? null : (
+                  <FormLayout onSubmit={handleAddhutang} buttonText="Transaksi Hutang" />
+                )
+              }
+              onEdit={isGloballyLocked ? null : handleEdit}
+              onDelete={isGloballyLocked ? null : handleDelete}
+              onStatus={isGloballyLocked ? null : handleToggleStatus}
+              btnSize={'xs'}
+              currentPage={1}
+              totalPages={1}
+              rowsPerPage={10}
+              className={isDark ? 'dark' : ''}
+            />
+          </div>
         )}
       </div>
       <ConfirmDialog

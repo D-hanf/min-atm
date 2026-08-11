@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
+import AdminRangeFilterBar from '../../../../components/AdminRangeFilterBar'
 import AlertDialog from '../../../../components/AlertDialog'
 import ButtonInput from '../../../../components/ButtonInput'
 import ConfirmDialog from '../../../../components/ConfirmDialog'
+import DataVisibilitySettings from '../../../../components/DataVisibilitySettings'
 import Dropdown from '../../../../components/Dropdown'
 import FormLayout from './FormLayout'
 import InputField from '../../../../components/InputField'
@@ -11,6 +13,7 @@ import SearchField from '../../../../components/SearchField'
 import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAdminDateRange } from '../../../../hooks/useAdminDateRange'
 import { useAuth } from '../../../../context/AuthContext'
 import { useColumnSettings } from '../../../../hooks/useColumnSettings'
 import { useLock } from '../../../../context/LockContext'
@@ -35,6 +38,8 @@ const HalamanAmbilSaldo = () => {
   const { user: loggedInUser } = useAuth()
 
   const userRole = loggedInUser?.role?.toLowerCase() || 'kasir'
+  const isAdmin = userRole === 'admin'
+  const [visibilitySetting, setVisibilitySetting] = useState({ days: 1 })
 
   const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
@@ -80,7 +85,26 @@ const HalamanAmbilSaldo = () => {
   const [filterText, setFilterText] = useState('')
   const [saldoAwalOptions, setSaldoAwalOptions] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [selectedPlatform, setSelectedPlatform] = useState(null)
+
+  // Filter sumber dana/pencarian di tabel dilacak MURNI buat notice informatif
+  // di AdminRangeFilterBar — TIDAK memicu fetch ulang atau mengubah rentang.
+  // Filter bekerja di dalam data yang sudah ke-load sesuai chip yang aktif.
+  const [activeSumberDanaFilter, setActiveSumberDanaFilter] = useState('')
+  const isSearchingActive = isAdmin && filterText.trim().length > 0
+  const isFilteringActive = isAdmin && Boolean(activeSumberDanaFilter)
+
+  const {
+    rangePreset,
+    setRangePreset,
+    customFrom,
+    setCustomFrom,
+    customTo,
+    setCustomTo,
+    isReady: isRangeReady,
+    range
+  } = useAdminDateRange()
 
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -118,18 +142,25 @@ const HalamanAmbilSaldo = () => {
 
   const fetchAmbilSaldo = async () => {
     try {
-      const result = await window.api?.getAmbilSaldo(userRole)
+      // 🔒 Ambil setting visibilitas dulu, baru minta data ke backend dengan role
+      // asli + jumlah hari itu. Backend yang filter di SQL (pakai index).
+      const visibility = await window.api?.getDataVisibilitySetting?.('ambil-saldo')
+      const days = Number(visibility?.days) > 0 ? Number(visibility.days) : 1
+      setVisibilitySetting({ days })
 
-      let filtered = result
+      // Admin: rentang sesuai chip yang dipilih ('all' → from/to undefined,
+      // artinya seluruh histori — pilihan sadar admin lewat chip). Filter tabel
+      // (sumber dana/pencarian) TIDAK mengubah rentang ini. Kasir: tidak
+      // terpengaruh sama sekali, tetap dibatasi `days`.
+      const { from, to } = isAdmin ? range : {}
+
+      const result = await window.api?.getAmbilSaldo(userRole, days, from || undefined, to || undefined)
       console.log('📊 Data ambil saldo:', result)
-      if (userRole.toLowerCase() === 'kasir') {
-        const today = getTodayWIB()
-        filtered = result.filter((item) => toDateOnly(item.tanggal_pengambilan) === today)
-      }
-
-      setAmbilSaldo(filtered)
+      setAmbilSaldo(result || [])
     } catch (error) {
       console.error('❌ Gagal ambil data ambil saldo:', error)
+    } finally {
+      setHasLoadedOnce(true)
     }
   }
 
@@ -140,10 +171,11 @@ const HalamanAmbilSaldo = () => {
 
   useEffect(() => {
     if (userRole) {
+      if (isAdmin && !isRangeReady) return
       console.log('🧪 Role terdeteksi:', userRole)
       fetchAmbilSaldo()
     }
-  }, [userRole])
+  }, [userRole, isAdmin, rangePreset, customFrom, customTo])
 
   // Handle platform selection in edit mode
   const handlePlatformChange = (selectedPlatformName) => {
@@ -374,14 +406,9 @@ const HalamanAmbilSaldo = () => {
   }
 
   // Process data for display - don't add the index field
+  // Data dari backend sudah difilter sesuai role + setting visibilitas
+  // (lihat fetchAmbilSaldo), jadi tidak perlu dipotong ulang di sini.
   const filteredData = ambilSaldo
-    .filter((item) => {
-      // (Redundant with fetchAmbilSaldo role filter, but keep safe normalization)
-      if (userRole.toLowerCase() === 'kasir') {
-        return toDateOnly(item.tanggal_pengambilan) === getTodayWIB()
-      }
-      return true
-    })
     .filter((item) =>
       Object.values(item).some((val) =>
         String(val).toLowerCase().includes(filterText.toLowerCase())
@@ -421,6 +448,15 @@ const HalamanAmbilSaldo = () => {
 
   // Filter kolom berdasarkan setting
   const columns = allColumns.filter((col) => isColumnVisible(col.key))
+
+  // Daftar nama sumber dana APA ADANYA dari master data — selalu ditarik penuh
+  // (fetchSaldoAwal tidak ikut dibatasi rentang tanggal), dipakai sebagai opsi
+  // dropdown filter supaya opsinya tidak diam-diam hilang gara-gara transaksi
+  // yang memakainya kebetulan di luar rentang yang sedang aktif.
+  const sumberDanaOptions = useMemo(
+    () => [...new Set(saldoAwalOptions.map((item) => item.nama_sumber_dana).filter(Boolean))],
+    [saldoAwalOptions]
+  )
   return (
     <>
       {isGloballyLocked && (
@@ -458,10 +494,48 @@ const HalamanAmbilSaldo = () => {
         </div>
       </div>
 
+      <div className="px-4">
+        {isAdmin && (
+          <DataVisibilitySettings
+            pageKey="ambil-saldo"
+            pageLabel="Ambil Saldo"
+            onSaved={(setting) => setVisibilitySetting(setting)}
+          />
+        )}
+
+        {isAdmin && (
+          <AdminRangeFilterBar
+            rangePreset={rangePreset}
+            setRangePreset={setRangePreset}
+            customFrom={customFrom}
+            setCustomFrom={setCustomFrom}
+            customTo={customTo}
+            setCustomTo={setCustomTo}
+            filterNotice={
+              isSearchingActive
+                ? 'Mencari kata kunci — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                : isFilteringActive
+                  ? 'Filter tabel aktif — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                  : null
+            }
+            isLoading={isLoading}
+            hasLoadedOnce={hasLoadedOnce}
+          />
+        )}
+
+        {!isAdmin && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+            Menampilkan data {visibilitySetting.days} hari terakhir (diatur oleh admin).
+          </div>
+        )}
+      </div>
+
       <div>
         <TableContent
           searchValue={filterText}
           showSumberDanaFilter={true}
+          onSumberDanaChange={setActiveSumberDanaFilter}
+          sumberDanaOptions={sumberDanaOptions}
           onSearchChange={setFilterText}
           btnSize={'xs'}
           data={filteredData}

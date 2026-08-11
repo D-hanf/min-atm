@@ -107,6 +107,24 @@ const CekSaldo = ({ formData, onChange, onValidChange }) => {
     onValidChange?.(isValid)
   }, [formData.alat_id, formData.sumber_dana_id, formData.bonus, onValidChange])
 
+  // 🔒 Cek Saldo TIDAK PERNAH punya fee (cuma bonus) — form ini sengaja tidak
+  // punya field/UI untuk fee. Tapi kalau `formData` di FormLayout dipakai
+  // bersama untuk semua jenis transaksi (satu objek shared state), nilai `fee`
+  // dari jenis transaksi SEBELUMNYA yang sempat dipilih kasir (mis. "Tarik
+  // Tunai" dengan fee auto/manual terisi) bisa nyangkut dan ikut kekirim ke
+  // createTransaksi tanpa disadari kasir maupun kita, karena tidak ada apa pun
+  // di sini yang membersihkannya. Paksa ke 0 begitu form Cek Saldo ini aktif,
+  // supaya sisa fee dari form lain tidak pernah ikut tersimpan.
+  useEffect(() => {
+    if (formData.fee !== 0 && formData.fee !== '0') {
+      onChange({ target: { name: 'fee', value: 0 } })
+    }
+    if (formData.is_fee_manual) {
+      onChange({ target: { name: 'is_fee_manual', value: false } })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const selectedAlat = alatList.find((a) => String(a.id) === String(formData.alat_id))
 
   const handleAlatChange = async (e) => {

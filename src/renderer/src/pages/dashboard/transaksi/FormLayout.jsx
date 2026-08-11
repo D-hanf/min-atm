@@ -59,6 +59,34 @@ const FormLayout = ({
   )
   const [formValid, setFormValid] = useState(true)
 
+  // Baseline field-field transaksi yang HARUS di-reset tiap kali kasir pindah
+  // ke jenis transaksi yang beda (baik dari menu maupun setelah submit). Dipusatkan
+  // di satu tempat supaya tidak dobel-tulis & tidak gampang beda-beda antara
+  // handleTransactionSelect dan handleSubmit seperti sebelumnya — itu yang bikin
+  // field sisa dari jenis transaksi sebelumnya (mis. `fee` dari Tarik Tunai) bisa
+  // nyangkut kebawa ke jenis transaksi lain (mis. Cek Saldo) tanpa disadari.
+  const getEmptyTransactionFields = () => ({
+    sumber_dana_id: '',
+    metode_pembayaran: '',
+    tipe_transaksi: '',
+    saldo_awal: 0,
+    nominal_transaksi: 0,
+    fee: 0,
+    biaya_admin: 0,
+    biaya_admin_bank: 0,
+    terima_dana_id: '',
+    saldo_akhir: 0,
+    keterangan: '',
+    nomor_tujuan: '',
+    alat_id: '',
+    alat_nama: '',
+    is_fee_manual: false,
+    // Cek Saldo
+    bonus: 0,
+    is_bonus_manual: false,
+    nama_pelanggan: ''
+  })
+
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
 
@@ -101,8 +129,15 @@ const FormLayout = ({
     setSelectedTransactionId(id)
     setSelectedTransactionType(name)
     setShowMenu(false)
+    // Reset SEMUA field spesifik-jenis ke default begitu kasir pilih jenis
+    // transaksi (baru atau ganti dari yang lain) — cuma tanggal & no_transaksi
+    // (yang sudah digenerate di atas) yang dipertahankan. Ini mencegah field
+    // dari jenis transaksi sebelumnya (fee, bonus, alat_id, dll) nyangkut ke
+    // jenis transaksi yang baru dipilih.
     setFormData((prev) => ({
-      ...prev,
+      tanggal: prev.tanggal,
+      no_transaksi: prev.no_transaksi,
+      ...getEmptyTransactionFields(),
       jenis_transaksi: name
     }))
   }
@@ -126,22 +161,8 @@ const FormLayout = ({
       setFormData({
         tanggal: getNowDateTimeLocalWIB(),
         no_transaksi: '',
-        sumber_dana_id: '',
-        metode_pembayaran: '',
         jenis_transaksi: '',
-        saldo_awal: 0,
-        nominal_transaksi: 0,
-        fee: 0,
-        biaya_admin: 0,
-        saldo_akhir: 0,
-        keterangan: '',
-        alat_id: '',
-        alat_nama: '',
-        is_fee_manual: false,
-        // Cek Saldo
-        bonus: 0,
-        is_bonus_manual: false,
-        nama_pelanggan: ''
+        ...getEmptyTransactionFields()
       })
     }
   }

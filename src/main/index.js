@@ -24,6 +24,7 @@ import {
   getTransaksi,
   getTransaksiSummary
 } from './transactionHandler.js'
+import { getDataVisibilitySetting, saveDataVisibilitySetting } from './dataVisibilityHandler.js'
 import { markBenar, markSalah, unmarkBenar, unmarkSalah, updateSchema } from './db.js'
 
 import { Menu } from 'electron'
@@ -492,6 +493,13 @@ app.whenReady().then(async () => {
     // Logic-nya sudah dipindah ke laporanHandler.js (getLaporanKeuangan) — di-import di atas.
     // JANGAN taruh logic query/format laporan di sini lagi, biar nggak ada 2 versi yang beda.
     ipcMain.handle('get-laporan-keuangan', getLaporanKeuangan)
+
+    // ============================= setting visibilitas data untuk kasir (per halaman) =============================
+    // Admin bisa atur, PER HALAMAN: kasir cuma boleh lihat data N hari ke belakang dari hari ini,
+    // di halaman-halaman yang sengaja menampilkan histori penuh (Semua Transaksi, Koreksi Transaksi, dst).
+    // Logic-nya ada di dataVisibilityHandler.js — sama seperti laporan, JANGAN taruh logic-nya di sini.
+    ipcMain.handle('get-data-visibility-setting', getDataVisibilitySetting)
+    ipcMain.handle('save-data-visibility-setting', saveDataVisibilitySetting)
     // // Fungsi untuk simpan snapshot saldo awal tiap awal bulan
     function saveMonthlySnapshotIfNeeded() {
       const periode = dayjs().tz('Asia/Jakarta').format('YYYY-MM')
@@ -639,9 +647,16 @@ app.whenReady().then(async () => {
 
     // ============================= Hutang handler =============================
 
-    ipcMain.handle('get-hutang', async (event, role) => {
+    // `dateFrom`/`dateTo` (format 'YYYY-MM-DD') = rentang tanggal OPSIONAL khusus ADMIN,
+    // pola sama persis dengan getTransaksi di transactionHandler.js — kasir tetap
+    // SELALU dibatasi lewat `days`, tidak terpengaruh dateFrom/dateTo sama sekali.
+    ipcMain.handle('get-hutang', async (event, role, days = 1, dateFrom, dateTo) => {
       const roleLower = (role || '').toLowerCase()
-      const today = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+      const isKasir = roleLower === 'kasir'
+      const hasAdminRange = !isKasir && dateFrom && dateTo
+      const daysCount = Math.max(1, Number(days) || 1)
+      const cutoffStart = dayjs().tz('Asia/Jakarta').startOf('day').subtract(daysCount - 1, 'day').format('YYYY-MM-DD HH:mm:ss')
+      const tomorrow = dayjs().tz('Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
 
       return new Promise((resolve, reject) => {
         const baseQuery = `
@@ -649,9 +664,20 @@ app.whenReady().then(async () => {
       FROM hutang h
       LEFT JOIN saldo_awal s ON h.platform_id = s.id
     `
-        const whereClause = roleLower === 'kasir' ? 'WHERE DATE(h.tanggal_transaksi) = ?' : ''
+        // Range komparasi (bukan DATE(h.tanggal_transaksi) = ?) supaya index
+        // idx_hutang_tanggal_transaksi kepakai — DATE() bikin index ke-skip.
+        const whereClause =
+          isKasir || hasAdminRange ? 'WHERE h.tanggal_transaksi >= ? AND h.tanggal_transaksi < ?' : ''
         const query = `${baseQuery} ${whereClause} ORDER BY h.status_bayar ASC, h.tanggal_transaksi DESC, h.id DESC`
-        const params = roleLower === 'kasir' ? [today] : []
+
+        let params = []
+        if (isKasir) {
+          params = [cutoffStart, tomorrow]
+        } else if (hasAdminRange) {
+          const rangeStart = dayjs.tz(dateFrom, 'Asia/Jakarta').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+          const rangeEnd = dayjs.tz(dateTo, 'Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+          params = [rangeStart, rangeEnd]
+        }
 
         db.all(query, params, (err, rows) => {
           if (err) {
@@ -1280,20 +1306,32 @@ app.whenReady().then(async () => {
 
     // ============================= pindah saldo handler =============================
 
-    ipcMain.handle('get-pindah-saldo', (event, roleRaw) => {
+    ipcMain.handle('get-pindah-saldo', (event, roleRaw, days = 1, dateFrom, dateTo) => {
       return new Promise((resolve, reject) => {
         const role = String(roleRaw).toLowerCase()
-        const today = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
+        const isKasir = role === 'kasir'
+        const hasAdminRange = !isKasir && dateFrom && dateTo
+        const daysCount = Math.max(1, Number(days) || 1)
+        const cutoffStart = dayjs().tz('Asia/Jakarta').startOf('day').subtract(daysCount - 1, 'day').format('YYYY-MM-DD HH:mm:ss')
+        const tomorrow = dayjs().tz('Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
 
+        // Range komparasi supaya index idx_pindah_saldo_tanggal kepakai.
         const query = `
       SELECT ps.*, s1.nama_sumber_dana AS sumber_nama, s2.nama_sumber_dana AS tujuan_nama
       FROM pindah_saldo ps
       LEFT JOIN saldo_awal s1 ON ps.sumber_dana_id = s1.id
       LEFT JOIN saldo_awal s2 ON ps.tujuan_dana_id = s2.id
-      ${role === 'kasir' ? 'WHERE DATE(ps.tanggal) = ?' : ''}
+      ${isKasir || hasAdminRange ? 'WHERE ps.tanggal >= ? AND ps.tanggal < ?' : ''}
       ORDER BY ps.tanggal DESC, ps.id DESC
     `
-        const params = role === 'kasir' ? [today] : []
+        let params = []
+        if (isKasir) {
+          params = [cutoffStart, tomorrow]
+        } else if (hasAdminRange) {
+          const rangeStart = dayjs.tz(dateFrom, 'Asia/Jakarta').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+          const rangeEnd = dayjs.tz(dateTo, 'Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+          params = [rangeStart, rangeEnd]
+        }
 
         db.all(query, params, (err, rows) => {
           if (err) return reject(err)
@@ -1668,16 +1706,28 @@ app.whenReady().then(async () => {
     // ============================= ambil saldo handler =============================
 
     // Make sure this handler exists and is properly registered
-    ipcMain.handle('get-ambil-saldo', (event, userRole) => {
-      const today = getTodayWIB()
+    ipcMain.handle('get-ambil-saldo', (event, userRole, days = 1, dateFrom, dateTo) => {
       const role = (userRole || '').toLowerCase()
+      const isKasir = role === 'kasir'
+      const hasAdminRange = !isKasir && dateFrom && dateTo
+      const daysCount = Math.max(1, Number(days) || 1)
+      const cutoffStart = dayjs().tz('Asia/Jakarta').startOf('day').subtract(daysCount - 1, 'day').format('YYYY-MM-DD HH:mm:ss')
+      const tomorrow = dayjs().tz('Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
 
+      // Range komparasi supaya index idx_ambil_saldo_tanggal_pengambilan kepakai.
       const query =
-        role === 'kasir'
-          ? 'SELECT * FROM ambil_saldo WHERE DATE(tanggal_pengambilan) = ? ORDER BY tanggal_pengambilan DESC, id DESC'
+        isKasir || hasAdminRange
+          ? 'SELECT * FROM ambil_saldo WHERE tanggal_pengambilan >= ? AND tanggal_pengambilan < ? ORDER BY tanggal_pengambilan DESC, id DESC'
           : 'SELECT * FROM ambil_saldo ORDER BY tanggal_pengambilan DESC, id DESC'
 
-      const params = role === 'kasir' ? [today] : []
+      let params = []
+      if (isKasir) {
+        params = [cutoffStart, tomorrow]
+      } else if (hasAdminRange) {
+        const rangeStart = dayjs.tz(dateFrom, 'Asia/Jakarta').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+        const rangeEnd = dayjs.tz(dateTo, 'Asia/Jakarta').add(1, 'day').startOf('day').format('YYYY-MM-DD HH:mm:ss')
+        params = [rangeStart, rangeEnd]
+      }
 
       return new Promise((resolve, reject) => {
         db.all(query, params, (err, rows) => {
@@ -2171,9 +2221,9 @@ app.whenReady().then(async () => {
     })
 
     // ============================== transaksi handler ======================================
-    ipcMain.handle('get-transaksi', async (event, role) => {
+    ipcMain.handle('get-transaksi', async (event, role, days = 1, dateFrom, dateTo) => {
       try {
-        const data = await getTransaksi(role)
+        const data = await getTransaksi(role, days, dateFrom, dateTo)
         return data
       } catch (err) {
         console.error('❌ Error get-transaksi:', err)

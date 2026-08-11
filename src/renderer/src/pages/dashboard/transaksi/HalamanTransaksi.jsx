@@ -1,10 +1,12 @@
 import { HiArrowRight, HiCalendar, HiChevronLeft, HiChevronRight, HiPlus } from 'react-icons/hi'
 import { IoMdPrint, IoMdSave } from 'react-icons/io'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import AdminRangeFilterBar from '../../../components/AdminRangeFilterBar'
 import AlertDialog from '../../../components/AlertDialog'
 import ButtonInput from '../../../components/ButtonInput'
 import ConfirmDialog from '../../../components/ConfirmDialog'
+import DataVisibilitySettings from '../../../components/DataVisibilitySettings'
 import Dropdown from '../../../components/Dropdown'
 import FinancialSummaryCards from '../../../components/FinancialSummaryCards'
 import FormLayout from './FormLayout'
@@ -17,6 +19,7 @@ import SearchField from '../../../components/SearchField'
 import TableContent from '../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAdminDateRange } from '../../../hooks/useAdminDateRange'
 import { useAuth } from '../../../context/AuthContext'
 import { useColumnSettings } from '../../../hooks/useColumnSettings'
 import { useLock } from '../../../context/LockContext'
@@ -46,6 +49,42 @@ const HalamanTransaksi = () => {
   const [deleteId, setDeleteId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const userRole = user?.role?.toLowerCase() || 'kasir'
+  const isAdmin = userRole === 'admin'
+  const [visibilitySetting, setVisibilitySetting] = useState({ days: 1 })
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+  const [filterText, setFilterText] = useState('')
+
+  // Filter TableContent (jenis transaksi, sumber dana, terima dana, pembayar
+  // fee, tanggal, edited, manual override) dilacak lewat callback onXxxChange
+  // di bawah — MURNI buat notice informatif di AdminRangeFilterBar. Filter ini
+  // TIDAK memicu fetch ulang atau mengubah rentang tanggal chip; ia bekerja di
+  // dalam data yang sudah ke-load sesuai chip yang aktif (lihat penjelasan
+  // lengkap di useAdminDateRange.js).
+  const [activeSubFilters, setActiveSubFilters] = useState({
+    date: '',
+    jenisTransaksi: '',
+    sumberDana: '',
+    terimaDana: '',
+    pembayarFee: '',
+    edited: '',
+    manualOverride: ''
+  })
+  const isFilteringActive = Object.values(activeSubFilters).some(Boolean)
+  const makeSubFilterHandler = (key) => (value) =>
+    setActiveSubFilters((prev) => ({ ...prev, [key]: value }))
+
+  const isSearchingActive = isAdmin && filterText.trim().length > 0
+
+  const {
+    rangePreset,
+    setRangePreset,
+    customFrom,
+    setCustomFrom,
+    customTo,
+    setCustomTo,
+    isReady: isRangeReady,
+    range
+  } = useAdminDateRange()
 
   const { isGloballyLocked, checkGlobalLock, lockGlobal } = useLock()
 
@@ -71,7 +110,6 @@ const HalamanTransaksi = () => {
     dateUpdated: '',
     description: ''
   })
-  const [filterText, setFilterText] = useState('')
   const [selectedDate, setSelectedDate] = useState('26/12/2024')
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')
   const getNowDateTimeLocalWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DDTHH:mm')
@@ -225,7 +263,21 @@ const HalamanTransaksi = () => {
   const fetchTransaksi = async () => {
     try {
       if (!user) return
-      const data = await window.api.getTransaksi(user.role)
+      // 🔒 Ambil setting visibilitas dulu, baru minta data ke backend dengan role
+      // asli + jumlah hari itu. Backend yang filter di SQL (pakai index), jadi
+      // kasir tidak lagi menarik+memformat SELURUH histori transaksi tiap buka
+      // halaman ini — itu penyebab utama lemot/freeze-nya halaman ini.
+      const visibility = await window.api?.getDataVisibilitySetting?.('transaksi')
+      const days = Number(visibility?.days) > 0 ? Number(visibility.days) : 1
+      setVisibilitySetting({ days })
+
+      // Admin: kirim rentang tanggal sesuai chip yang aktif ('all', atau
+      // sedang mencari/memfilter di tabel → from/to undefined, artinya tarik
+      // seluruh riwayat, supaya hasil pencarian/filter tidak pernah hilang
+      // gara-gara di luar jendela default). Kasir tetap seperti semula.
+      const { from, to } = isAdmin ? range : {}
+
+      const data = await window.api.getTransaksi(userRole, days, from || undefined, to || undefined)
 
       const formatted = data.map((item) => {
         const nominal = Number(item.nominal_transaksi || 0)
@@ -272,6 +324,7 @@ const HalamanTransaksi = () => {
         return {
           id: item.id,
           tanggal: toDisplayDateTime(item.tanggal),
+          tanggal_raw: item.tanggal,
           no_transaksi: item.no_transaksi,
           sumber_dana: item.sumber_dana,
           sumber_dana_id: item.sumber_dana_id ?? '',
@@ -304,15 +357,18 @@ const HalamanTransaksi = () => {
       setTransactions(formatted)
     } catch (error) {
       console.error('❌ Gagal ambil data transaksi:', error)
+    } finally {
+      setHasLoadedOnce(true)
     }
   }
 
   useEffect(() => {
     if (fundSources.length > 0) {
+      if (isAdmin && !isRangeReady) return
       fetchTransaksi()
       fetchFinancialSummary()
     }
-  }, [fundSources, userRole])
+  }, [fundSources, userRole, isAdmin, rangePreset, customFrom, customTo])
 
   const allTransactionColumns = [
     { key: 'tanggal', label: 'Tanggal' },
@@ -337,6 +393,16 @@ const HalamanTransaksi = () => {
 
   // Filter kolom berdasarkan setting
   const transactionColumns = allTransactionColumns.filter((col) => isColumnVisible(col.key))
+
+  // Daftar nama sumber dana APA ADANYA dari master data — selalu ditarik penuh
+  // (fetchFundSources tidak ikut dibatasi rentang tanggal), dipakai sebagai
+  // opsi dropdown "Sumber Dana"/"Terima Dana"/"Pembayar Fee" supaya opsinya
+  // tidak diam-diam hilang gara-gara transaksi yang memakainya kebetulan di
+  // luar rentang yang sedang aktif.
+  const sumberDanaOptions = useMemo(
+    () => [...new Set(fundSources.map((item) => item.nama_sumber_dana).filter(Boolean))],
+    [fundSources]
+  )
 
   const handleDelete = (id) => {
     setDeleteId(id)
@@ -521,6 +587,8 @@ const HalamanTransaksi = () => {
     setEditingTransaction(null)
   }
 
+  // Data dari backend sudah difilter sesuai role + setting visibilitas
+  // (lihat fetchTransaksi), jadi tidak perlu dipotong ulang di sini.
   const filteredData = transactions
     .filter((item) =>
       Object.values(item).some((val) =>
@@ -672,6 +740,41 @@ const HalamanTransaksi = () => {
         </div>
       </div>
 
+      <div className="px-4">
+        {isAdmin && (
+          <DataVisibilitySettings
+            pageKey="transaksi"
+            pageLabel="Transaksi"
+            onSaved={(setting) => setVisibilitySetting(setting)}
+          />
+        )}
+
+        {isAdmin && (
+          <AdminRangeFilterBar
+            rangePreset={rangePreset}
+            setRangePreset={setRangePreset}
+            customFrom={customFrom}
+            setCustomFrom={setCustomFrom}
+            customTo={customTo}
+            setCustomTo={setCustomTo}
+            filterNotice={
+              isSearchingActive
+                ? 'Mencari kata kunci — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                : isFilteringActive
+                  ? 'Filter tabel aktif — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                  : null
+            }
+            hasLoadedOnce={hasLoadedOnce}
+          />
+        )}
+
+        {!isAdmin && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+            Menampilkan data {visibilitySetting.days} hari terakhir (diatur oleh admin).
+          </div>
+        )}
+      </div>
+
       <div ref={printRef} id="print-summary" className="hidden print:block">
         <ReceiptView
           financialSummary={financialSummary}
@@ -730,12 +833,22 @@ const HalamanTransaksi = () => {
         btnSize={'xs'}
         userRole={userRole}
         showJenisTransaksiFilter={true}
+        onJenisTransaksiChange={makeSubFilterHandler('jenisTransaksi')}
         showSumberDanaFilter={true}
+        onSumberDanaChange={makeSubFilterHandler('sumberDana')}
+        sumberDanaOptions={sumberDanaOptions}
         showTerimaDanaFilter={true}
+        onTerimaDanaChange={makeSubFilterHandler('terimaDana')}
+        terimaDanaOptions={sumberDanaOptions}
         showPembayarFeeFilter={true}
+        onPembayarFeeChange={makeSubFilterHandler('pembayarFee')}
+        pembayarFeeOptions={sumberDanaOptions}
         showDateFilter={true}
+        onDateChange={makeSubFilterHandler('date')}
         showEditedFilter={true}
+        onEditedFilterChange={makeSubFilterHandler('edited')}
         showManualOverrideFilter={true}
+        onManualOverrideFilterChange={makeSubFilterHandler('manualOverride')}
         onDelete={isGloballyLocked ? null : handleDelete}
         onEdit={isGloballyLocked ? null : handleTransactionEdit}
         onAdd={

@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
+import AdminRangeFilterBar from '../../../../components/AdminRangeFilterBar'
 import AlertDialog from '../../../../components/AlertDialog'
 import ButtonInput from '../../../../components/ButtonInput'
 import ConfirmDialog from '../../../../components/ConfirmDialog'
+import DataVisibilitySettings from '../../../../components/DataVisibilitySettings'
 import Dropdown from '../../../../components/Dropdown'
 import FormLayout from './FormLayout'
 import InputField from '../../../../components/InputField'
@@ -12,6 +14,7 @@ import SelectItems from '../../../../components/SelectItems'
 import TableContent from '../../../../components/TableContent'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
+import { useAdminDateRange } from '../../../../hooks/useAdminDateRange'
 import { useAuth } from '../../../../context/AuthContext'
 import { useColumnSettings } from '../../../../hooks/useColumnSettings'
 import { useLock } from '../../../../context/LockContext'
@@ -55,6 +58,28 @@ const HalamanPindahSaldo = () => {
   const [confirmMessage, setConfirmMessage] = useState('')
   const { user: loggedInUser } = useAuth()
   const userRole = loggedInUser?.role?.toLowerCase() || 'kasir'
+  const isAdmin = userRole === 'admin'
+  const [visibilitySetting, setVisibilitySetting] = useState({ days: 1 })
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+
+  // Filter tanggal & sumber dana di tabel dilacak MURNI buat notice informatif
+  // di AdminRangeFilterBar — TIDAK memicu perluasan rentang. Filter bekerja di
+  // dalam data yang sudah ke-load sesuai chip yang aktif.
+  const [activeDateFilter, setActiveDateFilter] = useState('')
+  const [activeSumberDanaFilter, setActiveSumberDanaFilter] = useState('')
+  const isSearchingActive = isAdmin && filterText.trim().length > 0
+  const isFilteringActive = isAdmin && Boolean(activeDateFilter || activeSumberDanaFilter)
+
+  const {
+    rangePreset,
+    setRangePreset,
+    customFrom,
+    setCustomFrom,
+    customTo,
+    setCustomTo,
+    isReady: isRangeReady,
+    range
+  } = useAdminDateRange()
 
   // Add new states for logged in user and alert dialog
   const [showAlertDialog, setShowAlertDialog] = useState(false)
@@ -65,68 +90,120 @@ const HalamanPindahSaldo = () => {
   const [selectedSourceSaldo, setSelectedSourceSaldo] = useState(null)
   const [selectedDestSaldo, setSelectedDestSaldo] = useState(null)
 
-  // Fetch initial data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
+  // Ambil setting visibilitas ('N hari ke belakang') dan update state sekaligus
+  // return angkanya, supaya dipakai langsung buat manggil getPindahSaldo(role, days).
+  const fetchVisibilityDays = async () => {
+    try {
+      const result = await window.api?.getDataVisibilitySetting?.('pindah-saldo')
+      const days = Number(result?.days) > 0 ? Number(result.days) : 1
+      setVisibilitySetting({ days })
+      return days
+    } catch (error) {
+      console.error('❌ Gagal ambil setting visibilitas data pindah saldo:', error)
+      return 1
+    }
+  }
 
-        // Fetch stores data
+  // Transform 1 baris mentah pindah_saldo jadi bentuk siap-tampil. Dipakai oleh
+  // fetchTransfers() SATU-SATUNYA tempat fetch — sebelumnya logic ini
+  // terduplikasi di 4 tempat (initial load, tambah, hapus, edit), yang bikin
+  // gampang "lupa update" salah satu saat mengubah scope rentang tanggal.
+  const buildTransferRow = (transfer, saldoList, userList) => {
+    const sourceSaldo = saldoList.find((s) => s.id === transfer.sumber_dana_id)
+    const destSaldo = saldoList.find((s) => s.id === transfer.tujuan_dana_id)
+    const user = userList.find((u) => u.id === transfer.user_pemindah_id)
+
+    return {
+      id: transfer.id,
+      user: user?.nama || 'Unknown',
+      userId: transfer.user_pemindah_id,
+      platformSource: transfer.platform ? transfer.platform.split('>')[0]?.trim() : '',
+      platformDestination: transfer.platform ? transfer.platform.split('>')[1]?.trim() : '',
+      senderBalanceName: sourceSaldo?.nama_sumber_dana || 'Unknown',
+      senderBalance: transfer.saldo_sumber || 0, // Saldo historis saat pemindahan
+      senderBalanceId: transfer.sumber_dana_id,
+      receiverBalanceName: destSaldo?.nama_sumber_dana || 'Unknown',
+      receiverBalance: transfer.saldo_tujuan || 0, // Saldo historis saat pemindahan
+      receiverBalanceId: transfer.tujuan_dana_id,
+      sumber_dana: sourceSaldo?.nama_sumber_dana || 'Unknown', // For filter compatibility
+      amount: transfer.nominal,
+      operational: transfer.biaya_admin || 0,
+      description: transfer.keterangan || '',
+      date: transfer.tanggal
+    }
+  }
+
+  // Satu-satunya tempat yang menarik data pindah saldo + saldo terbaru dari
+  // backend. Dipanggil saat mount, saat rentang/filter admin berubah, dan
+  // setelah tambah/edit/hapus — supaya scope rentang tanggal SELALU konsisten
+  // di semua alur, tidak ada lagi jalur yang "lupa" ikut dibatasi/diperlebar.
+  const fetchTransfers = async (userListOverride) => {
+    try {
+      setIsLoading(true)
+
+      // 🔒 Ambil setting visibilitas dulu, baru minta data pindah saldo ke
+      // backend dengan role asli + jumlah hari itu (backend yang filter di SQL).
+      const days = await fetchVisibilityDays()
+
+      // Admin: rentang sesuai chip yang dipilih ('all' → from/to undefined,
+      // artinya seluruh histori — pilihan sadar admin lewat chip). Filter tabel
+      // (tanggal/sumber dana/pencarian) TIDAK mengubah rentang ini. Kasir:
+      // tidak terpengaruh sama sekali, tetap dibatasi `days`.
+      const { from, to } = isAdmin ? range : {}
+
+      const [transfersData, updatedSaldo] = await Promise.all([
+        window.api.getPindahSaldo(userRole, days, from || undefined, to || undefined),
+        window.api.getSaldoAwal()
+      ])
+      setSaldoData(updatedSaldo || [])
+
+      const userList = userListOverride || users
+      const transformedTransfers = (transfersData || []).map((transfer) =>
+        buildTransferRow(transfer, updatedSaldo || [], userList)
+      )
+
+      setTransfers(transformedTransfers)
+      return transformedTransfers
+    } catch (error) {
+      console.error('❌ Gagal memuat data pindah saldo:', error)
+    } finally {
+      setIsLoading(false)
+      setHasLoadedOnce(true)
+    }
+  }
+
+  // Fetch data statis sekali di awal (toko, users) — tidak perlu ikut
+  // rentang tanggal.
+  useEffect(() => {
+    const fetchStaticData = async () => {
+      try {
         const storesData = await window.api.getTokoWithEmployeeCount()
         setStores(storesData || [])
 
-        // Fetch saldo data
-        const saldoResult = await window.api.getSaldoAwal()
-        setSaldoData(saldoResult || [])
-
-        // Fetch users data
         const usersData = await window.api.getUsers()
         setUsers(usersData || [])
 
-        // Fetch transfer data
-        const transfersData = await window.api.getPindahSaldo()
-
-        // Transform the data for display
-        const transformedTransfers = await Promise.all(
-          (transfersData || []).map(async (transfer) => {
-            // Get source and destination saldo names
-            const sourceSaldo = saldoResult.find((s) => s.id === transfer.sumber_dana_id)
-            const destSaldo = saldoResult.find((s) => s.id === transfer.tujuan_dana_id)
-
-            // Get user info
-            const user = usersData.find((u) => u.id === transfer.user_pemindah_id)
-
-            return {
-              id: transfer.id,
-              user: user?.nama || '-',
-              userId: transfer.user_pemindah_id,
-              platformSource: transfer.platform ? transfer.platform.split('>')[0]?.trim() : '',
-              platformDestination: transfer.platform ? transfer.platform.split('>')[1]?.trim() : '',
-              senderBalanceName: sourceSaldo?.nama_sumber_dana || 'Unknown',
-              senderBalance: transfer.saldo_sumber || 0, // Saldo historis saat pemindahan
-              senderBalanceId: transfer.sumber_dana_id,
-              receiverBalanceName: destSaldo?.nama_sumber_dana || 'Unknown',
-              receiverBalance: transfer.saldo_tujuan || 0, // Saldo historis saat pemindahan
-              receiverBalanceId: transfer.tujuan_dana_id,
-              sumber_dana: sourceSaldo?.nama_sumber_dana || 'Unknown', // For filter compatibility
-              amount: transfer.nominal,
-              operational: transfer.biaya_admin || 0,
-              description: transfer.keterangan || '',
-              date: transfer.tanggal
-            }
-          })
-        )
-
-        setTransfers(transformedTransfers)
+        // Fetch transfer pertama kali dengan users yang baru saja didapat
+        // (bukan state `users` yang belum ke-set saat render ini) supaya nama
+        // user langsung benar tanpa perlu fetch ulang.
+        await fetchTransfers(usersData || [])
       } catch (error) {
-        console.error('Error fetching data:', error)
-      } finally {
-        setIsLoading(false)
+        console.error('❌ Gagal ambil data awal pindah saldo:', error)
       }
     }
 
-    fetchData()
+    fetchStaticData()
   }, [])
+
+  // Fetch ulang transfer setiap kali rentang tanggal chip admin berubah.
+  // Dilewati saat mount (sudah ditangani effect di atas) dengan menunggu
+  // `hasLoadedOnce`. Filter tabel (tanggal/sumber dana/pencarian) TIDAK
+  // memicu effect ini — filter bekerja di dalam data yang sudah ke-load.
+  useEffect(() => {
+    if (!hasLoadedOnce) return
+    if (isAdmin && !isRangeReady) return
+    fetchTransfers()
+  }, [rangePreset, customFrom, customTo])
 
   // Updated columns definition to match our database structure
   const allColumns = [
@@ -143,6 +220,16 @@ const HalamanPindahSaldo = () => {
 
   // Filter kolom berdasarkan setting
   const columns = allColumns.filter((col) => isColumnVisible(col.key))
+
+  // Daftar nama sumber dana APA ADANYA dari master data — selalu ditarik penuh
+  // (fetchTransfers menarik getSaldoAwal setiap kali, tidak ikut dibatasi
+  // rentang tanggal), dipakai sebagai opsi dropdown filter supaya opsinya
+  // tidak diam-diam hilang gara-gara transfer yang memakainya kebetulan di
+  // luar rentang yang sedang aktif.
+  const sumberDanaOptions = useMemo(
+    () => [...new Set(saldoData.map((item) => item.nama_sumber_dana).filter(Boolean))],
+    [saldoData]
+  )
 
   const formatRupiah = (value) => {
     return new Intl.NumberFormat('id-ID', {
@@ -210,38 +297,7 @@ const HalamanPindahSaldo = () => {
       const result = await window.api.createPindahSaldo(transferData)
 
       if (result) {
-        const updatedTransfers = await window.api.getPindahSaldo(userRole)
-        const updatedSaldo = await window.api.getSaldoAwal()
-        setSaldoData(updatedSaldo)
-
-        const transformedTransfers = await Promise.all(
-          (updatedTransfers || []).map(async (transfer) => {
-            const sourceSaldo = updatedSaldo.find((s) => s.id === transfer.sumber_dana_id)
-            const destSaldo = updatedSaldo.find((s) => s.id === transfer.tujuan_dana_id)
-            const user = users.find((u) => u.id === transfer.user_pemindah_id)
-
-            return {
-              id: transfer.id,
-              user: user?.nama || 'Unknown',
-              userId: transfer.user_pemindah_id,
-              platformSource: transfer.platform ? transfer.platform.split('>')[0]?.trim() : '',
-              platformDestination: transfer.platform ? transfer.platform.split('>')[1]?.trim() : '',
-              senderBalanceName: sourceSaldo?.nama_sumber_dana || 'Unknown',
-              senderBalance: transfer.saldo_sumber || 0, // Saldo historis saat pemindahan
-              senderBalanceId: transfer.sumber_dana_id,
-              receiverBalanceName: destSaldo?.nama_sumber_dana || 'Unknown',
-              receiverBalance: transfer.saldo_tujuan || 0, // Saldo historis saat pemindahan
-              receiverBalanceId: transfer.tujuan_dana_id,
-              sumber_dana: sourceSaldo?.nama_sumber_dana || 'Unknown', // For filter compatibility
-              amount: transfer.nominal,
-              operational: transfer.biaya_admin || 0,
-              description: transfer.keterangan || '',
-              date: transfer.tanggal
-            }
-          })
-        )
-
-        setTransfers(transformedTransfers)
+        await fetchTransfers()
       }
     } catch (error) {
       console.error('Error creating transfer:', error)
@@ -268,38 +324,7 @@ const HalamanPindahSaldo = () => {
   const confirmDelete = async () => {
     try {
       await window.api.deletePindahSaldo(deleteId)
-      const updatedTransfers = await window.api.getPindahSaldo(userRole)
-      const updatedSaldo = await window.api.getSaldoAwal()
-      setSaldoData(updatedSaldo)
-
-      const transformedTransfers = await Promise.all(
-        (updatedTransfers || []).map(async (transfer) => {
-          const sourceSaldo = updatedSaldo.find((s) => s.id === transfer.sumber_dana_id)
-          const destSaldo = updatedSaldo.find((s) => s.id === transfer.tujuan_dana_id)
-          const user = users.find((u) => u.id === transfer.user_pemindah_id)
-
-          return {
-            id: transfer.id,
-            user: user?.nama || 'Unknown',
-            userId: transfer.user_pemindah_id,
-            platformSource: transfer.platform ? transfer.platform.split('>')[0]?.trim() : '',
-            platformDestination: transfer.platform ? transfer.platform.split('>')[1]?.trim() : '',
-            senderBalanceName: sourceSaldo?.nama_sumber_dana || 'Unknown',
-            senderBalance: transfer.saldo_sumber || 0, // Saldo historis saat pemindahan
-            senderBalanceId: transfer.sumber_dana_id,
-            receiverBalanceName: destSaldo?.nama_sumber_dana || 'Unknown',
-            receiverBalance: transfer.saldo_tujuan || 0, // Saldo historis saat pemindahan
-            receiverBalanceId: transfer.tujuan_dana_id,
-            sumber_dana: sourceSaldo?.nama_sumber_dana || 'Unknown', // For filter compatibility
-            amount: transfer.nominal,
-            operational: transfer.biaya_admin || 0,
-            description: transfer.keterangan || '',
-            date: transfer.tanggal
-          }
-        })
-      )
-
-      setTransfers(transformedTransfers)
+      await fetchTransfers()
     } catch (error) {
       console.error('Error deleting transfer:', error)
     } finally {
@@ -418,14 +443,9 @@ const HalamanPindahSaldo = () => {
     ]
   }
 
-  // FILTER DATA: kasir hanya lihat data hari ini
+  // Data dari backend sudah difilter sesuai role + setting visibilitas
+  // (lihat fetchVisibilityDays), jadi tidak perlu dipotong ulang di sini.
   const filteredData = transfers
-    .filter((item) => {
-      if (userRole.toLowerCase() === 'kasir') {
-        return toDateOnly(item.date) === getTodayWIB()
-      }
-      return true
-    })
     .filter((item) =>
       Object.values(item).some((val) =>
         String(val).toLowerCase().includes(filterText.toLowerCase())
@@ -518,38 +538,7 @@ const HalamanPindahSaldo = () => {
       const result = await window.api.updatePindahSaldo(transferData)
 
       if (result) {
-        const updatedTransfers = await window.api.getPindahSaldo()
-        const updatedSaldo = await window.api.getSaldoAwal()
-        setSaldoData(updatedSaldo)
-
-        const transformedTransfers = await Promise.all(
-          (updatedTransfers || []).map(async (transfer) => {
-            const sourceSaldo = updatedSaldo.find((s) => s.id === transfer.sumber_dana_id)
-            const destSaldo = updatedSaldo.find((s) => s.id === transfer.tujuan_dana_id)
-            const user = users.find((u) => u.id === transfer.user_pemindah_id)
-
-            return {
-              id: transfer.id,
-              user: user?.nama || 'Unknown',
-              userId: transfer.user_pemindah_id,
-              platformSource: transfer.platform ? transfer.platform.split('>')[0]?.trim() : '',
-              platformDestination: transfer.platform ? transfer.platform.split('>')[1]?.trim() : '',
-              senderBalanceName: sourceSaldo?.nama_sumber_dana || 'Unknown',
-              senderBalance: transfer.saldo_sumber || 0, // Saldo historis saat pemindahan
-              senderBalanceId: transfer.sumber_dana_id,
-              receiverBalanceName: destSaldo?.nama_sumber_dana || 'Unknown',
-              receiverBalance: transfer.saldo_tujuan || 0, // Saldo historis saat pemindahan
-              receiverBalanceId: transfer.tujuan_dana_id,
-              sumber_dana: sourceSaldo?.nama_sumber_dana || 'Unknown', // For filter compatibility
-              amount: transfer.nominal,
-              operational: transfer.biaya_admin || 0,
-              description: transfer.keterangan || '',
-              date: transfer.tanggal
-            }
-          })
-        )
-
-        setTransfers(transformedTransfers)
+        await fetchTransfers()
       }
     } catch (error) {
       console.error('Error updating transfer:', error)
@@ -590,6 +579,43 @@ const HalamanPindahSaldo = () => {
           </div>
         </div>
       </div>
+
+      <div className="px-4">
+        {isAdmin && (
+          <DataVisibilitySettings
+            pageKey="pindah-saldo"
+            pageLabel="Pindah Saldo"
+            onSaved={(setting) => setVisibilitySetting(setting)}
+          />
+        )}
+
+        {isAdmin && (
+          <AdminRangeFilterBar
+            rangePreset={rangePreset}
+            setRangePreset={setRangePreset}
+            customFrom={customFrom}
+            setCustomFrom={setCustomFrom}
+            customTo={customTo}
+            setCustomTo={setCustomTo}
+            filterNotice={
+              isSearchingActive
+                ? 'Mencari kata kunci — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                : isFilteringActive
+                  ? 'Filter tabel aktif — hasil dibatasi ke rentang di atas. Ganti rentang atau pilih "Semua Riwayat" kalau tidak ketemu.'
+                  : null
+            }
+            isLoading={isLoading}
+            hasLoadedOnce={hasLoadedOnce}
+          />
+        )}
+
+        {!isAdmin && (
+          <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-xs text-blue-700">
+            Menampilkan data {visibilitySetting.days} hari terakhir (diatur oleh admin).
+          </div>
+        )}
+      </div>
+
       <div>
         {isLoading ? (
           <div className="flex justify-center items-center h-40">
@@ -599,11 +625,16 @@ const HalamanPindahSaldo = () => {
           <TableContent
             searchValue={filterText}
             showSumberDanaFilter={true}
-            onSumberDanaChange={setSelectedSumberDana}
+            onSumberDanaChange={(value) => {
+              setSelectedSumberDana(value)
+              setActiveSumberDanaFilter(value)
+            }}
+            sumberDanaOptions={sumberDanaOptions}
             onSearchChange={setFilterText}
             btnSize={'xs'}
             data={filteredData}
             showDateFilter={true}
+            onDateChange={setActiveDateFilter}
             userRole={userRole}
             title={'Pindah Saldo'}
             columns={columns}
