@@ -118,10 +118,22 @@ export async function createTransaksi(_event, data) {
   }
 
   return new Promise((resolve, reject) => {
-    // Fallback: accept either biaya_admin (preferred) or biaya_admin_bank from payload
-    const biayaAdminFinal = parseFloat(
-      (biaya_admin ?? biaya_admin_bank ?? 0)
-    ) || 0
+    // Prioritaskan biaya_admin (field dari form), fallback ke biaya_admin_bank.
+    // Gunakan parseFloat dengan sanitasi eksplisit — pastikan tidak NaN dan tidak negatif.
+    const biayaAdminFinal = Math.max(0, parseFloat(
+      (biaya_admin != null && biaya_admin !== '' ? biaya_admin : (biaya_admin_bank ?? 0))
+    ) || 0)
+
+    // 🛡️ GUARD: Sanity-check — deteksi kontaminasi dari frontend.
+    // Jika fee === biaya_admin (dan keduanya > 0), sangat mungkin ada race-condition
+    // di form yang menyebabkan nilai biaya_admin bocor ke field fee.
+    // Log warning supaya bisa dilacak di console Electron main process.
+    if (biayaAdminFinal > 0 && feeTransaksi > 0 && feeTransaksi === biayaAdminFinal) {
+      console.warn(
+        `⚠️ [GUARD] Nilai fee (${feeTransaksi}) == biaya_admin (${biayaAdminFinal}) pada transaksi ${jenis_transaksi}. ` +
+        `Kemungkinan kontaminasi dari frontend. Cek race-condition di TransferForm.jsx.`
+      )
+    }
 
     const randomSuffix = Math.floor(10000 + Math.random() * 9000)
     const datetimePart = new Date()
@@ -224,23 +236,30 @@ export async function createTransaksi(_event, data) {
                 let perubahan_sumber = 0
                 let perubahan_terima = 0
 
+                // 🛡️ GUARD: Pastikan biaya_admin_fix tidak bisa negatif atau NaN
+                const safeBiayaAdmin = Math.max(0, parseFloat(biaya_admin_fix) || 0)
+
                 switch (jenis_transaksi) {
                   case 'Tarik Tunai':
+                    // Sumber berkurang nominal; terima bertambah nominal (tanpa biaya_admin)
                     perubahan_sumber = -nominal
                     perubahan_terima = nominal
                     break
 
                   case 'Transfer':
-                    perubahan_sumber = -1 * (nominal + biaya_admin_fix)
-                    perubahan_terima = nominal
+                    // Sumber berkurang: nominal + biaya_admin (biaya_admin hanya memotong sumber)
+                    // Terima HANYA mendapat nominal — biaya_admin TIDAK boleh masuk ke terima
+                    perubahan_sumber = -1 * (nominal + safeBiayaAdmin)
+                    perubahan_terima = nominal // ← STRICT: hanya nominal, bukan nominal + biaya_admin
                     break
 
                   case 'Jasa Transfer':
                     break
 
                   case 'Mode Pulsa':
-                    perubahan_sumber = -1 * (nominal + biaya_admin_fix)
-                    perubahan_terima = nominal
+                    // Sama dengan Transfer: biaya_admin hanya memotong sumber
+                    perubahan_sumber = -1 * (nominal + safeBiayaAdmin)
+                    perubahan_terima = nominal // ← STRICT: hanya nominal
                     break
                 }
 

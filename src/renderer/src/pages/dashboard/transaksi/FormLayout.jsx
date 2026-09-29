@@ -126,6 +126,13 @@ const FormLayout = ({
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  // Update banyak field sekaligus dalam satu setState — cegah race-condition
+  // antara useEffect yang fire hampir bersamaan (mis. biaya_admin + fee di TransferForm).
+  // Tiap key di `updates` akan di-merge ke formData secara atomic.
+  const handleBatchChange = (updates) => {
+    setFormData((prev) => ({ ...prev, ...updates }))
+  }
+
   const handleTransactionSelect = (id, name) => {
     setSelectedTransactionId(id)
     setSelectedTransactionType(name)
@@ -189,6 +196,7 @@ const FormLayout = ({
     const formProps = {
       formData,
       onChange: handleInputChange,
+      onBatchChange: handleBatchChange,
       onValidChange: setFormValid
     }
 

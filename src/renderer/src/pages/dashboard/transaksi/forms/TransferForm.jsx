@@ -14,7 +14,7 @@ dayjs.extend(timezone)
 
 const JENIS_TRANSAKSI = 'Transfer'
 
-const TransferForm = ({ formData, onChange, onValidChange }) => {
+const TransferForm = ({ formData, onChange, onBatchChange, onValidChange }) => {
   const { isDark } = useTheme()
   const [nominalError, setNominalError] = useState('')
   const [feeType, setFeeType] = useState('Digital')
@@ -90,27 +90,54 @@ const TransferForm = ({ formData, onChange, onValidChange }) => {
     setManualAdmin(false)
   }, [formData.sumber_dana_id])
 
+  // 🛡️ ATOMIC AUTO-FILL: Update biaya_admin + fee dalam satu batch call.
+  // Sebelumnya dua useEffect terpisah — masing-masing panggil onChange sendiri,
+  // yang bisa menyebabkan race-condition di mana nilai biaya_admin "bocor" ke fee
+  // (atau sebaliknya) karena React batching antar render cycle tidak selalu sinkron.
+  // Dengan onBatchChange, kedua nilai di-merge dalam satu setFormData(•prev => ...•)
+  // sehingga tidak ada jeda antar update yang bisa dikontaminasi.
   useEffect(() => {
-    const sumberDana = sumberDanaList.find((item) => item.id === parseInt(formData.sumber_dana_id))
-    if (sumberDana && !manualAdmin) {
-      onChange({ target: { name: 'biaya_admin', value: sumberDana.biaya_admin || 0 } })
+    const updates = {}
+
+    // Auto-isi biaya_admin dari sumber dana yang dipilih (jika belum manual)
+    if (!manualAdmin) {
+      const sumberDana = sumberDanaList.find(
+        (item) => item.id === parseInt(formData.sumber_dana_id)
+      )
+      updates.biaya_admin = sumberDana ? (sumberDana.biaya_admin || 0) : undefined
     }
-  }, [formData.sumber_dana_id, sumberDanaList, manualAdmin])
+
+    // Auto-isi fee dari fee_rules (jika belum manual)
+    if (!manualFee) {
+      const matched = findMatchingRule(feeRules, formData.nominal_transaksi)
+      updates.fee = matched ? Number(matched.fee) : 0
+      updates.is_fee_manual = false
+    }
+
+    // Kirim semua perubahan auto-fill sekaligus — atomic, tidak ada celah race
+    const hasUpdates = Object.keys(updates).some((k) => updates[k] !== undefined)
+    if (hasUpdates) {
+      // Buang key undefined sebelum merge
+      const cleanUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([, v]) => v !== undefined)
+      )
+      onBatchChange(cleanUpdates)
+    }
+  }, [
+    formData.sumber_dana_id,
+    formData.nominal_transaksi,
+    sumberDanaList,
+    feeRules,
+    manualAdmin,
+    manualFee
+  ])
 
   useEffect(() => {
-    const nominal = parseInt(formData.nominal_transaksi || '0', 10)
+    const nominal = parseFloat(formData.nominal_transaksi || 0)
     if (!formData.nominal_transaksi) {
       setManualFee(false)
     }
   }, [formData.nominal_transaksi, manualFee])
-
-  // Auto-isi fee dari aturan fee admin (fee_rules), selama belum diubah manual oleh karyawan
-  useEffect(() => {
-    if (manualFee) return
-    const matched = findMatchingRule(feeRules, formData.nominal_transaksi)
-    onChange({ target: { name: 'fee', value: matched ? Number(matched.fee) : 0 } })
-    onChange({ target: { name: 'is_fee_manual', value: false } })
-  }, [formData.nominal_transaksi, feeRules, manualFee])
 
   // Auto-isi bonus dari rentang bonus alat+jenis transaksi ini, selama belum diubah manual
   useEffect(() => {
