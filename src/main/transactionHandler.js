@@ -34,14 +34,19 @@ export function getTransaksi(role, days = 1, dateFrom, dateTo) {
     const query = `
       SELECT 
         t.*,
-        h.sumber_dana_saldo_sebelum AS saldo_awal,
-        h.terima_dana_saldo_sebelum AS terima_saldo_awal,
+        (
+          SELECT h.sumber_dana_saldo_sebelum FROM history_transaksi h
+          WHERE h.transaksi_id = t.id ORDER BY h.id DESC LIMIT 1
+        ) AS saldo_awal,
+        (
+          SELECT h.terima_dana_saldo_sebelum FROM history_transaksi h
+          WHERE h.transaksi_id = t.id ORDER BY h.id DESC LIMIT 1
+        ) AS terima_saldo_awal,
         s1.nama_sumber_dana AS sumber_dana,
         s2.nama_sumber_dana AS terima_dana_nama
       FROM transaksi t
-      LEFT JOIN history_transaksi h ON t.id = h.transaksi_id
-      LEFT JOIN saldo_awal s1 ON h.sumber_dana_id = s1.id
-      LEFT JOIN saldo_awal s2 ON h.terima_dana_id = s2.id
+      LEFT JOIN saldo_awal s1 ON t.sumber_dana_id = s1.id
+      LEFT JOIN saldo_awal s2 ON t.terima_dana_id = s2.id
       ${isKasir || hasAdminRange ? 'WHERE t.tanggal >= ? AND t.tanggal < ?' : ''}
       ORDER BY t.tanggal DESC, t.id DESC
     `

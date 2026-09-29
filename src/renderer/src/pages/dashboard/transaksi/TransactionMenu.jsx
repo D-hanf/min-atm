@@ -39,6 +39,13 @@ const TransactionMenu = ({ onSelectTransaction }) => {
       icon: '💳',
       bgColor: isDark ? 'bg-rose-800' : 'bg-rose-100',
       hoverColor: isDark ? 'hover:bg-rose-700' : 'hover:bg-rose-200'
+    },
+    {
+      id: 'input-bonus-alat',
+      name: 'Input Bonus Alat',
+      icon: '🔧',
+      bgColor: isDark ? 'bg-indigo-800' : 'bg-indigo-100',
+      hoverColor: isDark ? 'hover:bg-indigo-700' : 'hover:bg-indigo-200'
     }
   ]
 

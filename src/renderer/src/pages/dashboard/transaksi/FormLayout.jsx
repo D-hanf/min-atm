@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 import ButtonInput from '../../../components/ButtonInput'
 import CekSaldoForm from './forms/CekSaldo'
 import { HiPlus } from 'react-icons/hi'
+import InputBonusAlatForm from './forms/InputBonusAlat'
 import InputField from '../../../components/InputField'
 import JasaTransferForm from './forms/JasaTransferForm'
 import Modal from '../../../shared/ui/Modal'
@@ -202,6 +203,8 @@ const FormLayout = ({
         return <ModePulsaForm {...formProps} />
       case 'cek-saldo':
         return <CekSaldoForm {...formProps} />
+      case 'input-bonus-alat':
+        return <InputBonusAlatForm {...formProps} />
       default:
         return null
     }
