@@ -11,6 +11,7 @@ import Dropdown from '../../../components/Dropdown'
 import FinancialSummaryCards from '../../../components/FinancialSummaryCards'
 import FormLayout from './FormLayout'
 import FundSourcesCard from '../../../components/FundSourcesCard'
+import MemberQuickModal from './MemberQuickModal'
 import ModalEdit from '../../../shared/ui/Modal'
 import PageContainer from '../../../components/PageContainer'
 import ReceiptView from './ReceiptView'
@@ -53,6 +54,15 @@ const HalamanTransaksi = () => {
   const [visibilitySetting, setVisibilitySetting] = useState({ days: 1 })
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [filterText, setFilterText] = useState('')
+
+  // ── Draft transaksi member (quick-input) ──
+  const [drafts, setDrafts] = useState([])
+  const [showMemberModal, setShowMemberModal] = useState(false)
+  const [draftEditingData, setDraftEditingData] = useState(null) // data draft yg sedang dilanjutkan
+  const [showDraftEditModal, setShowDraftEditModal] = useState(false)
+  const [activeDraftId, setActiveDraftId] = useState(null) // draft_id yg sedang dilanjutkan
+  const [draftDeleteId, setDraftDeleteId] = useState(null)
+  const [showDraftConfirmDialog, setShowDraftConfirmDialog] = useState(false)
 
   // Filter TableContent (jenis transaksi, sumber dana, terima dana, pembayar
   // fee, tanggal, edited, manual override) dilacak lewat callback onXxxChange
@@ -174,7 +184,7 @@ const HalamanTransaksi = () => {
   useEffect(() => {
     fetchToko()
     fetchFundSources()
-
+    fetchDrafts()
     // Cek lock status saat komponen mount
     checkTransactionLock()
   }, [])
@@ -184,6 +194,16 @@ const HalamanTransaksi = () => {
     const lockStatus = checkGlobalLock()
     setIsTransactionLocked(lockStatus)
     console.log('🔍 Global lock status:', lockStatus)
+  }
+
+  // Ambil draft transaksi member yang masih pending
+  const fetchDrafts = async () => {
+    try {
+      const result = await window.api.getTransaksiDraft()
+      setDrafts(result || [])
+    } catch (e) {
+      console.error('❌ Gagal ambil draft transaksi:', e)
+    }
   }
   const [currentDate, setCurrentDate] = useState(getTodayWIB())
 
@@ -587,6 +607,85 @@ const HalamanTransaksi = () => {
     setEditingTransaction(null)
   }
 
+  // ──────────────────────────────────────────────
+  // Handler: Lanjutkan draft transaksi member
+  // ──────────────────────────────────────────────
+  const handleLanjutkanDraft = (draft) => {
+    // Buat editData yang sesuai format FormLayout — isi nominal + jenis_transaksi
+    // Fields lain (sumber_dana, fee, metode_pembayaran, dll) dibiarkan kosong
+    // supaya kasir melengkapinya di dalam modal transaksi.
+    const editData = {
+      id: null, // bukan transaksi asli, jadi null
+      jenis_transaksi: draft.jenis_transaksi,
+      nominal_transaksi: Number(draft.nominal) || 0,
+      tanggal: draft.tanggal,
+      member_id: draft.member_id || '',
+      nama_pelanggan: draft.member_nama || '',
+      // Kosongkan field yang perlu diisi kasir
+      sumber_dana_id: '',
+      metode_pembayaran: '',
+      fee: 0,
+      biaya_admin: 0,
+      terima_dana_id: '',
+      saldo_awal: 0,
+      saldo_akhir: 0,
+      keterangan: draft.member_id ? `Member ${draft.member_id}${draft.member_nama ? ' — ' + draft.member_nama : ''}` : '',
+    }
+    setActiveDraftId(draft.id)
+    setDraftEditingData(editData)
+    setShowDraftEditModal(true)
+  }
+
+  const handleDraftEditSubmit = async (updatedData) => {
+    try {
+      const payload = {
+        ...updatedData,
+        tanggal: toDbDateTime(updatedData.tanggal),
+        user_id: user?.id,
+        user_role: user?.role,
+        user_name: user?.nama || user?.name || user?.username || 'System'
+      }
+      const newTransaction = await window.api.createTransaksi(payload)
+      // Tandai draft sebagai selesai
+      if (activeDraftId) {
+        await window.api.selesaikanTransaksiDraft({
+          draft_id: activeDraftId,
+          transaksi_id: newTransaction?.id ?? null
+        })
+      }
+      setShowDraftEditModal(false)
+      setDraftEditingData(null)
+      setActiveDraftId(null)
+      fetchTransaksi()
+      fetchFundSources()
+      fetchDrafts()
+    } catch (error) {
+      console.error('❌ Gagal membuat transaksi dari draft:', error)
+    }
+  }
+
+  const handleDraftEditClose = () => {
+    setShowDraftEditModal(false)
+    setDraftEditingData(null)
+    setActiveDraftId(null)
+  }
+
+  const handleBatalDraft = (draftId) => {
+    setDraftDeleteId(draftId)
+    setShowDraftConfirmDialog(true)
+  }
+
+  const confirmDeleteDraft = async () => {
+    try {
+      await window.api.deleteTransaksiDraft(draftDeleteId)
+      fetchDrafts()
+      setShowDraftConfirmDialog(false)
+      setDraftDeleteId(null)
+    } catch (e) {
+      console.error('❌ Gagal hapus draft:', e)
+    }
+  }
+
   // Data dari backend sudah difilter sesuai role + setting visibilitas
   // (lihat fetchTransaksi), jadi tidak perlu dipotong ulang di sini.
   const filteredData = transactions
@@ -723,7 +822,7 @@ const HalamanTransaksi = () => {
               Transaksi
             </h1>
           </div>
-          <div className="flex gap-6 max-w-xs">
+          <div className="flex gap-3 max-w-xs">
             <ButtonInput
               size="xs"
               color={isGloballyLocked ? 'gray' : 'indigo'}
@@ -736,6 +835,21 @@ const HalamanTransaksi = () => {
               <IoMdSave size={20} />
               {isTransactionLocked ? 'Terkunci' : 'Simpan'}
             </ButtonInput>
+            {/* <ButtonInput
+              size="xs"
+              color="blue"
+              onClick={() => setShowMemberModal(true)}
+              disabled={isGloballyLocked}
+              title="Input transaksi untuk member"
+            >
+              <span className="font-bold">M</span>
+              Member
+              {drafts.length > 0 && (
+                <span className="ml-1 bg-white text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {drafts.length}
+                </span>
+              )}
+            </ButtonInput> */}
           </div>
         </div>
       </div>
@@ -825,6 +939,109 @@ const HalamanTransaksi = () => {
         </div>
       )}
 
+      {/* ─── TABEL DRAFT TRANSAKSI MEMBER ─── */}
+      {drafts.length > 0 && (
+        <div className="px-4 mb-4">
+          <div className={`rounded-xl border overflow-hidden ${isDark ? 'border-blue-800 bg-blue-950/30' : 'border-blue-200 bg-blue-50'}`}>
+            {/* Header */}
+            <div className={`px-4 py-3 flex items-center justify-between border-b ${isDark ? 'border-blue-800 bg-blue-900/40' : 'border-blue-200 bg-blue-100'}`}>
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center font-bold">M</span>
+                <span className={`text-sm font-semibold ${isDark ? 'text-blue-200' : 'text-blue-800'}`}>
+                  Transaksi Member Menunggu Dilanjutkan
+                </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${isDark ? 'bg-blue-700 text-blue-200' : 'bg-blue-200 text-blue-700'}`}>
+                  {drafts.length}
+                </span>
+              </div>
+              <span className={`text-xs ${isDark ? 'text-blue-400' : 'text-blue-500'}`}>
+                Klik "Lanjutkan" untuk melengkapi data transaksi
+              </span>
+            </div>
+
+            {/* Tabel */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className={`text-xs font-medium uppercase ${isDark ? 'text-blue-300 bg-blue-900/20' : 'text-blue-600 bg-blue-100/50'}`}>
+                    <th className="px-4 py-2 text-left">Waktu</th>
+                    <th className="px-4 py-2 text-left">Member</th>
+                    <th className="px-4 py-2 text-left">Jenis Transaksi</th>
+                    <th className="px-4 py-2 text-right">Nominal</th>
+                    <th className="px-4 py-2 text-left">Dibuat Oleh</th>
+                    <th className="px-4 py-2 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {drafts.map((draft) => (
+                    <tr
+                      key={draft.id}
+                      className={`border-t transition-colors ${
+                        isDark
+                          ? 'border-blue-900/40 hover:bg-blue-900/20'
+                          : 'border-blue-100 hover:bg-blue-50/80'
+                      }`}
+                    >
+                      <td className={`px-4 py-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {dayjs(draft.tanggal).isValid()
+                          ? dayjs(draft.tanggal).tz('Asia/Jakarta').format('DD/MM HH:mm')
+                          : draft.tanggal?.slice(0, 16) || '-'}
+                      </td>
+                      <td className={`px-4 py-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {draft.member_id ? (
+                          <div>
+                            <span className="font-medium text-blue-500">{draft.member_id}</span>
+                            {draft.member_nama && (
+                              <span className={`ml-1.5 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {draft.member_nama}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className={`text-xs italic ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Tanpa member</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isDark ? 'bg-indigo-800 text-indigo-200' : 'bg-indigo-100 text-indigo-700'}`}>
+                          {draft.jenis_transaksi}
+                        </span>
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${isDark ? 'text-green-400' : 'text-green-700'}`}>
+                        {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(draft.nominal)}
+                      </td>
+                      <td className={`px-4 py-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {draft.user_name || '-'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => handleLanjutkanDraft(draft)}
+                            disabled={isGloballyLocked}
+                            className="px-3 py-1.5 text-xs rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold disabled:opacity-40 transition-colors"
+                          >
+                            ▶ Lanjutkan
+                          </button>
+                          <button
+                            onClick={() => handleBatalDraft(draft.id)}
+                            className={`px-2 py-1.5 text-xs rounded-lg border transition-colors ${
+                              isDark
+                                ? 'border-red-800 text-red-400 hover:bg-red-900/40'
+                                : 'border-red-200 text-red-500 hover:bg-red-50'
+                            }`}
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       <TableContent
         data={filteredData}
         columns={transactionColumns}
@@ -852,13 +1069,29 @@ const HalamanTransaksi = () => {
         onDelete={isGloballyLocked ? null : handleDelete}
         onEdit={isGloballyLocked ? null : handleTransactionEdit}
         onAdd={
-          <FormLayout
-            onValidChange={setFormValid}
-            onSubmit={submitTransaction}
-            buttonText="Tambah Transaksi"
-            formType="transaction"
-            initialData={transactionFormData}
-          />
+          <>
+            <button
+              onClick={() => setShowMemberModal(true)}
+              disabled={isGloballyLocked}
+              title="Input transaksi untuk member"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors mr-2 ${
+                isGloballyLocked
+                  ? 'bg-gray-400 text-white cursor-not-allowed'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
+            >
+              <span className="font-bold text-sm leading-none"></span>
+              Transaksi Member
+              
+            </button>
+            <FormLayout
+              onValidChange={setFormValid}
+              onSubmit={submitTransaction}
+              buttonText="Tambah Transaksi"
+              formType="transaction"
+              initialData={transactionFormData}
+            />
+          </>
         }
         searchValue={filterText}
         onSearchChange={setFilterText}
@@ -881,6 +1114,12 @@ const HalamanTransaksi = () => {
         isOpen={showConfirmDialog}
         onClose={() => setShowConfirmDialog(false)}
         onConfirm={confirmDelete}
+      />
+
+      <ConfirmDialog
+        isOpen={showDraftConfirmDialog}
+        onClose={() => setShowDraftConfirmDialog(false)}
+        onConfirm={confirmDeleteDraft}
       />
 
       <ModalEdit
@@ -912,6 +1151,33 @@ const HalamanTransaksi = () => {
         onClose={() => setShowInfoDialog(false)}
         title="Informasi"
         message={infoMessage}
+      />
+
+
+
+      {/* ─── MODAL LANJUTKAN DRAFT (FormLayout) ─── */}
+      {showDraftEditModal && draftEditingData && !isGloballyLocked && (
+        <div>
+          <FormLayout
+            onSubmit={handleDraftEditSubmit}
+            onClose={handleDraftEditClose}
+            formType="transaction"
+            isEdit={true}
+            editData={draftEditingData}
+            onValidChange={setFormValid}
+          />
+        </div>
+      )}
+
+      {/* ─── MEMBER QUICK MODAL ─── */}
+      <MemberQuickModal
+        isOpen={showMemberModal}
+        onClose={() => setShowMemberModal(false)}
+        onDraftCreated={() => {
+          fetchDrafts()
+          setShowMemberModal(false)
+        }}
+        user={user}
       />
     </PageContainer>
   )

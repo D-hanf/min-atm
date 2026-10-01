@@ -9,9 +9,10 @@ import { HalamanDetilToko, HalamanKelolaToko } from '../../pages/dashboard/kelol
 import { DashboardLayout } from '../layout'
 import { DashboardPage } from '../../pages/dashboard/home'
 import HalamanFeeAlat from '../../pages/dashboard/kelolaData/SaldoAwal/KelolaFeeAlat'
+import HalamanMember from '../../pages/dashboard/member'
 import { HalamanProfile } from '../../pages/dashboard/profile'
 import HalamanSetting from '../../pages/dashboard/setting/HalamanSetting'
-import { HalamanTema } from '../../pages/dashboard/tema' // Import the theme page
+import { HalamanTema } from '../../pages/dashboard/tema'
 import { HalamanTransaksi } from '../../pages/dashboard/transaksi'
 import KelolaToko from '../../pages/dashboard/kelolaToko/KelolaToko'
 import Keuntungan from '../../pages/dashboard/laporan-keuangan/Keuntungan'
@@ -46,7 +47,8 @@ const DashboardRoutes = () => {
         <Route path="kelola-toko/:id" element={<HalamanDetilToko />} />
         <Route path="profile" element={<HalamanProfile />} />
         <Route path="setting" element={<HalamanSetting />} />
-        <Route path="tema" element={<HalamanTema />} /> {/* Add the theme route */}
+        <Route path="tema" element={<HalamanTema />} />
+        <Route path="member" element={<HalamanMember />} />
         {/* <Route path="password" element={<ChangePasswordPage />} /> */}
       </Route>
       <Route path="/" element={<LoginForm />}></Route>

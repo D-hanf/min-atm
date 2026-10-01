@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 // Map warna ke class Tailwind
 const colorVariants = {
   sky: "bg-sky-500 hover:bg-sky-600 focus-visible:outline-sky-600",
+  blue: "bg-blue-500 hover:bg-blue-600 focus-visible:outline-blue-600",
   red: "bg-red-500 hover:bg-red-600 focus-visible:outline-red-600",
   green: "bg-green-500 hover:bg-green-600 focus-visible:outline-green-600",
   indigo: "bg-indigo-500 hover:bg-indigo-600 focus-visible:outline-indigo-600",

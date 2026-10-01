@@ -343,6 +343,119 @@ export async function updateSchema() {
     ])
 
     indexResults.forEach(msg => console.log(msg))
+
+    // 🏅 MEMBERSHIP TABLES
+    // Tabel master member
+    await createTableIfNotExists('members', `
+      CREATE TABLE IF NOT EXISTS members (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        member_id   TEXT NOT NULL UNIQUE,       -- kode unik generate otomatis (MBR-YYYYMMDD-XXXX), dipakai barcode
+        nama        TEXT,                        -- opsional, bisa diisi belakangan
+        telepon     TEXT,
+        alamat      TEXT,
+        total_poin  INTEGER NOT NULL DEFAULT 0,
+        is_active   BOOLEAN NOT NULL DEFAULT 1,
+        keterangan  TEXT,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    // Tabel log poin (riwayat bertambah/berkurangnya poin)
+    await createTableIfNotExists('member_poin_log', `
+      CREATE TABLE IF NOT EXISTS member_poin_log (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        member_id       TEXT NOT NULL,           -- foreign key ke members.member_id
+        transaksi_id    INTEGER,                  -- foreign key ke transaksi.id
+        poin_masuk      INTEGER NOT NULL DEFAULT 0,
+        keterangan      TEXT,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (transaksi_id) REFERENCES transaksi(id)
+      )
+    `)
+
+    // Aturan poin yang bisa dikonfigurasi admin:
+    // "Setiap transaksi jenis X dengan nominal >= min dapat Y poin"
+    await createTableIfNotExists('poin_rules', `
+      CREATE TABLE IF NOT EXISTS poin_rules (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        jenis_transaksi TEXT NOT NULL,            -- 'Transfer' / 'Tarik Tunai' / 'Mode Pulsa' / '*' (semua)
+        nominal_min     DECIMAL(15,2) DEFAULT 0,
+        nominal_max     DECIMAL(15,2),            -- NULL = tidak terbatas
+        poin            INTEGER NOT NULL DEFAULT 1,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    // Pengaturan masa berlaku poin (admin)
+    await createTableIfNotExists('poin_settings', `
+      CREATE TABLE IF NOT EXISTS poin_settings (
+        id                  INTEGER PRIMARY KEY CHECK (id = 1),
+        masa_berlaku_bulan   INTEGER NOT NULL DEFAULT 0,  -- 0 = tidak ada masa berlaku (selamanya), 1, 3, 6, 12 bulan
+        terakhir_reset      TEXT,                        -- tanggal ISO/YMD terakhir kali poin direset
+        created_at          DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at          DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+
+    db.run(
+      `INSERT OR IGNORE INTO poin_settings (id, masa_berlaku_bulan, terakhir_reset)
+       VALUES (1, 0, datetime('now', 'localtime'))`
+    )
+
+    // Seed rule default (1 poin per transaksi) jika poin_rules masih kosong
+    db.get(`SELECT COUNT(*) as cnt FROM poin_rules`, [], (pErr, pRow) => {
+      if (!pErr && pRow?.cnt === 0) {
+        db.run(
+          `INSERT INTO poin_rules (jenis_transaksi, nominal_min, nominal_max, poin)
+           VALUES ('*', 0, NULL, 1)`
+        )
+      }
+    })
+
+    // Tambah kolom member_id ke tabel transaksi (opsional, diisi belakangan)
+    await addColumnIfNotExists('transaksi', 'member_id', 'TEXT REFERENCES members(member_id)')
+
+    // 🏅 Index membership — dibuat setelah tabel members & member_poin_log ada
+    await Promise.all([
+      createIndexIfNotExists(
+        'idx_members_member_id',
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_member_id ON members(member_id)'
+      ),
+      createIndexIfNotExists(
+        'idx_member_poin_log_member',
+        'CREATE INDEX IF NOT EXISTS idx_member_poin_log_member ON member_poin_log(member_id)'
+      ),
+      createIndexIfNotExists(
+        'idx_transaksi_member_id',
+        'CREATE INDEX IF NOT EXISTS idx_transaksi_member_id ON transaksi(member_id)'
+      )
+    ])
+
+    // 🛒 Tabel transaksi DRAFT untuk member quick-input
+    // Dipakai saat kasir input nominal + ID member sebelum melengkapi detail transaksi.
+    // Status: 'pending' = belum dilanjutkan, 'done' = sudah dilanjutkan & dibuat transaksi asli.
+    await createTableIfNotExists('transaksi_draft', `
+      CREATE TABLE IF NOT EXISTS transaksi_draft (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        member_id       TEXT REFERENCES members(member_id),
+        jenis_transaksi TEXT NOT NULL,
+        nominal         DECIMAL(15,2) NOT NULL DEFAULT 0,
+        tanggal         DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+        user_id         INTEGER,
+        user_name       TEXT,
+        status          TEXT NOT NULL DEFAULT 'pending',
+        transaksi_id    INTEGER REFERENCES transaksi(id),  -- diisi setelah dilanjutkan
+        created_at      DATETIME DEFAULT (datetime('now','localtime'))
+      )
+    `)
+
+    await createIndexIfNotExists(
+      'idx_transaksi_draft_status',
+      'CREATE INDEX IF NOT EXISTS idx_transaksi_draft_status ON transaksi_draft(status)'
+    )
+
   } catch (err) {
     console.error('❌ Gagal update schema:', err)
   }

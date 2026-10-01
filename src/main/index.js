@@ -26,6 +26,30 @@ import {
 } from './transactionHandler.js'
 import { getDataVisibilitySetting, saveDataVisibilitySetting } from './dataVisibilityHandler.js'
 import { markBenar, markSalah, unmarkBenar, unmarkSalah, updateSchema } from './db.js'
+import {
+  createMember,
+  createPoinRule,
+  createTransaksiDraft,
+  deactivateMember,
+  deleteMember,
+  deletePoinRule,
+  deleteTransaksiDraft,
+  getMemberById,
+  getMemberPoinLog,
+  getMembers,
+  getJenisTransaksiDenganPoin,
+  getPoinRules,
+  getPoinSettings,
+  getTransaksiDraft,
+  linkMemberToTransaksi,
+  reactivateMember,
+  resetAllMemberPoin,
+  selesaikanTransaksiDraft,
+  unlinkMemberFromTransaksi,
+  updateMember,
+  updatePoinRule,
+  updatePoinSettings
+} from './memberHandler.js'
 
 import { Menu } from 'electron'
 import dayjs from 'dayjs'
@@ -2424,3 +2448,29 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+// 🏅 MEMBERSHIP IPC HANDLERS
+ipcMain.handle('get-members', getMembers)
+ipcMain.handle('get-member-by-id', getMemberById)
+ipcMain.handle('create-member', createMember)
+ipcMain.handle('update-member', updateMember)
+ipcMain.handle('deactivate-member', deactivateMember)
+ipcMain.handle('reactivate-member', reactivateMember)
+ipcMain.handle('delete-member', deleteMember)
+ipcMain.handle('link-member-to-transaksi', linkMemberToTransaksi)
+ipcMain.handle('unlink-member-from-transaksi', unlinkMemberFromTransaksi)
+ipcMain.handle('get-member-poin-log', getMemberPoinLog)
+ipcMain.handle('get-poin-rules', getPoinRules)
+ipcMain.handle('create-poin-rule', createPoinRule)
+ipcMain.handle('update-poin-rule', updatePoinRule)
+ipcMain.handle('delete-poin-rule', deletePoinRule)
+ipcMain.handle('get-poin-settings', getPoinSettings)
+ipcMain.handle('update-poin-settings', updatePoinSettings)
+ipcMain.handle('reset-all-member-poin', resetAllMemberPoin)
+
+// 🛒 TRANSAKSI DRAFT (member quick-input)
+ipcMain.handle('get-jenis-transaksi-dengan-poin', getJenisTransaksiDenganPoin)
+ipcMain.handle('get-transaksi-draft', getTransaksiDraft)
+ipcMain.handle('create-transaksi-draft', createTransaksiDraft)
+ipcMain.handle('selesaikan-transaksi-draft', selesaikanTransaksiDraft)
+ipcMain.handle('delete-transaksi-draft', deleteTransaksiDraft)

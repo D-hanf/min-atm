@@ -7,6 +7,7 @@ import {
   HiOutlineCog,
   HiOutlineCube,
   HiOutlineHome,
+  HiOutlineIdentification,
   HiOutlineShoppingBag,
   HiOutlineSwatch,
   HiOutlineViewColumns
@@ -83,6 +84,11 @@ const handleLogout = () => {
           label: "Semua transaksi",
           icon: <HiOutlineViewColumns size={18} />,
           to: '/dashboard/semua-transaksi'
+        },
+        {
+          label: 'Member',
+          icon: <HiOutlineIdentification size={18} />,
+          to: '/dashboard/member'
         },
         
         {

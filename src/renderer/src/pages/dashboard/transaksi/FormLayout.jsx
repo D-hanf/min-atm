@@ -42,7 +42,8 @@ const FormLayout = ({
       'Jasa Transfer': 'jasa-transfer',
       'Mode Pulsa': 'mode-pulsa',
       Pulsa: 'mode-pulsa',
-      'Cek Saldo': 'cek-saldo'
+      'Cek Saldo': 'cek-saldo',
+      'Input Bonus Alat': 'input-bonus-alat'
     }
     return typeMap[transactionType] || ''
   }
@@ -85,7 +86,9 @@ const FormLayout = ({
     // Cek Saldo
     bonus: 0,
     is_bonus_manual: false,
-    nama_pelanggan: ''
+    nama_pelanggan: '',
+    // Member
+    member_id: ''
   })
 
   const getTodayWIB = () => dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD')

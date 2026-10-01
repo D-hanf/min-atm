@@ -114,7 +114,34 @@ const api = {
   deleteAssetSnapshot: (id) => ipcRenderer.invoke('delete-asset-snapshot', id),
   deleteAllAssetSnapshots: () => ipcRenderer.invoke('delete-all-asset-snapshots'),
   calculateTotalAssets: () => ipcRenderer.invoke('calculate-total-assets'),
-  getLastTotalAssetNoEdit: () => ipcRenderer.invoke('get-last-total-asset-no-edit')
+  getLastTotalAssetNoEdit: () => ipcRenderer.invoke('get-last-total-asset-no-edit'),
+
+  // 🏅 membership
+  getMembers: () => ipcRenderer.invoke('get-members'),
+  getMemberById: (member_id) => ipcRenderer.invoke('get-member-by-id', member_id),
+  createMember: (data) => ipcRenderer.invoke('create-member', data),
+  updateMember: (data) => ipcRenderer.invoke('update-member', data),
+  deactivateMember: (member_id) => ipcRenderer.invoke('deactivate-member', member_id),
+  reactivateMember: (member_id) => ipcRenderer.invoke('reactivate-member', member_id),
+  deleteMember: (member_id) => ipcRenderer.invoke('delete-member', member_id),
+  linkMemberToTransaksi: (data) => ipcRenderer.invoke('link-member-to-transaksi', data),
+  unlinkMemberFromTransaksi: (data) => ipcRenderer.invoke('unlink-member-from-transaksi', data),
+  getMemberPoinLog: (member_id) => ipcRenderer.invoke('get-member-poin-log', member_id),
+  // poin rules (admin)
+  getPoinRules: () => ipcRenderer.invoke('get-poin-rules'),
+  createPoinRule: (data) => ipcRenderer.invoke('create-poin-rule', data),
+  updatePoinRule: (data) => ipcRenderer.invoke('update-poin-rule', data),
+  deletePoinRule: (id) => ipcRenderer.invoke('delete-poin-rule', id),
+  getPoinSettings: () => ipcRenderer.invoke('get-poin-settings'),
+  updatePoinSettings: (data) => ipcRenderer.invoke('update-poin-settings', data),
+  resetAllMemberPoin: (data) => ipcRenderer.invoke('reset-all-member-poin', data),
+
+  // 🛒 transaksi draft (member quick-input)
+  getJenisTransaksiDenganPoin: () => ipcRenderer.invoke('get-jenis-transaksi-dengan-poin'),
+  getTransaksiDraft: () => ipcRenderer.invoke('get-transaksi-draft'),
+  createTransaksiDraft: (data) => ipcRenderer.invoke('create-transaksi-draft', data),
+  selesaikanTransaksiDraft: (data) => ipcRenderer.invoke('selesaikan-transaksi-draft', data),
+  deleteTransaksiDraft: (id) => ipcRenderer.invoke('delete-transaksi-draft', id)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

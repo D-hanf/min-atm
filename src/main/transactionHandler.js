@@ -2,6 +2,7 @@ import db, { calculateTotalAssets, getLastTotalAssetNoEdit, saveAssetSnapshot } 
 
 import dayjs from 'dayjs'
 import { findBonusForAlatJenis } from './feeAlatHandler.js'
+import { linkMemberToTransaksi } from './memberHandler.js'
 import timezone from 'dayjs/plugin/timezone'
 import utc from 'dayjs/plugin/utc'
 
@@ -365,7 +366,17 @@ export async function createTransaksi(_event, data) {
                       console.error('⚠️ Gagal simpan asset snapshot:', snapshotErr)
                       // Tidak reject karena transaksi utama sudah berhasil
                     }
-                    
+
+                    // 🏅 Auto-link member_id jika dikirim dari form transaksi
+                    if (data.member_id) {
+                      try {
+                        await linkMemberToTransaksi(null, { transaksi_id, member_id: data.member_id })
+                        console.log('✅ Member', data.member_id, 'linked to transaction', transaksi_id)
+                      } catch (mErr) {
+                        console.error('⚠️ Gagal link member_id ke transaksi baru:', mErr)
+                      }
+                    }
+
                     resolve({ id: transaksi_id, no_transaksi })
                   })
                   .catch(reject)
@@ -462,6 +473,30 @@ export function deleteTransaksi(_event, id) {
                   [bonusAmt, trx.bonus_sumber_dana_id],
                   (err) => (err ? rej(err) : res())
                 )
+              })
+            )
+          }
+
+          // 🏅 Batalkan poin member jika transaksi terkait dengan member
+          if (trx.member_id) {
+            updateQueries.push(
+              new Promise((res, rej) => {
+                db.get(`SELECT poin_masuk FROM member_poin_log WHERE transaksi_id = ?`, [id], (logErr, logRow) => {
+                  if (logErr) return rej(logErr)
+                  const poinKurang = logRow ? logRow.poin_masuk : 0
+                  if (poinKurang > 0) {
+                    db.run(
+                      `UPDATE members SET total_poin = MAX(0, total_poin - ?) WHERE member_id = ?`,
+                      [poinKurang, trx.member_id],
+                      (uErr) => {
+                        if (uErr) return rej(uErr)
+                        db.run(`DELETE FROM member_poin_log WHERE transaksi_id = ?`, [id], (dErr) => (dErr ? rej(dErr) : res()))
+                      }
+                    )
+                  } else {
+                    res()
+                  }
+                })
               })
             )
           }

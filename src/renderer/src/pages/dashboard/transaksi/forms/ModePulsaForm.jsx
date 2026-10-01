@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { findMatchingRule, formatRupiahDisplay, parseRupiahInput } from './feeBonusUtils'
 
 import InputField from '../../../../components/InputField'
+import MemberInput from '../../../../components/MemberInput'
 import RupiahInput from '../../../../components/RupiahInput'
 import SelectItems from '../../../../components/SelectItems'
 import dayjs from 'dayjs'
@@ -312,6 +313,13 @@ const ModePulsaForm = ({ formData, onChange, onValidChange }) => {
       >
         Keterangan
       </InputField>
+
+      <div className="col-span-2">
+        <MemberInput
+          value={formData.member_id || ''}
+          onChange={(val) => onChange({ target: { name: 'member_id', value: val } })}
+        />
+      </div>
     </>
   )
 }

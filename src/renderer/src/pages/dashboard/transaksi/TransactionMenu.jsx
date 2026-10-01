@@ -3,7 +3,6 @@ import { useTheme } from '../../../context/ThemeContext'
 
 const TransactionMenu = ({ onSelectTransaction }) => {
   const { isDark } = useTheme()
-
   const menuItems = [
     {
       id: 'tarik-tunai',
