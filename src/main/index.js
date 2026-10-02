@@ -48,7 +48,8 @@ import {
   unlinkMemberFromTransaksi,
   updateMember,
   updatePoinRule,
-  updatePoinSettings
+  updatePoinSettings,
+  markMembersPrinted
 } from './memberHandler.js'
 
 import { Menu } from 'electron'
@@ -322,8 +323,12 @@ app.whenReady().then(async () => {
         return
       }
 
+      let targetTokoId = null;
+
       if (tokoRow) {
         console.log('ℹ️ Toko Alpha sudah ada. Tidak perlu insert ulang.')
+        targetTokoId = tokoRow.id;
+        checkAndCreateAdmin(targetTokoId);
         return
       }
 
@@ -337,49 +342,38 @@ app.whenReady().then(async () => {
             return
           }
 
-          const tokoId = this.lastID
-
-          // Insert user admin hanya jika username belum ada
-          db.get(`SELECT id FROM users WHERE username = ?`, ['admin'], (err, userRow) => {
-            if (err) {
-              console.error('❌ Gagal cek user admin:', err)
-              return
-            }
-
-            if (userRow) {
-              console.log('ℹ️ User admin sudah ada. Tidak perlu insert ulang.')
-              return
-            }
-
-            db.run(
-              `INSERT INTO users (nama, username, password, no_telepon, role, toko_id)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-              ['Admin Satu', 'admin', 'admin123', '081234567890', 'admin', tokoId],
-              function (err) {
-                if (err) {
-                  console.error('❌ Gagal insert user admin:', err)
-                  return
-                }
-
-                const userId = this.lastID
-
-                // Insert ke tabel karyawan (jika perlu)
-                db.run(
-                  `INSERT INTO karyawan (user_id, toko_id) VALUES (?, ?)`,
-                  [userId, tokoId],
-                  function (err) {
-                    if (err) {
-                      console.error('❌ Gagal insert ke tabel karyawan:', err)
-                    } else {
-                      console.log('✅ Dummy data berhasil dimasukkan.')
-                    }
-                  }
-                )
-              }
-            )
-          })
+          targetTokoId = this.lastID
+          checkAndCreateAdmin(targetTokoId)
         }
       )
+
+      function checkAndCreateAdmin(tokoId) {
+        // Insert user admin hanya jika username belum ada
+        db.get(`SELECT id FROM users WHERE username = ?`, ['admin'], (err, userRow) => {
+          if (err) {
+            console.error('❌ Gagal cek user admin:', err)
+            return
+          }
+
+          if (userRow) {
+            console.log('ℹ️ User admin sudah ada. Tidak perlu insert ulang.')
+            return
+          }
+
+          db.run(
+            `INSERT INTO users (nama, username, password, no_telepon, role, toko_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+            ['Admin Satu', 'admin', 'admin123', '081234567890', 'admin', null],
+            function (err) {
+              if (err) {
+                console.error('❌ Gagal insert user admin:', err)
+                return
+              }
+              console.log('✅ Dummy admin berhasil dimasukkan (Global Admin, tanpa toko).')
+            }
+          )
+        })
+      }
     })
 
     // REGISTER IPC HANDLERS
@@ -2077,11 +2071,13 @@ app.whenReady().then(async () => {
     })
 
     ipcMain.handle('delete-toko', (event, id) => {
-      const query = `DELETE FROM toko WHERE id = ?`
       return new Promise((resolve, reject) => {
-        db.run(query, [id], function (err) {
-          if (err) reject(err)
-          else resolve({ success: true, changes: this.changes })
+        db.run(`DELETE FROM users WHERE toko_id = ?`, [id], function (err) {
+          if (err) return reject(err)
+          db.run(`DELETE FROM toko WHERE id = ?`, [id], function (err2) {
+            if (err2) return reject(err2)
+            resolve({ success: true, changes: this.changes })
+          })
         })
       })
     })
@@ -2125,31 +2121,30 @@ app.whenReady().then(async () => {
     // Tambah karyawan (langsung ke tabel users)
     ipcMain.handle('create-karyawan', async (event, data) => {
       return new Promise((resolve, reject) => {
-        const check = db
-          .prepare(`SELECT COUNT(*) AS count FROM users WHERE username = ?`)
-          .get(data.username)
-
-        if (check.count > 0) {
-          return reject(new Error('Username sudah digunakan'))
-        }
-
-        const stmt = db.prepare(`
-      INSERT INTO users (nama, username, password, role, no_telepon, toko_id)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `)
-
-        stmt.run(
-          data.nama,
-          data.username,
-          data.password,
-          data.role,
-          data.no_telepon,
-          data.toko_id,
-          function (err) {
-            if (err) return reject(err)
-            resolve({ success: true, id: this.lastID })
+        db.get(`SELECT COUNT(*) AS count FROM users WHERE username = ?`, [data.username], (err, row) => {
+          if (err) return reject(err)
+          if (row.count > 0) {
+            return reject(new Error('Username sudah digunakan'))
           }
-        )
+
+          const stmt = db.prepare(`
+            INSERT INTO users (nama, username, password, role, no_telepon, toko_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `)
+
+          stmt.run(
+            data.nama,
+            data.username,
+            data.password,
+            data.role,
+            data.no_telepon,
+            data.toko_id,
+            function (err) {
+              if (err) return reject(err)
+              resolve({ success: true, id: this.lastID })
+            }
+          )
+        })
       })
     })
 
@@ -2169,41 +2164,48 @@ app.whenReady().then(async () => {
     })
 
     // Update user
-    ipcMain.handle('update-karyawan', (event, data) => {
-      // Cek apakah username sudah dipakai oleh user lain
-      const check = db
-        .prepare(
-          `
-    SELECT COUNT(*) AS count FROM users 
-    WHERE username = ? AND id != ?
-  `
+    ipcMain.handle('update-karyawan', async (event, data) => {
+      return new Promise((resolve, reject) => {
+        db.get(
+          `SELECT COUNT(*) AS count FROM users WHERE username = ? AND id != ?`,
+          [data.username, data.user_id],
+          (err, row) => {
+            if (err) return reject(err)
+            if (row.count > 0) {
+              return reject(new Error('Username sudah digunakan oleh user lain'))
+            }
+
+            const stmt = db.prepare(`
+              UPDATE users
+              SET nama = ?, username = ?, password = ?, role = ?, no_telepon = ?
+              WHERE id = ?
+            `)
+
+            stmt.run(
+              data.nama,
+              data.username,
+              data.password,
+              data.role,
+              data.no_telepon,
+              data.user_id,
+              function (err) {
+                if (err) return reject(err)
+                resolve({ success: true, changes: this.changes })
+              }
+            )
+          }
         )
-        .get(data.username, data.user_id)
-
-      if (check.count > 0) {
-        throw new Error('Username sudah digunakan oleh user lain')
-      }
-
-      const stmt = db.prepare(`
-    UPDATE users
-    SET nama = ?, username = ?, password = ?, role = ?, no_telepon = ?
-    WHERE id = ?
-  `)
-
-      return stmt.run(
-        data.nama,
-        data.username,
-        data.password,
-        data.role,
-        data.no_telepon,
-        data.user_id
-      )
+      })
     })
 
     // Hapus user
     ipcMain.handle('delete-karyawan', (event, user_id) => {
-      const stmt = db.prepare(`DELETE FROM users WHERE id = ?`)
-      return stmt.run(user_id)
+      return new Promise((resolve, reject) => {
+        db.run(`DELETE FROM users WHERE id = ?`, [user_id], function (err) {
+          if (err) return reject(err)
+          resolve({ success: true, changes: this.changes })
+        })
+      })
     })
 
     ipcMain.handle('count-karyawan', () => {
@@ -2467,6 +2469,7 @@ ipcMain.handle('delete-poin-rule', deletePoinRule)
 ipcMain.handle('get-poin-settings', getPoinSettings)
 ipcMain.handle('update-poin-settings', updatePoinSettings)
 ipcMain.handle('reset-all-member-poin', resetAllMemberPoin)
+ipcMain.handle('mark-members-printed', markMembersPrinted)
 
 // 🛒 TRANSAKSI DRAFT (member quick-input)
 ipcMain.handle('get-jenis-transaksi-dengan-poin', getJenisTransaksiDenganPoin)

@@ -8,6 +8,7 @@ import SelectItems from '../../../../components/SelectItems'
 
 const FormLayout = ({ onSubmit }) => {
   const [modalOpen, setModalOpen] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -20,19 +21,25 @@ const FormLayout = ({ onSubmit }) => {
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+    if (field === 'username') setErrorMsg('')
   }
 
-  const handleSubmit = () => {
-    onSubmit(formData)
-    setModalOpen(false)
-    setFormData({
-      name: '',
-      username: '',
-      password: '',
-      phone: '',
-      address: '',
-      role: '',
-    })
+  const handleSubmit = async () => {
+    try {
+      await onSubmit(formData)
+      setModalOpen(false)
+      setErrorMsg('')
+      setFormData({
+        name: '',
+        username: '',
+        password: '',
+        phone: '',
+        address: '',
+        role: '',
+      })
+    } catch (err) {
+      setErrorMsg(err.message || 'Gagal menyimpan data')
+    }
   }
 
   return (
@@ -44,7 +51,10 @@ const FormLayout = ({ onSubmit }) => {
         </ButtonInput>
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}>
+      <Modal isOpen={modalOpen} onClose={() => {
+        setModalOpen(false)
+        setErrorMsg('')
+      }} onSubmit={handleSubmit}>
         <InputField
           name="name"
           value={formData.name}
@@ -56,14 +66,15 @@ const FormLayout = ({ onSubmit }) => {
         </InputField>
 
         <InputField
-        required={true}
-        placeholder={'Username karyawan'}
+          required={true}
+          placeholder={'Username karyawan'}
           name="username"
           value={formData.username}
           onChange={(e) => handleChange('username', e.target.value)}
         >
           Username
         </InputField>
+        {errorMsg && <p className="text-red-500 text-xs mt-1">{errorMsg}</p>}
 
         <InputField
           name="password"

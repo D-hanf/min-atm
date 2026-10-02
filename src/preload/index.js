@@ -117,7 +117,7 @@ const api = {
   getLastTotalAssetNoEdit: () => ipcRenderer.invoke('get-last-total-asset-no-edit'),
 
   // 🏅 membership
-  getMembers: () => ipcRenderer.invoke('get-members'),
+  getMembers: (params) => ipcRenderer.invoke('get-members', params),
   getMemberById: (member_id) => ipcRenderer.invoke('get-member-by-id', member_id),
   createMember: (data) => ipcRenderer.invoke('create-member', data),
   updateMember: (data) => ipcRenderer.invoke('update-member', data),
@@ -135,6 +135,7 @@ const api = {
   getPoinSettings: () => ipcRenderer.invoke('get-poin-settings'),
   updatePoinSettings: (data) => ipcRenderer.invoke('update-poin-settings', data),
   resetAllMemberPoin: (data) => ipcRenderer.invoke('reset-all-member-poin', data),
+  markMembersPrinted: (memberIds) => ipcRenderer.invoke('mark-members-printed', memberIds),
 
   // 🛒 transaksi draft (member quick-input)
   getJenisTransaksiDenganPoin: () => ipcRenderer.invoke('get-jenis-transaksi-dengan-poin'),

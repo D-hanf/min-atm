@@ -360,6 +360,7 @@ export async function updateSchema() {
         updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `)
+    await addColumnIfNotExists('members', 'is_printed', 'BOOLEAN DEFAULT 0')
 
     // Tabel log poin (riwayat bertambah/berkurangnya poin)
     await createTableIfNotExists('member_poin_log', `

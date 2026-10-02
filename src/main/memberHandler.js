@@ -23,23 +23,58 @@ function generateMemberId() {
 // MEMBERS CRUD
 // ──────────────────────────────────────────────
 
-/** Ambil semua member, urut terbaru dulu */
-export function getMembers() {
+/** Ambil member dengan pagination, search, dan filter tanggal */
+export function getMembers(_event, params = {}) {
   return new Promise((resolve, reject) => {
-    db.all(
-      `SELECT * FROM members ORDER BY created_at DESC`,
-      [],
-      (err, rows) => (err ? reject(err) : resolve(rows || []))
-    )
+    const { search = '', limit, offset = 0, dateFrom, dateTo } = params
+    let query = `SELECT * FROM members WHERE 1=1`
+    let queryParams = []
+
+    if (search) {
+      query += ` AND (member_id LIKE ? OR nama LIKE ? OR telepon LIKE ?)`
+      const searchParam = `%${search}%`
+      queryParams.push(searchParam, searchParam, searchParam)
+    }
+
+    if (dateFrom && dateTo) {
+      query += ` AND DATE(created_at) BETWEEN ? AND ?`
+      queryParams.push(dateFrom, dateTo)
+    }
+
+    if (params.printStatus) {
+      if (params.printStatus === 'printed') {
+        query += ` AND is_printed = 1`
+      } else if (params.printStatus === 'not_printed') {
+        query += ` AND (is_printed = 0 OR is_printed IS NULL)`
+      }
+    }
+
+    // Get total count for pagination
+    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as total')
+    db.get(countQuery, queryParams, (err, row) => {
+      if (err) return reject(err)
+      const total = row?.total || 0
+
+      query += ` ORDER BY created_at DESC`
+      if (limit) {
+        query += ` LIMIT ? OFFSET ?`
+        queryParams.push(limit, offset)
+      }
+
+      db.all(query, queryParams, (err, rows) => {
+        if (err) reject(err)
+        else resolve({ data: rows || [], total })
+      })
+    })
   })
 }
 
-/** Cari member berdasarkan member_id (untuk scan barcode / input manual) */
-export function getMemberById(_event, member_id) {
+/** Cari member berdasarkan member_id atau telepon (untuk scan barcode / input manual) */
+export function getMemberById(_event, id_or_phone) {
   return new Promise((resolve, reject) => {
     db.get(
-      `SELECT * FROM members WHERE member_id = ?`,
-      [member_id],
+      `SELECT * FROM members WHERE member_id = ? OR telepon = ?`,
+      [id_or_phone, id_or_phone],
       (err, row) => (err ? reject(err) : resolve(row || null))
     )
   })
@@ -480,5 +515,23 @@ export function deleteTransaksiDraft(_event, draft_id) {
     db.run('DELETE FROM transaksi_draft WHERE id = ?', [draft_id], function(err) {
       if (err) return reject(err); resolve({ changes: this.changes, success: true })
     })
+  })
+}
+
+// ──────────────────────────────────────────────
+// CETAK KARTU
+// ──────────────────────────────────────────────
+export function markMembersPrinted(_event, memberIds) {
+  return new Promise((resolve, reject) => {
+    if (!memberIds || memberIds.length === 0) return resolve({ changes: 0 })
+    const placeholders = memberIds.map(() => '?').join(',')
+    db.run(
+      `UPDATE members SET is_printed = 1 WHERE member_id IN (${placeholders})`,
+      memberIds,
+      function(err) {
+        if (err) reject(err)
+        else resolve({ changes: this.changes })
+      }
+    )
   })
 }

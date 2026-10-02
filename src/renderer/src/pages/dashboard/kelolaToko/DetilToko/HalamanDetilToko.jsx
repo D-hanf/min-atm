@@ -14,8 +14,8 @@ const HalamanDetilToko = () => {
   const [employees, setEmployees] = useState([])
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
-  // State for modal
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editErrorMsg, setEditErrorMsg] = useState('')
   const [editEmployeeId, setEditEmployeeId] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -81,6 +81,7 @@ const HalamanDetilToko = () => {
       fetchUsers()
     } catch (error) {
       console.error('❌ Gagal tambah data pegawai:', error)
+      throw error
     }
   }
 
@@ -95,6 +96,7 @@ const HalamanDetilToko = () => {
         phone: employee.no_telepon,
         role: employee.role
       })
+      setEditErrorMsg('')
       setIsModalOpen(true)
     }
   }
@@ -112,8 +114,11 @@ const HalamanDetilToko = () => {
     try {
       await window.api.updateKaryawan(updateEntry)
       await fetchUsers()
+      setIsModalOpen(false)
+      setEditErrorMsg('')
     } catch (error) {
       console.error('❌ Gagal update data pegawai:', error)
+      setEditErrorMsg(error.message || 'Gagal update data pegawai')
     }
   }
 
@@ -191,9 +196,8 @@ const HalamanDetilToko = () => {
         columns={employeeColumns}
         onAdd={
           <FormLayout
-            onSubmit={(data) => {
-              handleFormSubmit(data)
-              setIsModalOpen(false)
+            onSubmit={async (data) => {
+              await handleFormSubmit(data)
             }}
           ></FormLayout>
         }
@@ -207,10 +211,12 @@ const HalamanDetilToko = () => {
 
       <ModalEdit
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false)
+          setEditErrorMsg('')
+        }}
         onSubmit={() => {
           handleEditSubmit(formData)
-          setIsModalOpen(false)
         }}
       >
         <InputField
@@ -224,10 +230,14 @@ const HalamanDetilToko = () => {
         <InputField
           name="username"
           value={formData.username}
-          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+          onChange={(e) => {
+            setFormData({ ...formData, username: e.target.value })
+            setEditErrorMsg('')
+          }}
         >
           Username
         </InputField>
+        {editErrorMsg && <p className="text-red-500 text-xs mt-1">{editErrorMsg}</p>}
 
         <InputField
           name="password"

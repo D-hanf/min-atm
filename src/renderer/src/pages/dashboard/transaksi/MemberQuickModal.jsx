@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTheme } from '../../../context/ThemeContext'
+import AlertDialog from '../../../components/AlertDialog'
 
 /**
  * MemberQuickModal — popup input cepat transaksi member.
@@ -20,10 +21,11 @@ const MemberQuickModal = ({ isOpen, onClose, onDraftCreated, user }) => {
   const [memberError, setMemberError] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', variant: 'warning' })
 
   const memberInputRef = useRef(null)
   const debounceRef = useRef(null)
-  const allMembersRef = useRef([]) // cache getMembers supaya tidak fetch berulang
+
 
   // ──────────────────────────────────────────────
   // Helper
@@ -66,7 +68,7 @@ const MemberQuickModal = ({ isOpen, onClose, onDraftCreated, user }) => {
       setMemberInput('')
       setMemberInfo(null)
       setMemberError('')
-      allMembersRef.current = []
+
       // Focus ke input ID member — pakai requestAnimationFrame untuk
       // memastikan modal sudah dirender (menghindari delay lama setTimeout)
       requestAnimationFrame(() => {
@@ -94,18 +96,8 @@ const MemberQuickModal = ({ isOpen, onClose, onDraftCreated, user }) => {
     setMemberError('')
     setMemberInfo(null)
     try {
-      // Coba getMemberById (by member_id) dulu
+      // Cari member berdasarkan member_id atau no telepon (backend sudah mendukung keduanya)
       let result = await window.api.getMemberById(q)
-
-      if (!result) {
-        // Fallback: cari by telepon dari cache atau fresh fetch
-        if (allMembersRef.current.length === 0) {
-          allMembersRef.current = (await window.api.getMembers()) || []
-        }
-        result = allMembersRef.current.find(
-          (m) => m.telepon === q || m.member_id === q
-        ) || null
-      }
 
       if (result) {
         setMemberInfo(result)
@@ -183,7 +175,7 @@ const MemberQuickModal = ({ isOpen, onClose, onDraftCreated, user }) => {
         onClose()
       }
     } catch (e) {
-      alert('Gagal menyimpan draft: ' + e.message)
+      setAlertState({ isOpen: true, title: 'Gagal', message: 'Gagal menyimpan draft: ' + e.message, variant: 'warning' })
     } finally {
       setSubmitting(false)
     }
@@ -366,6 +358,13 @@ const MemberQuickModal = ({ isOpen, onClose, onDraftCreated, user }) => {
           </button>
         </div>
       </div>
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        title={alertState.title}
+        message={alertState.message}
+        variant={alertState.variant}
+        onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   )
 }

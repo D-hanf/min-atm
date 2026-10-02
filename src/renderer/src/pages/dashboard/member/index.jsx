@@ -10,7 +10,7 @@ import {
   HiOutlineUserPlus,
   HiOutlineXCircle
 } from 'react-icons/hi2'
-
+import AlertDialog from '../../../components/AlertDialog'
 import JsBarcode from 'jsbarcode'
 import { useAuth } from '../../../context/AuthContext'
 import { useTheme } from '../../../context/ThemeContext'
@@ -49,35 +49,34 @@ const cetakKartu = (member, storeName = 'JAYA MART') => {
   JsBarcode(svg, member.member_id, {
     format: 'CODE128',
     width: 1.5,
-    height: 28,
+    height: 25,
     fontSize: 10,
     margin: 2,
     displayValue: true
   })
-  const win = window.open('', '_blank', 'width=420,height=300')
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kartu Member - ${storeName}</title>
+  const htmlCode = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kartu Member - ${storeName}</title>
     <style>
-      @page { size: 85.6mm 54mm; margin: 0; }
+      @page { size: 76mm 48mm; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body { width: 85.6mm; height: 54mm; margin: 0; padding: 0; }
+      html, body { width: 76mm; height: 48mm; margin: 0; padding: 0; }
       body { font-family: Arial, Helvetica, sans-serif; display: flex; justify-content: center; align-items: center; background: #f5f5f5; }
       .card {
-        width: 85.6mm; height: 54mm;
+        width: 76mm; height: 48mm;
         background: #ffffff; border: 1px solid #d1d5db; border-radius: 3.5mm;
         padding: 3.5mm 4mm; display: flex; flex-direction: column;
         align-items: center; justify-content: space-between; overflow: hidden;
         position: relative;
       }
       .header { text-align: center; border-bottom: 1.5px solid #2563eb; width: 100%; padding-bottom: 1mm; margin-bottom: 1mm; }
-      .store-name { font-size: 11pt; font-weight: 900; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }
-      .card-subtitle { font-size: 6.5pt; color: #2563eb; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-top: 0.5mm; }
+      .store-name { font-size: 10pt; font-weight: 900; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }
+      .card-subtitle { font-size: 6pt; color: #2563eb; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-top: 0.5mm; }
       .member-info { text-align: center; margin: 0.5mm 0; }
-      .nama { font-size: 10pt; font-weight: bold; color: #1f2937; text-align: center; max-width: 75mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .nama { font-size: 9pt; font-weight: bold; color: #1f2937; text-align: center; max-width: 65mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
       .barcode-wrap { text-align: center; max-width: 100%; }
-      .barcode-wrap svg { max-width: 72mm; height: auto; }
+      .barcode-wrap svg { max-width: 65mm; height: auto; }
       @media print {
         body { background: none; }
-        .card { border: none; box-shadow: none; }
+        .card { border: none; box-shadow: none; margin: 0; }
       }
     </style></head><body>
     <div class="card">
@@ -90,9 +89,78 @@ const cetakKartu = (member, storeName = 'JAYA MART') => {
       </div>
       <div class="barcode-wrap">${svg.outerHTML}</div>
     </div>
-    <script>window.onload=()=>{window.print()}<\/script>
-  </body></html>`)
-  win.document.close()
+    </div>
+  </body></html>`
+  
+  const iframe = document.createElement('iframe')
+  iframe.style.display = 'none'
+  document.body.appendChild(iframe)
+  iframe.contentDocument.write(htmlCode)
+  iframe.contentDocument.close()
+  
+  setTimeout(() => {
+    iframe.contentWindow.focus()
+    iframe.contentWindow.print()
+    setTimeout(() => {
+      document.body.removeChild(iframe)
+    }, 1000)
+  }, 300)
+}
+
+const cetakBanyakKartu = (members, storeName = 'JAYA MART') => {
+  const htmlStart = `<html><head><title>Cetak Banyak Kartu</title><style>
+      @page { size: auto; margin: 0; }
+      body { margin: 0; padding: 5mm; display: flex; flex-wrap: wrap; gap: 5mm; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; }
+      .card { 
+        width: 76mm; height: 48mm; padding: 2mm; background: white; 
+        border-radius: 4mm; box-shadow: 0 4px 6px -1px rgb(0 0 0/0.1); 
+        display: inline-flex; flex-direction: column; justify-content: flex-start;
+        box-sizing: border-box; page-break-inside: avoid; border: 1px solid #e5e7eb;
+        margin: 2.5mm; vertical-align: top;
+      }
+      .header { text-align: center; border-bottom: 1.5px solid #2563eb; width: 100%; padding-bottom: 1mm; margin-bottom: 1mm; }
+      .store-name { font-size: 10pt; font-weight: 900; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }
+      .card-subtitle { font-size: 6pt; color: #2563eb; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-top: 0.5mm; }
+      .member-info { text-align: center; margin: 0.5mm 0; }
+      .nama { font-size: 9pt; font-weight: bold; color: #1f2937; text-align: center; max-width: 65mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .barcode-wrap { text-align: center; max-width: 100%; }
+      .barcode-wrap svg { max-width: 65mm; height: auto; }
+      @media print {
+        body { background: none; padding: 0; display: block; text-align: center; }
+        .card { border: 1px dashed #999 !important; box-shadow: none; }
+      }
+    </style></head><body>`
+
+  let htmlContent = members.map((member) => {
+    const svg = document.createElement('svg')
+    JsBarcode(svg, member.member_id, { format: 'CODE128', width: 1.2, height: 30, fontSize: 11, margin: 0, displayValue: true })
+    return `<div class="card">
+      <div class="header">
+        <div class="store-name">${storeName}</div>
+        <div class="card-subtitle">KARTU MEMBER</div>
+      </div>
+      <div class="member-info">
+        <div class="nama">${member.nama || 'PELANGGAN SETIA'}</div>
+      </div>
+      <div class="barcode-wrap">${svg.outerHTML}</div>
+    </div>`
+  }).join('')
+
+  const htmlCode = htmlStart + htmlContent + `</body></html>`
+  
+  const iframe = document.createElement('iframe')
+  iframe.style.display = 'none'
+  document.body.appendChild(iframe)
+  iframe.contentDocument.write(htmlCode)
+  iframe.contentDocument.close()
+  
+  setTimeout(() => {
+    iframe.contentWindow.focus()
+    iframe.contentWindow.print()
+    setTimeout(() => {
+      document.body.removeChild(iframe)
+    }, 1000)
+  }, 300)
 }
 
 /* ─────────────────────────────────────────────
@@ -268,6 +336,34 @@ const PoinLogModal = ({ isOpen, member, onClose, isDark }) => {
 }
 
 /* ─────────────────────────────────────────────
+   MODAL OPSI CETAK SEMUA KARTU
+───────────────────────────────────────────── */
+const PrintOptionModal = ({ isOpen, onClose, onPrintAll, onPrintUnprinted, isDark }) => {
+  if (!isOpen) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className={`w-full max-w-sm rounded-xl shadow-2xl p-6 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+        <h2 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-800'}`}>Cetak Semua Kartu</h2>
+        <p className={`text-sm mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Pilih data member yang ingin dicetak (semua data di database akan diambil):</p>
+        
+        <div className="space-y-3">
+          <button onClick={onPrintAll} className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 font-medium transition-colors">
+            Cetak Semua Data
+          </button>
+          <button onClick={onPrintUnprinted} className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm bg-indigo-600 text-white hover:bg-indigo-700 font-medium transition-colors">
+            Cetak Data yang Belum Dicetak
+          </button>
+        </div>
+        
+        <button onClick={onClose} className={`w-full mt-4 py-2 rounded-lg text-sm border ${isDark ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+          Batal
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
    MODAL KONFIGURASI POIN (admin only)
    - Aturan perolehan poin (poin_rules CRUD)
    - Masa berlaku poin (poin_settings)
@@ -280,6 +376,7 @@ const PoinConfigModal = ({ isOpen, onClose, isDark, onRefresh }) => {
   const [newRule, setNewRule] = useState({ jenis_transaksi: '*', nominal_min: 0, nominal_max: '', poin: 1 })
   const [editingRule, setEditingRule] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} })
+  const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', variant: 'warning' })
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -308,7 +405,7 @@ const PoinConfigModal = ({ isOpen, onClose, isDark, onRefresh }) => {
       setNewRule({ jenis_transaksi: '*', nominal_min: 0, nominal_max: '', poin: 1 })
       setEditingRule(null)
       loadData()
-    } catch (e) { alert('Gagal: ' + e.message) }
+    } catch (e) { setAlertState({ isOpen: true, title: 'Error', message: 'Gagal: ' + e.message, variant: 'warning' }) }
   }
 
   const handleDeleteRule = (id) => {
@@ -321,7 +418,7 @@ const PoinConfigModal = ({ isOpen, onClose, isDark, onRefresh }) => {
           await window.api.deletePoinRule(id)
           loadData()
           setConfirmDialog(prev => ({ ...prev, isOpen: false }))
-        } catch (e) { alert('Gagal: ' + e.message) }
+        } catch (e) { setAlertState({ isOpen: true, title: 'Error', message: 'Gagal: ' + e.message, variant: 'warning' }) }
       }
     })
   }
@@ -329,8 +426,8 @@ const PoinConfigModal = ({ isOpen, onClose, isDark, onRefresh }) => {
   const handleSaveSettings = async () => {
     try {
       await window.api.updatePoinSettings({ masa_berlaku_bulan: settings.masa_berlaku_bulan })
-      alert('Pengaturan masa berlaku poin berhasil disimpan.')
-    } catch (e) { alert('Gagal: ' + e.message) }
+      setAlertState({ isOpen: true, title: 'Sukses', message: 'Pengaturan masa berlaku poin berhasil disimpan.', variant: 'success' })
+    } catch (e) { setAlertState({ isOpen: true, title: 'Error', message: 'Gagal: ' + e.message, variant: 'warning' }) }
   }
 
   const handleResetAllPoin = () => {
@@ -341,11 +438,11 @@ const PoinConfigModal = ({ isOpen, onClose, isDark, onRefresh }) => {
       onConfirm: async () => {
         try {
           await window.api.resetAllMemberPoin({ reason: 'Reset manual oleh admin' })
-          alert('Semua poin member berhasil di-reset ke 0.')
+          setAlertState({ isOpen: true, title: 'Sukses', message: 'Semua poin member berhasil di-reset ke 0.', variant: 'success' })
           loadData()
           onRefresh()
           setConfirmDialog(prev => ({ ...prev, isOpen: false }))
-        } catch (e) { alert('Gagal: ' + e.message) }
+        } catch (e) { setAlertState({ isOpen: true, title: 'Error', message: 'Gagal: ' + e.message, variant: 'warning' }) }
       }
     })
   }
@@ -476,6 +573,13 @@ const PoinConfigModal = ({ isOpen, onClose, isDark, onRefresh }) => {
           <button onClick={onClose} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Tutup</button>
         </div>
       </div>
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        title={alertState.title}
+        message={alertState.message}
+        variant={alertState.variant}
+        onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   )
 }
@@ -483,14 +587,19 @@ const PoinConfigModal = ({ isOpen, onClose, isDark, onRefresh }) => {
 /* ─────────────────────────────────────────────
    HALAMAN UTAMA MEMBER
 ───────────────────────────────────────────── */
-const PAGE_SIZE = 50
+const PAGE_SIZE = 15
 
 export default function HalamanMember() {
   const { isDark } = useTheme()
   const { user } = useAuth()
   const isAdmin = user?.role?.toLowerCase() === 'admin'
   const [allMembers, setAllMembers] = useState([])
+  const [totalData, setTotalData] = useState(0)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [filterMode, setFilterMode] = useState('month') // 'all', '7_days', '30_days', 'month', 'custom'
+  const [customDate, setCustomDate] = useState({ from: '', to: '' })
+  const [printStatus, setPrintStatus] = useState('all') // 'all', 'printed', 'not_printed'
   const [loading, setLoading] = useState(false)
   const [formModal, setFormModal] = useState({ open: false, member: null })
   const [linkModal, setLinkModal] = useState({ open: false, member: null })
@@ -498,6 +607,7 @@ export default function HalamanMember() {
   const [poinConfigModal, setPoinConfigModal] = useState(false)
   const [page, setPage] = useState(1)
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} })
+  const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', variant: 'warning' })
 
   // Scan/lookup field — prominent at top
   const [scanValue, setScanValue] = useState('')
@@ -507,13 +617,98 @@ export default function HalamanMember() {
 
   const [namaToko, setNamaToko] = useState('JAYA MART')
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1)
+    }, 400)
+    return () => clearTimeout(t)
+  }, [search])
+
+  const getDateFilter = () => {
+    let dateFrom = undefined
+    let dateTo = undefined
+    const now = new Date()
+    
+    if (filterMode === 'month') {
+      dateFrom = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+      dateTo = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+    } else if (filterMode === '7_days') {
+      const past = new Date(now)
+      past.setDate(now.getDate() - 7)
+      dateFrom = past.toISOString().slice(0, 10)
+      dateTo = now.toISOString().slice(0, 10)
+    } else if (filterMode === '30_days') {
+      const past = new Date(now)
+      past.setDate(now.getDate() - 30)
+      dateFrom = past.toISOString().slice(0, 10)
+      dateTo = now.toISOString().slice(0, 10)
+    } else if (filterMode === 'custom') {
+      dateFrom = customDate.from || undefined
+      dateTo = customDate.to || undefined
+    }
+    return { dateFrom, dateTo }
+  }
+
   const load = useCallback(async () => {
     setLoading(true)
-    try { const data = await window.api.getMembers(); setAllMembers(data) }
+    try {
+      const { dateFrom, dateTo } = getDateFilter()
+
+      const res = await window.api.getMembers({
+        search: debouncedSearch,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
+        dateFrom,
+        dateTo,
+        printStatus: printStatus !== 'all' ? printStatus : undefined
+      })
+      setAllMembers(res.data)
+      setTotalData(res.total)
+    }
     catch (e) { console.error(e) } finally { setLoading(false) }
-  }, [])
+  }, [debouncedSearch, page, filterMode, printStatus, customDate])
 
   useEffect(() => { load() }, [load])
+
+  const [printOptionModal, setPrintOptionModal] = useState(false)
+
+  const handleCetakSemua = () => {
+    setPrintOptionModal(true)
+  }
+
+  const executeCetakDatabase = async (mode) => {
+    setLoading(true)
+    setPrintOptionModal(false)
+    try {
+      const { dateFrom, dateTo } = getDateFilter()
+      // mode: 'all' or 'not_printed'
+      const res = await window.api.getMembers({
+        limit: 0, // no limit
+        search: debouncedSearch, // apply current search
+        dateFrom, // apply current date filter
+        dateTo,
+        printStatus: mode === 'not_printed' ? 'not_printed' : (printStatus !== 'all' ? printStatus : undefined)
+      })
+      
+      const toPrint = res.data
+      if (!toPrint || toPrint.length === 0) {
+        setAlertState({ isOpen: true, title: 'Info', message: 'Tidak ada data member yang sesuai dengan filter saat ini untuk dicetak.', variant: 'info' })
+        setLoading(false)
+        return
+      }
+      
+      cetakBanyakKartu(toPrint, namaToko)
+      
+      await window.api.markMembersPrinted(toPrint.map(m => m.member_id))
+      load()
+    } catch (e) {
+      console.error(e)
+      setAlertState({ isOpen: true, title: 'Error', message: 'Gagal mencetak: ' + e.message, variant: 'warning' })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     const fetchToko = async () => {
@@ -535,7 +730,7 @@ export default function HalamanMember() {
       if (formModal.member) await window.api.updateMember({ member_id: formModal.member.member_id, data: form })
       else await window.api.createMember(form)
       setFormModal({ open: false, member: null }); load()
-    } catch (e) { alert('Gagal: ' + e.message) }
+    } catch (e) { setAlertState({ isOpen: true, title: 'Error', message: 'Gagal: ' + e.message, variant: 'warning' }) }
   }
 
   const handleDeactivate = (m) => {
@@ -567,16 +762,16 @@ export default function HalamanMember() {
   const handleDeleteMember = (m) => {
     setConfirmDialog({
       isOpen: true,
-      title: 'Hapus Member',
-      message: `⚠️ HAPUS PERMANEN MEMBER?\n\nMember ID: ${m.member_id}\nNama: ${m.nama || 'Tanpa Nama'}\nTotal Poin: ${m.total_poin}\n\nApakah Anda yakin? Data member dan riwayat poinnya akan dihapus secara permanen.`,
+      title: 'Hapus Data Member',
+      message: `Member ID: ${m.member_id}\nNama: ${m.nama || 'Tanpa Nama'}\nTotal Poin: ${m.total_poin}\n\nApakah Anda yakin? Data member dan riwayat poinnya akan dihapus secara permanen.`,
       onConfirm: async () => {
         try {
           await window.api.deleteMember(m.member_id)
-          alert(`Member ${m.member_id} berhasil dihapus`)
+          setAlertState({ isOpen: true, title: 'Hapus Data Member', variant: 'success', message: 'Member berhasil dihapus' })
           load()
           setConfirmDialog(prev => ({ ...prev, isOpen: false }))
         } catch (err) {
-          alert('Gagal menghapus member: ' + (err.message || err))
+          setAlertState({ isOpen: true, title: 'Hapus Data Member', variant: 'warning', message: 'Gagal menghapus member' })
         }
       }
     })
@@ -598,17 +793,10 @@ export default function HalamanMember() {
     return () => clearTimeout(timer)
   }, [scanValue, handleScan])
 
-  // Filter + paginate for performance
-  const filtered = allMembers.filter(m =>
-    !search || m.member_id.toLowerCase().includes(search.toLowerCase()) ||
-    (m.nama || '').toLowerCase().includes(search.toLowerCase()) || (m.telepon || '').includes(search)
-  )
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  // Total pages based on totalData from DB
+  const totalPages = Math.max(1, Math.ceil(totalData / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
-  const displayed = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
-
-  // Reset page when search changes
-  useEffect(() => { setPage(1) }, [search])
+  const displayed = allMembers
 
   const cardBg = isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
   const textMain = isDark ? 'text-white' : 'text-gray-800'
@@ -623,11 +811,18 @@ export default function HalamanMember() {
         onConfirm={confirmDialog.onConfirm}
         onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
       />
+      <PrintOptionModal
+        isOpen={printOptionModal}
+        onClose={() => setPrintOptionModal(false)}
+        onPrintAll={() => executeCetakDatabase('all')}
+        onPrintUnprinted={() => executeCetakDatabase('not_printed')}
+        isDark={isDark}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className={`text-2xl font-bold ${textMain}`}>🏅 Data Member</h1>
-          <p className={`text-sm mt-0.5 ${textSub}`}>{allMembers.length} member terdaftar</p>
+          <p className={`text-sm mt-0.5 ${textSub}`}>{totalData} member terdaftar</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {isAdmin && (
@@ -643,65 +838,60 @@ export default function HalamanMember() {
         </div>
       </div>
 
-      {/* 🔍 SCAN BARCODE / LOOKUP MEMBER — di sini hasil scan muncul */}
-      <div className={`p-4 rounded-xl border ${isDark ? 'bg-indigo-900/20 border-indigo-800' : 'bg-indigo-50 border-indigo-200'}`}>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-lg">📷</span>
-          <p className={`text-sm font-bold ${isDark ? 'text-indigo-300' : 'text-indigo-800'}`}>Scan Barcode / Cari Member ID</p>
-        </div>
-        <p className={`text-xs mb-2 ${isDark ? 'text-indigo-400' : 'text-indigo-600'}`}>
-          Arahkan scanner barcode ke kartu member, atau ketik ID member manual. Hasil scan langsung muncul di bawah.
-        </p>
-        <input
-          ref={scanRef}
-          type="text"
-          autoFocus
-          value={scanValue}
-          onChange={(e) => setScanValue(e.target.value.toUpperCase())}
-          placeholder="Scan kartu atau ketik ID member (contoh: MB-1001)..."
-          className={`w-full border rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400'}`}
-        />
+      {/* Search & Filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <input type="text" placeholder="Filter daftar: nama, ID member, atau nomor telepon..."
+          value={search} onChange={(e) => setSearch(e.target.value)}
+          className={`flex-1 border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400'}`} />
+        <select 
+          value={filterMode} 
+          onChange={(e) => { setFilterMode(e.target.value); setPage(1); }}
+          className={`border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+        >
+          <option value="all">Semua Riwayat</option>
+          <option value="7_days">7 Hari Terakhir</option>
+          <option value="30_days">30 Hari Terakhir</option>
+          <option value="month">Bulan Ini</option>
+          <option value="custom">Custom</option>
+        </select>
 
-        {/* Scan result */}
-        {scanLoading && <p className="text-xs text-gray-400 mt-2 italic">Mencari member...</p>}
-        {!scanLoading && scanValue && scanResult && (
-          <div className={`mt-3 p-3 rounded-lg flex items-center justify-between ${isDark ? 'bg-green-900/30 border border-green-800' : 'bg-green-50 border border-green-200'}`}>
-            <div>
-              <p className={`text-sm font-bold ${isDark ? 'text-green-300' : 'text-green-800'}`}>
-                ✅ {scanResult.member_id} — {scanResult.nama || 'Nama belum diisi'}
-              </p>
-              <p className={`text-xs ${isDark ? 'text-green-400' : 'text-green-600'}`}>
-                {scanResult.is_active ? 'Aktif' : '⚠️ Nonaktif'} · {scanResult.total_poin} poin · {scanResult.telepon || 'No HP -'}
-              </p>
-            </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <button onClick={() => cetakKartu(scanResult, namaToko)} className="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700">Cetak Kartu</button>
-              <button onClick={() => setLinkModal({ open: true, member: scanResult })} className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">Kaitkan Transaksi</button>
-              <button onClick={() => setPoinModal({ open: true, member: scanResult })} className="px-3 py-1.5 bg-yellow-600 text-white rounded text-xs hover:bg-yellow-700">Riwayat Poin</button>
-            </div>
+        {filterMode === 'custom' && (
+          <div className="flex gap-2">
+            <input 
+              type="date"
+              value={customDate.from}
+              onChange={(e) => setCustomDate(p => ({ ...p, from: e.target.value }))}
+              className={`border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+            />
+            <span className={`self-center ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>-</span>
+            <input 
+              type="date"
+              value={customDate.to}
+              onChange={(e) => setCustomDate(p => ({ ...p, to: e.target.value }))}
+              className={`border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+            />
           </div>
         )}
-        {!scanLoading && scanValue && !scanResult && (
-          <p className={`mt-2 text-xs font-medium ${isDark ? 'text-red-400' : 'text-red-600'}`}>❌ Member &quot;{scanValue}&quot; tidak ditemukan</p>
-        )}
-      </div>
 
-      {/* Search */}
-      <input type="text" placeholder="Filter daftar: nama, ID member, atau nomor telepon..."
-        value={search} onChange={(e) => setSearch(e.target.value)}
-        className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400'}`} />
-
-      {/* Info alur ramai */}
-      <div className={`flex items-start gap-3 p-4 rounded-xl border ${isDark ? 'bg-blue-900/20 border-blue-800 text-blue-300' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
-        <span className="text-xl">💡</span>
-        <div className="text-sm">
-          <strong>Alur ramai pelanggan:</strong> Scan kartu member → catat ID → layani transaksi → setelah selesai semua, klik <strong>&quot;Kaitkan Transaksi&quot;</strong> pada kartu member → pilih transaksi yang baru dilayani → poin otomatis masuk.
-        </div>
+        <select 
+          value={printStatus} 
+          onChange={(e) => { setPrintStatus(e.target.value); setPage(1); }}
+          className={`border rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+        >
+          <option value="all">Semua Cetak</option>
+          <option value="printed">Sudah Dicetak</option>
+          <option value="not_printed">Belum Dicetak</option>
+        </select>
+        <button onClick={handleCetakSemua}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium shadow transition-colors ${isDark ? 'bg-indigo-900/50 text-indigo-300 hover:bg-indigo-900/70 border-indigo-700' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'}`}>
+          <HiOutlinePrinter size={18} /> Cetak Semua
+        </button>
       </div>
+     
 
       {/* Grid member */}
       {loading && <p className={`text-center py-10 ${textSub}`}>Memuat data member...</p>}
-      {!loading && filtered.length === 0 && (
+      {!loading && displayed.length === 0 && (
         <div className={`text-center py-16 rounded-xl border ${cardBg}`}>
           <p className="text-4xl mb-2">👥</p>
           <p className={`font-medium ${textMain}`}>{search ? 'Member tidak ditemukan' : 'Belum ada member'}</p>
@@ -736,9 +926,17 @@ export default function HalamanMember() {
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                 <HiOutlinePencil size={13} /> Edit
               </button>
-              <button onClick={() => cetakKartu(m, namaToko)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-indigo-900/50 text-indigo-300 hover:bg-indigo-800/50' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`}>
-                <HiOutlinePrinter size={13} /> Cetak Kartu
+              <button onClick={async () => {
+                cetakKartu(m, namaToko)
+                try {
+                  await window.api.markMembersPrinted([m.member_id])
+                  load()
+                } catch (e) {
+                  console.error(e)
+                }
+              }}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-indigo-900/50 text-indigo-300 hover:bg-indigo-800/50' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'} ${m.is_printed ? 'opacity-60' : ''}`}>
+                <HiOutlinePrinter size={13} /> {m.is_printed ? 'Cetak Ulang' : 'Cetak Kartu'}
               </button>
               {m.is_active && (
                 <button onClick={() => setLinkModal({ open: true, member: m })}
@@ -781,7 +979,7 @@ export default function HalamanMember() {
             className={`px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-30 ${isDark ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
             ← Prev
           </button>
-          <span className={`text-sm ${textSub}`}>Hal {safePage} / {totalPages} ({filtered.length} member)</span>
+          <span className={`text-sm ${textSub}`}>Hal {safePage} / {totalPages} ({totalData} member)</span>
           <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-30 ${isDark ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
             Next →
@@ -797,6 +995,20 @@ export default function HalamanMember() {
         onClose={() => setPoinModal({ open: false, member: null })} isDark={isDark} />
       <PoinConfigModal isOpen={poinConfigModal}
         onClose={() => setPoinConfigModal(false)} isDark={isDark} onRefresh={load} />
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+      />
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        title={alertState.title}
+        message={alertState.message}
+        variant={alertState.variant}
+        onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   )
 }

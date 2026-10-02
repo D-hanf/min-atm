@@ -122,7 +122,6 @@ const KelolaToko = () => {
         onView={handleManageStore}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        btnSize={'xs'}
         title={'Data Toko'}
         searchValue={filterText}
         btnSize={'xs'}

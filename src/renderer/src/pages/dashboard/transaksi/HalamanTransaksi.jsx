@@ -699,9 +699,7 @@ const HalamanTransaksi = () => {
 
   const printSummaryOnly = () => {
     const content = document.getElementById('print-summary').innerHTML
-    const printWindow = window.open('', '', 'width=800,height=600')
-
-    printWindow.document.write(`
+    const htmlCode = `
     <html>
       <head>
         <title>Ringkasan Keuangan</title>
@@ -722,11 +720,20 @@ const HalamanTransaksi = () => {
         ${content}
       </body>
     </html>
-  `)
-    printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
-    printWindow.close()
+  `
+    const iframe = document.createElement('iframe')
+    iframe.style.display = 'none'
+    document.body.appendChild(iframe)
+    iframe.contentDocument.write(htmlCode)
+    iframe.contentDocument.close()
+    
+    setTimeout(() => {
+      iframe.contentWindow.focus()
+      iframe.contentWindow.print()
+      setTimeout(() => {
+        document.body.removeChild(iframe)
+      }, 1000)
+    }, 300)
   }
 
   // Simpan summary saja tanpa print
