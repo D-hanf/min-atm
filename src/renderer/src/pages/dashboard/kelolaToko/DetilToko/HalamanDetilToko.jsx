@@ -77,11 +77,15 @@ const HalamanDetilToko = () => {
     }
 
     try {
-      await window.api.createKaryawan(newData)
+      const result = await window.api.createKaryawan(newData)
+      if (result && result.success === false) {
+        throw new Error(result.message || 'Gagal tambah data pegawai')
+      }
       fetchUsers()
     } catch (error) {
-      console.error('❌ Gagal tambah data pegawai:', error)
-      throw error
+      const errMsg = error.message || 'Gagal tambah data pegawai'
+      const cleanError = errMsg.includes('Username sudah digunakan') ? 'Username sudah digunakan' : errMsg.replace('Error invoking remote method \'create-karyawan\': Error: ', '')
+      throw new Error(cleanError)
     }
   }
 
@@ -112,13 +116,17 @@ const HalamanDetilToko = () => {
     }
 
     try {
-      await window.api.updateKaryawan(updateEntry)
+      const result = await window.api.updateKaryawan(updateEntry)
+      if (result && result.success === false) {
+        throw new Error(result.message || 'Gagal update data pegawai')
+      }
       await fetchUsers()
       setIsModalOpen(false)
       setEditErrorMsg('')
     } catch (error) {
-      console.error('❌ Gagal update data pegawai:', error)
-      setEditErrorMsg(error.message || 'Gagal update data pegawai')
+      const errMsg = error.message || 'Gagal update data pegawai'
+      const cleanError = errMsg.includes('Username sudah digunakan') ? 'Username sudah digunakan' : errMsg.replace('Error invoking remote method \'update-karyawan\': Error: ', '')
+      setEditErrorMsg(cleanError)
     }
   }
 
@@ -217,6 +225,7 @@ const HalamanDetilToko = () => {
         }}
         onSubmit={() => {
           handleEditSubmit(formData)
+          return false
         }}
       >
         <InputField

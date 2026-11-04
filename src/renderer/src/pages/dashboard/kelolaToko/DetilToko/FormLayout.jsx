@@ -54,7 +54,10 @@ const FormLayout = ({ onSubmit }) => {
       <Modal isOpen={modalOpen} onClose={() => {
         setModalOpen(false)
         setErrorMsg('')
-      }} onSubmit={handleSubmit}>
+      }} onSubmit={() => {
+        handleSubmit()
+        return false
+      }}>
         <InputField
           name="name"
           value={formData.name}

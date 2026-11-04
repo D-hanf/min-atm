@@ -29,6 +29,7 @@ const TransferForm = ({ formData, onChange, onBatchChange, onValidChange }) => {
   const [feeRules, setFeeRules] = useState([])
   const [alatBonusRules, setAlatBonusRules] = useState([]) // rentang bonus utk alat + jenis transaksi ini
   const [manualBonus, setManualBonus] = useState(false)
+  const [showTipeTransaksi, setShowTipeTransaksi] = useState(!!formData?.tipe_transaksi)
 
   const fetchSaldo = async () => {
     try {
@@ -230,18 +231,29 @@ const TransferForm = ({ formData, onChange, onBatchChange, onValidChange }) => {
       >
         Nomor Rekening Tujuan
       </InputField>
-      <SelectItems
-        options={[
-          { label: 'Briva', value: 'Briva' },
-          { label: 'Antar Bank', value: 'Antar Bank' },
-          { label: 'Sesama Bank', value: 'Sesama Bank' }
-        ]}
-        label="Tipe Transaksi"
-        name="tipe_transaksi"
-        value={formData.tipe_transaksi || ''}
-        onChange={onChange}
-      />
-
+      <div className="flex items-center justify-end mb-1 -mt-2">
+        <button
+          type="button"
+          onClick={() => setShowTipeTransaksi(p => !p)}
+          className={`text-[10px] px-2 py-1 rounded ${isDark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+        >
+          {showTipeTransaksi ? 'Sembunyikan Tipe Transaksi' : '+ Tipe Transaksi'}
+        </button>
+      </div>
+      
+      {showTipeTransaksi && (
+        <SelectItems
+          options={[
+            { label: 'Briva', value: 'Briva' },
+            { label: 'Antar Bank', value: 'Antar Bank' },
+            { label: 'Sesama Bank', value: 'Sesama Bank' }
+          ]}
+          label="Tipe Transaksi"
+          name="tipe_transaksi"
+          value={formData.tipe_transaksi || ''}
+          onChange={onChange}
+        />
+      )}
       <SelectItems
         options={sumberDanaList.map((item) => ({
           label: item.nama_sumber_dana,

@@ -34,6 +34,9 @@ import {
   deleteMember,
   deletePoinRule,
   deleteTransaksiDraft,
+  generateMemberId,
+  claimMemberPoin,
+  generateBulkMembers,
   getMemberById,
   getMemberPoinLog,
   getMembers,
@@ -49,7 +52,8 @@ import {
   updateMember,
   updatePoinRule,
   updatePoinSettings,
-  markMembersPrinted
+  markMembersPrinted,
+  exportMembersPDF
 } from './memberHandler.js'
 
 import { Menu } from 'electron'
@@ -316,23 +320,20 @@ app.whenReady().then(async () => {
     // db.run(`ALTER TABLE users ADD COLUMN toko_id INTEGER`) =>  untuk menambahkan kolom toko_id&no_telepon di table users
     // Insert toko
 
-    // Cek dulu apakah toko "Toko Alpha" sudah ada
-    db.get(`SELECT id FROM toko WHERE nama_toko = ?`, ['Toko Alpha'], (err, tokoRow) => {
+    // Cek dulu apakah ada toko sama sekali di database
+    db.get(`SELECT COUNT(*) AS count FROM toko`, [], (err, row) => {
       if (err) {
-        console.error('❌ Gagal cek toko:', err)
+        console.error('❌ Gagal cek tabel toko:', err)
         return
       }
 
-      let targetTokoId = null;
-
-      if (tokoRow) {
-        console.log('ℹ️ Toko Alpha sudah ada. Tidak perlu insert ulang.')
-        targetTokoId = tokoRow.id;
-        checkAndCreateAdmin(targetTokoId);
+      if (row.count > 0) {
+        console.log(`ℹ️ Sudah ada ${row.count} toko di database. Tidak perlu insert Toko Alpha.`)
+        checkAndCreateAdmin();
         return
       }
 
-      // Insert Toko Alpha
+      // Insert Toko Alpha jika kosong
       db.run(
         `INSERT INTO toko (nama_toko, no_telepon, alamat) VALUES (?, ?, ?)`,
         ['Toko Alpha', '081234567890', 'Jl. Contoh No.1'],
@@ -342,12 +343,11 @@ app.whenReady().then(async () => {
             return
           }
 
-          targetTokoId = this.lastID
-          checkAndCreateAdmin(targetTokoId)
+          checkAndCreateAdmin()
         }
       )
 
-      function checkAndCreateAdmin(tokoId) {
+      function checkAndCreateAdmin() {
         // Insert user admin hanya jika username belum ada
         db.get(`SELECT id FROM users WHERE username = ?`, ['admin'], (err, userRow) => {
           if (err) {
@@ -2124,7 +2124,7 @@ app.whenReady().then(async () => {
         db.get(`SELECT COUNT(*) AS count FROM users WHERE username = ?`, [data.username], (err, row) => {
           if (err) return reject(err)
           if (row.count > 0) {
-            return reject(new Error('Username sudah digunakan'))
+            return resolve({ success: false, message: 'Username sudah digunakan' })
           }
 
           const stmt = db.prepare(`
@@ -2172,7 +2172,7 @@ app.whenReady().then(async () => {
           (err, row) => {
             if (err) return reject(err)
             if (row.count > 0) {
-              return reject(new Error('Username sudah digunakan oleh user lain'))
+              return resolve({ success: false, message: 'Username sudah digunakan' })
             }
 
             const stmt = db.prepare(`
@@ -2470,6 +2470,10 @@ ipcMain.handle('get-poin-settings', getPoinSettings)
 ipcMain.handle('update-poin-settings', updatePoinSettings)
 ipcMain.handle('reset-all-member-poin', resetAllMemberPoin)
 ipcMain.handle('mark-members-printed', markMembersPrinted)
+ipcMain.handle('generate-member-id', generateMemberId)
+ipcMain.handle('claim-member-poin', claimMemberPoin)
+ipcMain.handle('generate-bulk-members', generateBulkMembers)
+ipcMain.handle('export-members-pdf', exportMembersPDF)
 
 // 🛒 TRANSAKSI DRAFT (member quick-input)
 ipcMain.handle('get-jenis-transaksi-dengan-poin', getJenisTransaksiDenganPoin)

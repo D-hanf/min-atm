@@ -8,7 +8,8 @@ import {
   HiOutlineQueueList,
   HiOutlineTrash,
   HiOutlineUserPlus,
-  HiOutlineXCircle
+  HiOutlineXCircle,
+  HiOutlineArrowDownTray
 } from 'react-icons/hi2'
 import AlertDialog from '../../../components/AlertDialog'
 import JsBarcode from 'jsbarcode'
@@ -56,27 +57,33 @@ const cetakKartu = (member, storeName = 'JAYA MART') => {
   })
   const htmlCode = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Kartu Member - ${storeName}</title>
     <style>
-      @page { size: 76mm 48mm; margin: 0; }
+      @page { size: 70mm 45mm; margin: 0; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body { width: 76mm; height: 48mm; margin: 0; padding: 0; }
-      body { font-family: Arial, Helvetica, sans-serif; display: flex; justify-content: center; align-items: center; background: #f5f5f5; }
+      html, body { width: 70mm; height: 45mm; margin: 0; padding: 0; }
+      body { font-family: Arial, Helvetica, sans-serif; display: flex; justify-content: center; align-items: center; background: #fff; }
       .card {
-        width: 76mm; height: 48mm;
-        background: #ffffff; border: 1px solid #d1d5db; border-radius: 3.5mm;
-        padding: 3.5mm 4mm; display: flex; flex-direction: column;
+        width: 100%; height: 100%;
+        background: #ffffff;
+        display: flex; flex-direction: column;
         align-items: center; justify-content: space-between; overflow: hidden;
         position: relative;
+        border: 1px dashed #000; /* pembatas gampang potong */
       }
-      .header { text-align: center; border-bottom: 1.5px solid #2563eb; width: 100%; padding-bottom: 1mm; margin-bottom: 1mm; }
-      .store-name { font-size: 10pt; font-weight: 900; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }
-      .card-subtitle { font-size: 6pt; color: #2563eb; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-top: 0.5mm; }
-      .member-info { text-align: center; margin: 0.5mm 0; }
-      .nama { font-size: 9pt; font-weight: bold; color: #1f2937; text-align: center; max-width: 65mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-      .barcode-wrap { text-align: center; max-width: 100%; }
-      .barcode-wrap svg { max-width: 65mm; height: auto; }
+      .header { 
+        text-align: center; width: 100%; padding: 2mm 0;
+        background: linear-gradient(90deg, #1e3a8a 0%, #2563eb 100%);
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        color: white; border-bottom: 2px solid #fbbf24;
+      }
+      .store-name { font-size: 11pt; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
+      .card-subtitle { font-size: 6pt; color: #fbbf24; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-top: 0.5mm; }
+      .member-info { text-align: center; margin: 1mm 0; flex-grow: 1; display: flex; align-items: center; justify-content: center;}
+      .nama { font-size: 10pt; font-weight: bold; color: #1f2937; text-align: center; max-width: 65mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .barcode-wrap { text-align: center; max-width: 100%; padding-bottom: 2mm; }
+      .barcode-wrap svg { max-width: 60mm; height: auto; }
       @media print {
         body { background: none; }
-        .card { border: none; box-shadow: none; margin: 0; }
       }
     </style></head><body>
     <div class="card">
@@ -88,7 +95,6 @@ const cetakKartu = (member, storeName = 'JAYA MART') => {
         <div class="nama">${member.nama || 'PELANGGAN SETIA'}</div>
       </div>
       <div class="barcode-wrap">${svg.outerHTML}</div>
-    </div>
     </div>
   </body></html>`
   
@@ -107,33 +113,41 @@ const cetakKartu = (member, storeName = 'JAYA MART') => {
   }, 300)
 }
 
-const cetakBanyakKartu = (members, storeName = 'JAYA MART') => {
+const cetakBanyakKartu = (members, storeName = 'JAYA MART', exportFormat = 'print') => {
   const htmlStart = `<html><head><title>Cetak Banyak Kartu</title><style>
-      @page { size: auto; margin: 0; }
-      body { margin: 0; padding: 5mm; display: flex; flex-wrap: wrap; gap: 5mm; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; }
-      .card { 
-        width: 76mm; height: 48mm; padding: 2mm; background: white; 
-        border-radius: 4mm; box-shadow: 0 4px 6px -1px rgb(0 0 0/0.1); 
-        display: inline-flex; flex-direction: column; justify-content: flex-start;
-        box-sizing: border-box; page-break-inside: avoid; border: 1px solid #e5e7eb;
-        margin: 2.5mm; vertical-align: top;
+      @page { size: A4; margin: 5mm; }
+      body { 
+        margin: 0; padding: 0; 
+        font-family: Arial, Helvetica, sans-serif; 
+        display: flex; flex-wrap: wrap; gap: 3mm; 
+        justify-content: flex-start; align-items: flex-start;
       }
-      .header { text-align: center; border-bottom: 1.5px solid #2563eb; width: 100%; padding-bottom: 1mm; margin-bottom: 1mm; }
-      .store-name { font-size: 10pt; font-weight: 900; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.5px; }
-      .card-subtitle { font-size: 6pt; color: #2563eb; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-top: 0.5mm; }
-      .member-info { text-align: center; margin: 0.5mm 0; }
-      .nama { font-size: 9pt; font-weight: bold; color: #1f2937; text-align: center; max-width: 65mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-      .barcode-wrap { text-align: center; max-width: 100%; }
-      .barcode-wrap svg { max-width: 65mm; height: auto; }
+      .card { 
+        width: 70mm; height: 45mm; background: white; 
+        display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+        box-sizing: border-box; page-break-inside: avoid; border: 1px dashed #000;
+      }
+      .header { 
+        text-align: center; width: 100%; padding: 2mm 0;
+        background: linear-gradient(90deg, #1e3a8a 0%, #2563eb 100%) !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        color: white !important; border-bottom: 2px solid #fbbf24;
+      }
+      .store-name { font-size: 11pt; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
+      .card-subtitle { font-size: 6pt; color: #fbbf24; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-top: 0.5mm; }
+      .member-info { text-align: center; margin: 1mm 0; flex-grow: 1; display: flex; align-items: center; justify-content: center; }
+      .nama { font-size: 10pt; font-weight: bold; color: #1f2937; text-align: center; max-width: 65mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .barcode-wrap { text-align: center; max-width: 100%; padding-bottom: 2mm; }
+      .barcode-wrap svg { max-width: 60mm; height: auto; }
       @media print {
-        body { background: none; padding: 0; display: block; text-align: center; }
-        .card { border: 1px dashed #999 !important; box-shadow: none; }
+        body { background: none; }
       }
     </style></head><body>`
 
   let htmlContent = members.map((member) => {
     const svg = document.createElement('svg')
-    JsBarcode(svg, member.member_id, { format: 'CODE128', width: 1.2, height: 30, fontSize: 11, margin: 0, displayValue: true })
+    JsBarcode(svg, member.member_id, { format: 'CODE128', width: 1.5, height: 25, fontSize: 10, margin: 2, displayValue: true })
     return `<div class="card">
       <div class="header">
         <div class="store-name">${storeName}</div>
@@ -147,6 +161,10 @@ const cetakBanyakKartu = (members, storeName = 'JAYA MART') => {
   }).join('')
 
   const htmlCode = htmlStart + htmlContent + `</body></html>`
+  
+  if (exportFormat === 'pdf') {
+    return window.api.exportMembersPDF(htmlCode)
+  }
   
   const iframe = document.createElement('iframe')
   iframe.style.display = 'none'
@@ -166,17 +184,25 @@ const cetakBanyakKartu = (members, storeName = 'JAYA MART') => {
 /* ─────────────────────────────────────────────
    MODAL FORM MEMBER (tambah / edit)
 ───────────────────────────────────────────── */
-const MemberFormModal = ({ isOpen, member, onClose, onSave, isDark, allMembers = [] }) => {
-  const [form, setForm] = useState({ nama: '', telepon: '', alamat: '', keterangan: '' })
+const MemberFormModal = ({ isOpen, member, onClose, onSave, isDark, allMembers = [], storeInitials = 'MB' }) => {
+  const [form, setForm] = useState({ member_id: '', nama: '', telepon: '', alamat: '', keterangan: '' })
   const [error, setError] = useState('')
+  const [idError, setIdError] = useState('')
 
   useEffect(() => {
-    if (member) setForm({ nama: member.nama || '', telepon: member.telepon || '', alamat: member.alamat || '', keterangan: member.keterangan || '' })
-    else setForm({ nama: '', telepon: '', alamat: '', keterangan: '' })
+    if (member) {
+      setForm({ member_id: member.member_id || '', nama: member.nama || '', telepon: member.telepon || '', alamat: member.alamat || '', keterangan: member.keterangan || '' })
+    } else {
+      window.api.generateMemberId(storeInitials).then((newId) => {
+        setForm({ member_id: newId, nama: '', telepon: '', alamat: '', keterangan: '' })
+      }).catch(() => {
+        setForm({ member_id: '', nama: '', telepon: '', alamat: '', keterangan: '' })
+      })
+    }
     setError('')
-  }, [member, isOpen])
+  }, [member, isOpen, storeInitials])
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (form.telepon) {
       const isDuplicate = allMembers.some(
         m => m.telepon === form.telepon && m.member_id !== member?.member_id
@@ -187,7 +213,16 @@ const MemberFormModal = ({ isOpen, member, onClose, onSave, isDark, allMembers =
       }
     }
     setError('')
-    onSave(form)
+    setIdError('')
+    try {
+      await onSave(form)
+    } catch (e) {
+      if (e.message && (e.message.includes('terdaftar') || e.message.includes('digunakan') || e.message.includes('UNIQUE'))) {
+        setIdError('ID Member sudah digunakan.')
+      } else {
+        setIdError(e.message || 'Gagal menyimpan data')
+      }
+    }
   }
 
   if (!isOpen) return null
@@ -199,6 +234,14 @@ const MemberFormModal = ({ isOpen, member, onClose, onSave, isDark, allMembers =
         <h2 className={`text-lg font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>{member ? 'Edit Data Member' : 'Daftarkan Member Baru'}</h2>
         {!member && <p className={`text-xs mb-4 p-3 rounded-lg ${isDark ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>💡 ID member digenerate otomatis (MB-XXXX). Identitas boleh diisi belakangan.</p>}
         <div className="space-y-3">
+          <div>
+            <label className={labelCls}>ID Member <span className="text-red-500">*</span></label>
+            <input className={inputCls} value={form.member_id} onChange={(e) => {
+              setForm(p => ({ ...p, member_id: e.target.value }))
+              setIdError('')
+            }} placeholder="Cth: JM-1001" disabled={!!member} />
+            {idError && <p className="text-red-500 text-xs mt-1">{idError}</p>}
+          </div>
           {[['nama', 'Nama'], ['telepon', 'Telepon'], ['alamat', 'Alamat'], ['keterangan', 'Keterangan']].map(([f, l]) => (
             <div key={f}>
               <label className={labelCls}>{l} <span className="text-gray-400">(opsional)</span></label>
@@ -219,101 +262,77 @@ const MemberFormModal = ({ isOpen, member, onClose, onSave, isDark, allMembers =
   )
 }
 
-/* ─────────────────────────────────────────────
-   MODAL LINK TRANSAKSI → MEMBER
-───────────────────────────────────────────── */
-const LinkTransaksiModal = ({ isOpen, member, onClose, isDark }) => {
-  const [transactions, setTransactions] = useState([])
-  const [selected, setSelected] = useState(new Set())
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(null)
-  useEffect(() => {
-    if (!isOpen || !member) return
-    const load = async () => {
-      setLoading(true)
-      try {
-        const all = await window.api.getTransaksi('admin')
-        const unlinked = all.filter(t => !t.member_id && ['Transfer', 'Tarik Tunai', 'Mode Pulsa'].includes(t.jenis_transaksi)).slice(0, 50)
-        setTransactions(unlinked); setSelected(new Set()); setResult(null)
-      } catch (e) { console.error(e) } finally { setLoading(false) }
-    }
-    load()
-  }, [isOpen, member])
-  const toggle = (id) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-  const handleLink = async () => {
-    if (selected.size === 0) return
-    setLoading(true)
-    let totalPoin = 0; const errors = []
-    for (const id of selected) {
-      try { const r = await window.api.linkMemberToTransaksi({ transaksi_id: id, member_id: member.member_id }); totalPoin += r.poin_ditambahkan || 0 }
-      catch (e) { errors.push(`#${id}: ${e.message}`) }
-    }
-    setLoading(false)
-    setResult({ totalPoin, errors, count: selected.size - errors.length })
-  }
-  if (!isOpen) return null
-  const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n)
-  const fmtD = (d) => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className={`w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[85vh] ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-        <div className={`p-5 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-          <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>Kaitkan Transaksi → <span className="text-blue-500">{member?.member_id}</span></h2>
-          <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Centang transaksi yang dilayani member ini. Poin otomatis dihitung & ditambahkan.</p>
-        </div>
-        {result ? (
-          <div className="p-6 text-center">
-            <div className="text-4xl mb-2">✅</div>
-            <p className={`font-semibold text-lg ${isDark ? 'text-white' : 'text-gray-800'}`}>{result.count} transaksi berhasil dikaitkan</p>
-            <p className={`text-sm mt-1 text-green-500`}>+{result.totalPoin} poin ditambahkan</p>
-            {result.errors.length > 0 && <p className="text-xs text-red-500 mt-2">{result.errors.join(', ')}</p>}
-            <button onClick={onClose} className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Tutup</button>
-          </div>
-        ) : (
-          <>
-            <div className="flex-1 overflow-y-auto p-4">
-              {loading && <p className={`text-center text-sm py-8 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Memuat...</p>}
-              {!loading && transactions.length === 0 && <p className={`text-center text-sm py-8 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Tidak ada transaksi yang belum dikaitkan</p>}
-              {!loading && transactions.map(t => (
-                <label key={t.id} className={`flex items-center gap-3 p-3 rounded-lg mb-2 cursor-pointer border transition-colors ${selected.has(t.id) ? (isDark ? 'border-blue-500 bg-blue-900/30' : 'border-blue-400 bg-blue-50') : (isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50')}`}>
-                  <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggle(t.id)} className="w-4 h-4 accent-blue-500" />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>{t.jenis_transaksi} — {fmt(t.nominal_transaksi)}</p>
-                    <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{t.no_transaksi} · {fmtD(t.tanggal)}{t.nama_pelanggan ? ` · ${t.nama_pelanggan}` : ''}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-            <div className={`p-4 border-t flex gap-3 ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-              <button onClick={onClose} className={`flex-1 py-2 rounded-lg text-sm border ${isDark ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>Batal</button>
-              <button onClick={handleLink} disabled={selected.size === 0 || loading} className="flex-1 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 font-medium">Kaitkan {selected.size > 0 ? `(${selected.size})` : ''} Transaksi</button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
+
 
 /* ─────────────────────────────────────────────
    MODAL RIWAYAT POIN
 ───────────────────────────────────────────── */
-const PoinLogModal = ({ isOpen, member, onClose, isDark }) => {
+/* ─────────────────────────────────────────────
+   MODAL RIWAYAT POIN
+───────────────────────────────────────────── */
+const PoinLogModal = ({ isOpen, member, onClose, isDark, onRefresh, initialKlaimMode = false }) => {
   const [logs, setLogs] = useState([])
-  useEffect(() => {
+  const [klaimMode, setKlaimMode] = useState(initialKlaimMode)
+  const [klaimForm, setKlaimForm] = useState({ poin: '', keterangan: 'Klaim Hadiah' })
+  const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', variant: 'warning' })
+
+  const loadData = useCallback(() => {
     if (!isOpen || !member) return
     window.api.getMemberPoinLog(member.member_id).then(setLogs).catch(console.error)
   }, [isOpen, member])
+
+  useEffect(() => {
+    loadData()
+    if (isOpen) setKlaimMode(initialKlaimMode)
+  }, [loadData, isOpen, initialKlaimMode])
+
+  const handleKlaim = async () => {
+    const poinToDeduct = parseInt(klaimForm.poin)
+    if (!poinToDeduct || poinToDeduct <= 0) return setAlertState({ isOpen: true, title: 'Error', message: 'Nominal poin tidak valid', variant: 'warning' })
+    if (poinToDeduct > member.total_poin) return setAlertState({ isOpen: true, title: 'Error', message: 'Poin tidak mencukupi', variant: 'warning' })
+    
+    try {
+      await window.api.claimMemberPoin({ member_id: member.member_id, nominal_poin: poinToDeduct, keterangan: klaimForm.keterangan || 'Klaim Hadiah' })
+      setKlaimMode(false)
+      loadData()
+      if (onRefresh) onRefresh()
+    } catch (e) {
+      setAlertState({ isOpen: true, title: 'Error', message: e.message, variant: 'warning' })
+    }
+  }
+
   if (!isOpen) return null
   const fmt = (n) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n || 0)
   const fmtD = (d) => new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className={`w-full max-w-lg rounded-xl shadow-2xl flex flex-col max-h-[80vh] ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
-        <div className={`p-5 border-b ${isDark ? 'border-gray-700 text-white' : 'border-gray-200 text-gray-800'}`}>
-          <h2 className="text-lg font-bold">Riwayat Poin — {member?.member_id}</h2>
-          <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Total: <span className="font-bold text-yellow-500">{member?.total_poin || 0} poin</span></p>
+        <div className={`p-5 border-b flex justify-between items-center ${isDark ? 'border-gray-700 text-white' : 'border-gray-200 text-gray-800'}`}>
+          <div>
+            <h2 className="text-lg font-bold">Riwayat Poin — {member?.member_id}</h2>
+            <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Total: <span className="font-bold text-yellow-500">{member?.total_poin || 0} poin</span></p>
+          </div>
         </div>
+        
+        {klaimMode && (
+          <div className={`p-4 border-b ${isDark ? 'border-gray-700 bg-gray-700/50' : 'border-gray-200 bg-gray-50'}`}>
+            <h3 className={`text-sm font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-800'}`}>Klaim Hadiah / Potong Poin</h3>
+            <div className="flex gap-3">
+              <div className="w-1/3">
+                <label className={`block text-[10px] font-medium mb-0.5 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Poin Dipotong</label>
+                <input type="number" min="1" className={`w-full border rounded px-2 py-1.5 text-sm ${isDark ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-300'}`} value={klaimForm.poin} onChange={(e) => setKlaimForm(p => ({ ...p, poin: e.target.value }))} placeholder="Cth: 50" />
+              </div>
+              <div className="flex-1">
+                <label className={`block text-[10px] font-medium mb-0.5 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Keterangan</label>
+                <input type="text" className={`w-full border rounded px-2 py-1.5 text-sm ${isDark ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white border-gray-300'}`} value={klaimForm.keterangan} onChange={(e) => setKlaimForm(p => ({ ...p, keterangan: e.target.value }))} placeholder="Klaim payung dll" />
+              </div>
+              <div className="flex items-end">
+                <button onClick={handleKlaim} className="px-4 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Submit</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {logs.length === 0 && <p className={`text-center text-sm py-8 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Belum ada riwayat poin</p>}
           {logs.map(log => (
@@ -331,6 +350,7 @@ const PoinLogModal = ({ isOpen, member, onClose, isDark }) => {
           <button onClick={onClose} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Tutup</button>
         </div>
       </div>
+      <AlertDialog isOpen={alertState.isOpen} title={alertState.title} message={alertState.message} variant={alertState.variant} onClose={() => setAlertState(prev => ({ ...prev, isOpen: false }))} />
     </div>
   )
 }
@@ -348,10 +368,13 @@ const PrintOptionModal = ({ isOpen, onClose, onPrintAll, onPrintUnprinted, isDar
         
         <div className="space-y-3">
           <button onClick={onPrintAll} className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 font-medium transition-colors">
-            Cetak Semua Data
+            Cetak Semua Data (Print)
           </button>
           <button onClick={onPrintUnprinted} className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm bg-indigo-600 text-white hover:bg-indigo-700 font-medium transition-colors">
             Cetak Data yang Belum Dicetak
+          </button>
+          <button onClick={() => { onClose(); onPrintAll('pdf') }} className="w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm bg-red-600 text-white hover:bg-red-700 font-medium transition-colors">
+            Export Semua Data ke PDF
           </button>
         </div>
         
@@ -490,11 +513,17 @@ const PoinConfigModal = ({ isOpen, onClose, isDark, onRefresh }) => {
               </div>
               <div>
                 <label className={`block text-[10px] font-medium mb-0.5 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Nominal Min</label>
-                <input type="number" className={inputCls} value={newRule.nominal_min} onChange={e => setNewRule(p => ({ ...p, nominal_min: e.target.value }))} placeholder="0" />
+                <input type="text" className={inputCls} value={newRule.nominal_min !== '' && newRule.nominal_min !== null ? fmtN(newRule.nominal_min) : ''} onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '')
+                  setNewRule(p => ({ ...p, nominal_min: raw ? parseInt(raw, 10) : '' }))
+                }} placeholder="0" />
               </div>
               <div>
                 <label className={`block text-[10px] font-medium mb-0.5 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Nominal Max</label>
-                <input type="number" className={inputCls} value={newRule.nominal_max} onChange={e => setNewRule(p => ({ ...p, nominal_max: e.target.value }))} placeholder="∞ (kosong)" />
+                <input type="text" className={inputCls} value={newRule.nominal_max !== '' && newRule.nominal_max !== null ? fmtN(newRule.nominal_max) : ''} onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '')
+                  setNewRule(p => ({ ...p, nominal_max: raw ? parseInt(raw, 10) : '' }))
+                }} placeholder="∞ (kosong)" />
               </div>
               <div>
                 <label className={`block text-[10px] font-medium mb-0.5 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Poin</label>
@@ -585,6 +614,39 @@ const PoinConfigModal = ({ isOpen, onClose, isDark, onRefresh }) => {
 }
 
 /* ─────────────────────────────────────────────
+   MODAL GENERATE BULK MEMBER (Admin Only)
+───────────────────────────────────────────── */
+const BulkGenerateModal = ({ isOpen, onClose, onGenerate, isDark, storeInitials = 'MB' }) => {
+  const [form, setForm] = useState({ prefix: storeInitials, count: 10 })
+  useEffect(() => { setForm(p => ({ ...p, prefix: storeInitials })) }, [storeInitials, isOpen])
+  if (!isOpen) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className={`w-full max-w-sm rounded-xl shadow-2xl p-6 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+        <h2 className={`text-lg font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>Generate Banyak Member</h2>
+        <p className={`text-xs mb-4 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Fitur ini akan membuat akun member tanpa identitas secara massal. Identitas dapat diisi saat kasir membagikan kartu.</p>
+        
+        <div className="space-y-4">
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Prefix / Awalan ID</label>
+            <input type="text" className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`} value={form.prefix} onChange={(e) => setForm(p => ({ ...p, prefix: e.target.value.toUpperCase() }))} placeholder="Cth: JM" />
+          </div>
+          <div>
+            <label className={`block text-xs font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Jumlah Member</label>
+            <input type="number" min="1" max="1000" className={`w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDark ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300'}`} value={form.count} onChange={(e) => setForm(p => ({ ...p, count: e.target.value }))} />
+          </div>
+        </div>
+        
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className={`flex-1 py-2 rounded-lg text-sm border ${isDark ? 'border-gray-600 text-gray-300 hover:bg-gray-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>Batal</button>
+          <button onClick={() => onGenerate(form)} className="flex-1 py-2 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 font-medium">Generate</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
    HALAMAN UTAMA MEMBER
 ───────────────────────────────────────────── */
 const PAGE_SIZE = 15
@@ -602,10 +664,10 @@ export default function HalamanMember() {
   const [printStatus, setPrintStatus] = useState('all') // 'all', 'printed', 'not_printed'
   const [loading, setLoading] = useState(false)
   const [formModal, setFormModal] = useState({ open: false, member: null })
-  const [linkModal, setLinkModal] = useState({ open: false, member: null })
-  const [poinModal, setPoinModal] = useState({ open: false, member: null })
+  const [poinModal, setPoinModal] = useState({ open: false, member: null, initialKlaimMode: false })
   const [poinConfigModal, setPoinConfigModal] = useState(false)
   const [page, setPage] = useState(1)
+  const [bulkModal, setBulkModal] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} })
   const [alertState, setAlertState] = useState({ isOpen: false, title: '', message: '', variant: 'warning' })
 
@@ -616,6 +678,10 @@ export default function HalamanMember() {
   const scanRef = useRef(null)
 
   const [namaToko, setNamaToko] = useState('JAYA MART')
+  const [tokoId, setTokoId] = useState('')
+  
+  const computedSuffix = user?.toko_id ? user.toko_id : tokoId
+  const computedInitials = (namaToko ? namaToko.split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase() : 'MB') + computedSuffix
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -698,7 +764,14 @@ export default function HalamanMember() {
         return
       }
       
-      cetakBanyakKartu(toPrint, namaToko)
+      if (mode === 'pdf') {
+        const resPdf = await cetakBanyakKartu(toPrint, namaToko, 'pdf')
+        if (resPdf.success) {
+          setAlertState({ isOpen: true, title: 'Sukses', message: 'PDF berhasil disimpan: ' + resPdf.filePath, variant: 'success' })
+        }
+      } else {
+        cetakBanyakKartu(toPrint, namaToko, 'print')
+      }
       
       await window.api.markMembersPrinted(toPrint.map(m => m.member_id))
       load()
@@ -710,13 +783,15 @@ export default function HalamanMember() {
     }
   }
 
+
   useEffect(() => {
     const fetchToko = async () => {
       try {
         const res = await window.api.getToko()
         const toko = Array.isArray(res) ? res[0] : res
-        if (toko?.nama_toko) {
-          setNamaToko(toko.nama_toko.toUpperCase())
+        if (toko) {
+          if (toko.nama_toko) setNamaToko(toko.nama_toko.toUpperCase())
+          if (toko.id) setTokoId(toko.id.toString())
         }
       } catch (e) {
         console.error('Gagal memuat nama toko:', e)
@@ -727,10 +802,38 @@ export default function HalamanMember() {
 
   const handleSave = async (form) => {
     try {
-      if (formModal.member) await window.api.updateMember({ member_id: formModal.member.member_id, data: form })
-      else await window.api.createMember(form)
+      let res;
+      if (formModal.member) {
+        res = await window.api.updateMember({ member_id: formModal.member.member_id, data: form })
+      } else {
+        res = await window.api.createMember(form)
+      }
+      if (res && res.success === false) {
+        throw new Error(res.message)
+      }
       setFormModal({ open: false, member: null }); load()
-    } catch (e) { setAlertState({ isOpen: true, title: 'Error', message: 'Gagal: ' + e.message, variant: 'warning' }) }
+    } catch (e) { 
+      // Re-throw so Modal can catch and display specific errors like duplicate ID
+      if (e.message.includes('terdaftar') || e.message.includes('digunakan') || e.message.includes('UNIQUE')) {
+        throw e
+      } else {
+        setAlertState({ isOpen: true, title: 'Error', message: 'Gagal: ' + e.message, variant: 'warning' }) 
+      }
+    }
+  }
+
+  const handleBulkGenerate = async (form) => {
+    try {
+      setLoading(true)
+      const res = await window.api.generateBulkMembers({ prefix: form.prefix || 'MB', count: parseInt(form.count) || 10 })
+      setBulkModal(false)
+      load()
+      setAlertState({ isOpen: true, title: 'Sukses', message: `Berhasil men-generate ${res.count} member baru dengan awalan ${form.prefix || 'MB'}`, variant: 'success' })
+    } catch (e) {
+      setAlertState({ isOpen: true, title: 'Error', message: 'Gagal: ' + e.message, variant: 'warning' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleDeactivate = (m) => {
@@ -814,7 +917,7 @@ export default function HalamanMember() {
       <PrintOptionModal
         isOpen={printOptionModal}
         onClose={() => setPrintOptionModal(false)}
-        onPrintAll={() => executeCetakDatabase('all')}
+        onPrintAll={(fmt) => executeCetakDatabase(fmt === 'pdf' ? 'pdf' : 'all')}
         onPrintUnprinted={() => executeCetakDatabase('not_printed')}
         isDark={isDark}
       />
@@ -835,6 +938,12 @@ export default function HalamanMember() {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow transition-colors">
             <HiOutlineUserPlus size={18} /> Daftarkan Member Baru
           </button>
+          {isAdmin && (
+            <button onClick={() => setBulkModal(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium shadow transition-colors ${isDark ? 'bg-indigo-900/50 text-indigo-300 hover:bg-indigo-900/70 border-indigo-700' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'}`}>
+              Generate Banyak Member
+            </button>
+          )}
         </div>
       </div>
 
@@ -886,6 +995,7 @@ export default function HalamanMember() {
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium shadow transition-colors ${isDark ? 'bg-indigo-900/50 text-indigo-300 hover:bg-indigo-900/70 border-indigo-700' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'}`}>
           <HiOutlinePrinter size={18} /> Cetak Semua
         </button>
+
       </div>
      
 
@@ -939,12 +1049,12 @@ export default function HalamanMember() {
                 <HiOutlinePrinter size={13} /> {m.is_printed ? 'Cetak Ulang' : 'Cetak Kartu'}
               </button>
               {m.is_active && (
-                <button onClick={() => setLinkModal({ open: true, member: m })}
+                <button onClick={() => setPoinModal({ open: true, member: m, initialKlaimMode: true })}
                   className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-blue-900/50 text-blue-300 hover:bg-blue-800/50' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}`}>
-                  <HiOutlinePlusCircle size={13} /> Kaitkan Transaksi
+                  <HiOutlinePlusCircle size={13} /> Klaim Hadiah
                 </button>
               )}
-              <button onClick={() => setPoinModal({ open: true, member: m })}
+              <button onClick={() => setPoinModal({ open: true, member: m, initialKlaimMode: false })}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium ${isDark ? 'bg-yellow-900/40 text-yellow-400 hover:bg-yellow-900/60' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'}`}>
                 <HiOutlineQueueList size={13} /> Riwayat Poin
               </button>
@@ -975,24 +1085,33 @@ export default function HalamanMember() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 py-4">
+          <button onClick={() => setPage(1)} disabled={safePage <= 1}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-30 ${isDark ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+            « Awal
+          </button>
           <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-30 ${isDark ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
             ← Prev
           </button>
-          <span className={`text-sm ${textSub}`}>Hal {safePage} / {totalPages} ({totalData} member)</span>
+          <span className={`text-sm ${textSub} mx-2`}>Hal {safePage} / {totalPages} ({totalData} member)</span>
           <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-30 ${isDark ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
             Next →
+          </button>
+          <button onClick={() => setPage(totalPages)} disabled={safePage >= totalPages}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-30 ${isDark ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+            Akhir »
           </button>
         </div>
       )}
 
       <MemberFormModal isOpen={formModal.open} member={formModal.member} allMembers={allMembers}
-        onClose={() => setFormModal({ open: false, member: null })} onSave={handleSave} isDark={isDark} />
-      <LinkTransaksiModal isOpen={linkModal.open} member={linkModal.member}
-        onClose={() => { setLinkModal({ open: false, member: null }); load() }} isDark={isDark} />
-      <PoinLogModal isOpen={poinModal.open} member={poinModal.member}
-        onClose={() => setPoinModal({ open: false, member: null })} isDark={isDark} />
+        onClose={() => setFormModal({ open: false, member: null })} onSave={handleSave} isDark={isDark} storeInitials={computedInitials} />
+      <PoinLogModal isOpen={poinModal.open} member={poinModal.member} initialKlaimMode={poinModal.initialKlaimMode}
+        onClose={() => setPoinModal({ open: false, member: null, initialKlaimMode: false })} isDark={isDark} onRefresh={load} />
+      <BulkGenerateModal isOpen={bulkModal}
+        onClose={() => setBulkModal(false)} onGenerate={handleBulkGenerate} isDark={isDark} 
+        storeInitials={computedInitials} />
       <PoinConfigModal isOpen={poinConfigModal}
         onClose={() => setPoinConfigModal(false)} isDark={isDark} onRefresh={load} />
       <ConfirmDialog

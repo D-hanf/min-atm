@@ -2,6 +2,8 @@ import db from './db.js'
 import dayjs from 'dayjs'
 import timezone from 'dayjs/plugin/timezone'
 import utc from 'dayjs/plugin/utc'
+import { dialog } from 'electron'
+import fs from 'fs'
 
 dayjs.extend(utc)
 dayjs.extend(timezone)
@@ -9,12 +11,19 @@ dayjs.extend(timezone)
 // ──────────────────────────────────────────────
 // GENERATE MEMBER ID  (MB-1001, MB-1002, dst.)
 // ──────────────────────────────────────────────
-function generateMemberId() {
+export function generateMemberId(_event, prefix = 'MB') {
   return new Promise((resolve, reject) => {
-    db.get(`SELECT MAX(id) as maxId FROM members`, [], (err, row) => {
+    // Cari ID dengan prefix yang sama, ekstrak angka di belakangnya
+    db.get(`SELECT member_id FROM members WHERE member_id LIKE ? ORDER BY CAST(SUBSTR(member_id, LENGTH(?) + 2) AS INTEGER) DESC LIMIT 1`, [prefix + '-%', prefix], (err, row) => {
       if (err) return reject(err)
-      const nextNum = (row?.maxId || 0) + 1001
-      resolve(`MB-${nextNum}`)
+      let nextNum = 1001
+      if (row && row.member_id) {
+        const parts = row.member_id.split('-')
+        if (parts.length > 1 && !isNaN(parts[1])) {
+          nextNum = parseInt(parts[1]) + 1
+        }
+      }
+      resolve(`${prefix}-${nextNum}`)
     })
   })
 }
@@ -80,33 +89,29 @@ export function getMemberById(_event, id_or_phone) {
   })
 }
 
-/** Buat member baru — member_id di-generate otomatis, pastikan unik */
+/** Buat member baru — menerima member_id dari frontend */
 export function createMember(_event, data) {
-  return new Promise((resolve, reject) => {
-    const { nama = null, telepon = null, alamat = null, keterangan = null } = data || {}
-
-    const tryInsert = async (attempt = 0) => {
-      if (attempt > 10) return reject(new Error('Gagal generate member_id unik setelah 10 percobaan'))
-      try {
-        const member_id = await generateMemberId()
-        db.run(
-          `INSERT INTO members (member_id, nama, telepon, alamat, keterangan)
-           VALUES (?, ?, ?, ?, ?)`,
-          [member_id, nama, telepon, alamat, keterangan],
-          function (err) {
-            if (err && err.code === 'SQLITE_CONSTRAINT') {
-              return tryInsert(attempt + 1)
-            }
-            if (err) return reject(err)
-            resolve({ id: this.lastID, member_id })
-          }
-        )
-      } catch (err) {
-        reject(err)
-      }
+  return new Promise(async (resolve, reject) => {
+    let { member_id, nama = null, telepon = null, alamat = null, keterangan = null } = data || {}
+    
+    // Jika tidak ada member_id, generate pakai prefix 'MB'
+    if (!member_id) {
+      member_id = await generateMemberId(null, 'MB').catch(() => null)
     }
+    if (!member_id) return reject(new Error('Member ID gagal di-generate'))
 
-    tryInsert()
+    db.run(
+      `INSERT INTO members (member_id, nama, telepon, alamat, keterangan)
+       VALUES (?, ?, ?, ?, ?)`,
+      [member_id, nama, telepon, alamat, keterangan],
+      function (err) {
+        if (err) {
+          if (err.code === 'SQLITE_CONSTRAINT') return resolve({ success: false, message: 'Member ID sudah terdaftar' })
+          return reject(err)
+        }
+        resolve({ id: this.lastID, member_id })
+      }
+    )
   })
 }
 
@@ -310,6 +315,7 @@ export function unlinkMemberFromTransaksi(_event, { transaksi_id }) {
   })
 }
 
+
 /** Riwayat poin seorang member */
 export function getMemberPoinLog(_event, member_id) {
   return new Promise((resolve, reject) => {
@@ -407,11 +413,10 @@ export function resetAllMemberPoin(_event, { reason = 'Reset periodik admin' } =
     db.serialize(() => {
       db.run('BEGIN TRANSACTION')
       db.run(`UPDATE members SET total_poin = 0, updated_at = ?`, [waktu])
-      db.run(
-        `INSERT INTO member_poin_log (member_id, transaksi_id, poin_masuk, keterangan, created_at)
-         SELECT member_id, NULL, -total_poin, ?, ? FROM members WHERE total_poin > 0`,
-        [reason, waktu]
-      )
+      
+      // Hapus riwayat poin sesuai permintaan
+      db.run(`DELETE FROM member_poin_log`)
+      
       db.run(`UPDATE poin_settings SET terakhir_reset = ? WHERE id = 1`, [waktu])
       db.run('COMMIT', (err) => {
         if (err) {
@@ -419,6 +424,66 @@ export function resetAllMemberPoin(_event, { reason = 'Reset periodik admin' } =
           return reject(err)
         }
         resolve({ success: true, reset_at: waktu })
+      })
+    })
+  })
+}
+
+// ──────────────────────────────────────────────
+// KLAIM POIN
+// ──────────────────────────────────────────────
+export function claimMemberPoin(_event, { member_id, nominal_poin, keterangan = 'Klaim Hadiah' }) {
+  return new Promise((resolve, reject) => {
+    const waktu = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION')
+      db.get('SELECT total_poin FROM members WHERE member_id = ?', [member_id], (err, row) => {
+        if (err) { db.run('ROLLBACK'); return reject(err) }
+        if (!row || row.total_poin < nominal_poin) { db.run('ROLLBACK'); return reject(new Error('Poin tidak mencukupi')) }
+        
+        db.run(`UPDATE members SET total_poin = total_poin - ?, updated_at = ? WHERE member_id = ?`, [nominal_poin, waktu, member_id])
+        db.run(
+          `INSERT INTO member_poin_log (member_id, poin_masuk, keterangan, created_at) VALUES (?, ?, ?, ?)`,
+          [member_id, -nominal_poin, keterangan, waktu]
+        )
+        db.run('COMMIT', (err) => {
+          if (err) { db.run('ROLLBACK'); return reject(err) }
+          resolve({ success: true, sisa_poin: row.total_poin - nominal_poin })
+        })
+      })
+    })
+  })
+}
+
+// ──────────────────────────────────────────────
+// GENERATE BANYAK MEMBER (BULK)
+// ──────────────────────────────────────────────
+export function generateBulkMembers(_event, { prefix, count }) {
+  return new Promise((resolve, reject) => {
+    if (!prefix || count <= 0) return reject(new Error('Prefix dan count tidak valid'))
+    
+    db.get(`SELECT member_id FROM members WHERE member_id LIKE ? ORDER BY CAST(SUBSTR(member_id, LENGTH(?) + 2) AS INTEGER) DESC LIMIT 1`, [prefix + '-%', prefix], (err, row) => {
+      if (err) return reject(err)
+      let nextNum = 1001
+      if (row && row.member_id) {
+        const parts = row.member_id.split('-')
+        if (parts.length > 1 && !isNaN(parts[1])) {
+          nextNum = parseInt(parts[1]) + 1
+        }
+      }
+      
+      db.serialize(() => {
+        db.run('BEGIN TRANSACTION')
+        const stmt = db.prepare(`INSERT INTO members (member_id, is_active) VALUES (?, 1)`)
+        for (let i = 0; i < count; i++) {
+          stmt.run([`${prefix}-${nextNum}`])
+          nextNum++
+        }
+        stmt.finalize()
+        db.run('COMMIT', (err) => {
+          if (err) { db.run('ROLLBACK'); return reject(err) }
+          resolve({ success: true, count, nextNum })
+        })
       })
     })
   })
@@ -533,5 +598,40 @@ export function markMembersPrinted(_event, memberIds) {
         else resolve({ changes: this.changes })
       }
     )
+  })
+}
+
+export function exportMembersPDF(_event, htmlContent) {
+  return new Promise(async (resolve, reject) => {
+    const { BrowserWindow, dialog } = require('electron')
+    const fs = require('fs')
+    let win = new BrowserWindow({ show: false, webPreferences: { offscreen: true } })
+    
+    try {
+      await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`)
+      const data = await win.webContents.printToPDF({
+        printBackground: true,
+        pageSize: 'A4',
+        margins: { marginType: 'none' }
+      })
+      const { filePath } = await dialog.showSaveDialog({
+        title: 'Simpan PDF Kartu Member',
+        defaultPath: 'Kartu_Member.pdf',
+        filters: [{ name: 'PDFs', extensions: ['pdf'] }]
+      })
+      if (filePath) {
+        fs.writeFileSync(filePath, data)
+        resolve({ success: true, filePath })
+      } else {
+        resolve({ success: false, canceled: true })
+      }
+    } catch (error) {
+      console.error('PDF export failed:', error)
+      reject(error)
+    } finally {
+      if (win && !win.isDestroyed()) {
+        win.close()
+      }
+    }
   })
 }

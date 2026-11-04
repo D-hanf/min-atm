@@ -127,6 +127,10 @@ const api = {
   linkMemberToTransaksi: (data) => ipcRenderer.invoke('link-member-to-transaksi', data),
   unlinkMemberFromTransaksi: (data) => ipcRenderer.invoke('unlink-member-from-transaksi', data),
   getMemberPoinLog: (member_id) => ipcRenderer.invoke('get-member-poin-log', member_id),
+  generateMemberId: (prefix) => ipcRenderer.invoke('generate-member-id', prefix),
+  claimMemberPoin: (data) => ipcRenderer.invoke('claim-member-poin', data),
+  generateBulkMembers: (data) => ipcRenderer.invoke('generate-bulk-members', data),
+  exportMembersPDF: (htmlContent) => ipcRenderer.invoke('export-members-pdf', htmlContent),
   // poin rules (admin)
   getPoinRules: () => ipcRenderer.invoke('get-poin-rules'),
   createPoinRule: (data) => ipcRenderer.invoke('create-poin-rule', data),

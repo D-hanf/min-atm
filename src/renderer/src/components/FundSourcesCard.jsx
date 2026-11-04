@@ -7,13 +7,56 @@ import {
   FaWallet
 } from 'react-icons/fa'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../context/ThemeContext'
 
 const FundSourcesCard = ({ totalAssets, fundSources, formatRupiah }) => {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const [orderedSources, setOrderedSources] = useState([])
+  const dragItem = useRef(null)
+  const dragOverItem = useRef(null)
+  
   const { isDark, colorScheme } = useTheme()
+
+  useEffect(() => {
+    const savedOrder = JSON.parse(localStorage.getItem('fundSourcesOrder')) || []
+    let sorted = [...fundSources]
+    sorted.sort((a, b) => {
+      const indexA = savedOrder.indexOf(a.nama_sumber_dana)
+      const indexB = savedOrder.indexOf(b.nama_sumber_dana)
+      if (indexA === -1 && indexB === -1) return 0
+      if (indexA === -1) return 1
+      if (indexB === -1) return -1
+      return indexA - indexB
+    })
+    setOrderedSources(sorted)
+  }, [fundSources])
+
+  const handleDragStart = (e, index) => {
+    dragItem.current = index
+    e.currentTarget.style.opacity = '0.5'
+  }
+
+  const handleDragEnter = (e, index) => {
+    dragOverItem.current = index
+  }
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1'
+    if (dragItem.current === null || dragOverItem.current === null) return
+    if (dragItem.current === dragOverItem.current) return
+
+    const newOrdered = [...orderedSources]
+    const draggedItemContent = newOrdered.splice(dragItem.current, 1)[0]
+    newOrdered.splice(dragOverItem.current, 0, draggedItemContent)
+    
+    setOrderedSources(newOrdered)
+    localStorage.setItem('fundSourcesOrder', JSON.stringify(newOrdered.map(s => s.nama_sumber_dana)))
+    
+    dragItem.current = null
+    dragOverItem.current = null
+  }
 
   // Icon mapping untuk setiap sumber dana
   const getIconBySource = (sourceName) => {
@@ -124,10 +167,15 @@ const FundSourcesCard = ({ totalAssets, fundSources, formatRupiah }) => {
         }`}
       >
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 p-4 gap-4">
-          {fundSources.map((source, index) => (
+          {orderedSources.map((source, index) => (
             <div
-              key={index}
-              className={`${isDark ? 'bg-gray-800' : 'bg-white'} shadow rounded-lg p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
+              key={source.id || index}
+              draggable
+              onDragStart={(e) => handleDragStart(e, index)}
+              onDragEnter={(e) => handleDragEnter(e, index)}
+              onDragEnd={handleDragEnd}
+              onDragOver={(e) => e.preventDefault()}
+              className={`${isDark ? 'bg-gray-800' : 'bg-white'} cursor-move shadow rounded-lg p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
                 shouldShowBanks ? 'animate-slideDown' : ''
               }`}
               style={{

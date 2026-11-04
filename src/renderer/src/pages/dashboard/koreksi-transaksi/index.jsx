@@ -236,8 +236,11 @@ const KoreksiTransaksi = () => {
     date: '',
     jenisTransaksi: '',
     sumberDana: '',
+    terimaDana: '',
+    pembayarFee: '',
     edited: '',
-    koreksi: ''
+    koreksi: '',
+    manualOverride: ''
   })
   const isFilteringActive = Object.values(activeSubFilters).some(Boolean)
   const makeSubFilterHandler = (key) => (value) =>
@@ -454,8 +457,12 @@ const KoreksiTransaksi = () => {
           bonus: formatRupiah(Number(item.bonus || 0)),
           biaya_admin: formatRupiah(Number(item.biaya_admin_bank || item.biaya_admin || 0)),
           sumber_dana: item.sumber_dana || '-',
+          terima_dana_nama: item.terima_dana_nama || '-',
           tujuan_dana: item.terima_dana_nama || '-',
           metode_pembayaran_nama: getNamaSumberDanaById(item.metode_pembayaran, saldoListRaw) || '-',
+          is_edited: !!item.is_edited,
+          is_fee_manual: !!item.is_fee_manual,
+          is_bonus_manual: !!item.is_bonus_manual,
           deskripsi: item.keterangan || '-',
           is_marked_wrong: !!item.is_marked_wrong,
           marked_note: item.marked_note || '',
@@ -481,8 +488,12 @@ const KoreksiTransaksi = () => {
           bonus: '-',
           biaya_admin: formatRupiah(Number(item.biaya_admin || 0)),
           sumber_dana: item.platform_name || item.platform || '-',
+          terima_dana_nama: '-',
           tujuan_dana: '-',
           metode_pembayaran_nama: '-',
+          is_edited: false,
+          is_fee_manual: false,
+          is_bonus_manual: false,
           deskripsi: item.keterangan || '-',
           is_marked_wrong: !!item.is_marked_wrong,
           marked_note: item.marked_note || '',
@@ -508,8 +519,12 @@ const KoreksiTransaksi = () => {
           bonus: '-',
           biaya_admin: formatRupiah(Number(item.biaya_admin || 0)),
           sumber_dana: saldoById.get(Number(item.sumber_dana_id)) || item.sumber_dana || '-',
+          terima_dana_nama: saldoById.get(Number(item.tujuan_dana_id)) || item.tujuan_dana || '-',
           tujuan_dana: saldoById.get(Number(item.tujuan_dana_id)) || item.tujuan_dana || '-',
           metode_pembayaran_nama: '-',
+          is_edited: false,
+          is_fee_manual: false,
+          is_bonus_manual: false,
           deskripsi: item.keterangan || '-',
           is_marked_wrong: !!item.is_marked_wrong,
           marked_note: item.marked_note || '',
@@ -539,8 +554,12 @@ const KoreksiTransaksi = () => {
           bonus: '-',
           biaya_admin: formatRupiah(Number(item.biaya_admin || 0)),
           sumber_dana: item.platform || item.platform_name || '-',
+          terima_dana_nama: '-',
           tujuan_dana: '-',
           metode_pembayaran_nama: '-',
+          is_edited: false,
+          is_fee_manual: false,
+          is_bonus_manual: false,
           deskripsi: item.keterangan || '-',
           is_marked_wrong: !!item.is_marked_wrong,
           marked_note: item.marked_note || '',
@@ -1412,8 +1431,18 @@ const KoreksiTransaksi = () => {
               showJenisTransaksiFilter
               onJenisTransaksiChange={makeSubFilterHandler('jenisTransaksi')}
               jenisTransaksiOptions={JENIS_TRANSAKSI_OPTIONS}
+              showTerimaDanaFilter
+              onTerimaDanaChange={makeSubFilterHandler('terimaDana')}
+              terimaDanaOptions={saldoOptions}
+              showPembayarFeeFilter
+              onPembayarFeeChange={makeSubFilterHandler('pembayarFee')}
+              pembayarFeeOptions={saldoOptions}
+              showEditedFilter
+              onEditedFilterChange={makeSubFilterHandler('edited')}
               showKoreksiFilter
               onKoreksiFilterChange={makeSubFilterHandler('koreksi')}
+              showManualOverrideFilter
+              onManualOverrideFilterChange={makeSubFilterHandler('manualOverride')}
             />
           </div>
         )}
